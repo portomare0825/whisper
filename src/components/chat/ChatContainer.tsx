@@ -406,7 +406,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   return (
     <div className="flex flex-col h-full">
       {/* Cabecera del Chat (Unificada Premium) */}
-      <div className="p-4 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md">
+      <div className="p-3 md:p-4 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Link href="/dashboard" className="p-2 hover:bg-white/10 rounded-xl transition-colors">
             <ArrowLeft className="w-5 h-5 text-white/70" />
@@ -441,7 +441,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       </div>
 
       {/* Contenido Principal */}
-      <div className="flex-1 flex gap-6 p-6 min-h-0">
+      <div className="flex-1 flex gap-4 md:gap-6 p-2 md:p-6 min-h-0">
         {/* Columna del Avatar (Imagen Dinámica) */}
         <div className="hidden lg:flex flex-col w-1/3 glass-morphism rounded-3xl overflow-hidden relative group">
           <img 
@@ -459,11 +459,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         </div>
 
         {/* Columna del Chat */}
-        <div className="flex-1 flex flex-col glass-morphism rounded-3xl overflow-hidden">
+        <div className="flex-1 flex flex-col glass-morphism rounded-2xl md:rounded-3xl overflow-hidden">
           {/* Lista de Mensajes */}
           <div 
             ref={scrollRef}
-            className="flex-1 p-6 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent"
+            className="flex-1 p-3 md:p-6 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent"
           >
             {messages.map((msg, index) => {
               const isLast = index === messages.length - 1;
@@ -498,9 +498,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           </div>
 
           {/* Banner Pro */}
-          <div className="mx-6 mb-4 rounded-2xl overflow-hidden relative group cursor-pointer" onClick={() => setShowPremiumModal(true)}>
+          <div className="mx-3 md:mx-6 mb-3 md:mb-4 rounded-2xl overflow-hidden relative group cursor-pointer" onClick={() => setShowPremiumModal(true)}>
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 via-yellow-400/15 to-amber-500/20 animate-pulse" />
-            <div className="relative flex items-center justify-between gap-3 px-5 py-3 border border-amber-400/30 rounded-2xl bg-black/30 backdrop-blur-sm hover:border-amber-400/60 transition-all duration-300">
+            <div className="relative flex items-center justify-between gap-3 px-4 md:px-5 py-2.5 md:py-3 border border-amber-400/30 rounded-2xl bg-black/30 backdrop-blur-sm hover:border-amber-400/60 transition-all duration-300">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0 border border-amber-400/40">
                   <Zap className="w-4 h-4 text-amber-400" />
@@ -524,7 +524,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
           {/* Sugerencias de IA */}
           {suggestions.length > 0 && (
-            <div className="mx-6 mb-4 flex flex-col gap-2 animate-in slide-in-from-bottom-4 duration-300">
+            <div className="mx-3 md:mx-6 mb-3 md:mb-4 flex flex-col gap-2 animate-in slide-in-from-bottom-4 duration-300">
               <div className="flex items-center gap-2 mb-1">
                 <Sparkles className="w-4 h-4 text-primary" />
                 <span className="text-xs font-semibold text-primary/80 uppercase tracking-wider">Sugerencias del asistente</span>
@@ -553,7 +553,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           )}
 
           {/* Input de Mensaje */}
-          <form onSubmit={handleSend} className="p-6 pt-0">
+          <form onSubmit={handleSend} className="p-3 md:p-6 pt-0">
             <div className="relative group">
               <input
                 type="text"
@@ -561,7 +561,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={`Habla con ${avatar.name}... o *describe una acción*`}
                 disabled={sending}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 pr-24 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/50"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-4 md:px-6 py-3 md:py-4 pr-20 md:pr-24 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/50 text-sm md:text-base"
               />
               <div className="absolute right-1.5 top-1.5 bottom-1.5 flex gap-0 items-center">
                 <button
@@ -582,9 +582,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 <button
                   type="submit"
                   disabled={!input.trim() || sending}
-                  className="premium-button p-2.5 ml-1 rounded-xl disabled:opacity-50 disabled:grayscale"
+                  className="premium-button p-2 md:p-2.5 ml-1 rounded-xl disabled:opacity-50 disabled:grayscale"
                 >
-                  <Send className="w-5 h-5" />
+                  <Send className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
               </div>
             </div>

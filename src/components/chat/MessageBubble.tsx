@@ -198,11 +198,11 @@ export default function MessageBubble({
 
   return (
     <div className={cn(
-      "flex w-full mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300",
+      "flex w-full mb-4 md:mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300",
       isAvatar ? "justify-start" : "justify-end"
     )}>
       <div className={cn(
-        "max-w-[80%] rounded-2xl px-5 py-3 shadow-lg transition-all",
+        "max-w-[90%] md:max-w-[80%] rounded-2xl px-4 md:px-5 py-2.5 md:py-3 shadow-lg transition-all",
         isAvatar 
           ? "bg-white/5 border border-white/10 rounded-tl-none" 
           : "premium-button text-primary-foreground rounded-tr-none"
