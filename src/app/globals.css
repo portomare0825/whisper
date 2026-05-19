@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #050505;
+  --color-foreground: #ffffff;
+  --color-card: hsl(240 10% 3.9%);
+  --color-card-foreground: hsl(0 0% 98%);
+  --color-popover: hsl(240 10% 3.9%);
+  --color-popover-foreground: hsl(0 0% 98%);
+  --color-primary: #d4af37;
+  --color-primary-foreground: #000000;
+  --color-secondary: #1a1a1a;
+  --color-secondary-foreground: hsl(0 0% 98%);
+  --color-muted: #262626;
+  --color-muted-foreground: #a3a3a3;
+  --color-accent: #d4af37;
+  --color-accent-foreground: hsl(240 5.9% 10%);
+  --color-destructive: hsl(0 62.8% 30.6%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-input: hsl(240 3.7% 15.9%);
+  --color-ring: hsl(45 93% 47%);
+  --radius-radius: 0.75rem;
+  --font-sans: 'Outfit', sans-serif;
+  --font-serif: 'Playfair Display', serif;
+}
+
+@layer base {
+  * {
+    @apply border-white/10;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@utility glass-morphism {
+  @apply bg-black/40 backdrop-blur-md border border-white/10;
+}
+
+@utility gold-gradient {
+  background: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728, #fbf5b7, #aa771c);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@utility premium-button {
+  @apply relative overflow-hidden transition-all duration-300 active:scale-95;
+  background: linear-gradient(45deg, #d4af37, #f1c40f);
+  box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+}
+
+.premium-button:hover {
+  box-shadow: 0 6px 20px rgba(212, 175, 55, 0.5);
+  filter: brightness(1.1);
+}
