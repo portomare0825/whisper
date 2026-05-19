@@ -22,6 +22,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -137,12 +139,20 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       const result = await response.json();
 
       if (!response.ok) {
+        if (response.status === 403 && result.trigger_premium_modal) {
+          setMessages(prev => prev.filter(m => m.id !== tempId));
+          setInput(userMessageText); // Restaurar el mensaje en el input
+          setErrorMessage(result.error);
+          setShowPremiumModal(true);
+          return;
+        }
         throw new Error(result.error || 'Error desconocido al hablar con la IA');
       }
 
       if (result.trigger_premium_modal) {
         // Eliminar el mensaje optimista del usuario para no contaminar el historial de chat
         setMessages(prev => prev.filter(m => m.id !== tempId));
+        setErrorMessage(result.content || ''); // Si hay mensaje de censura
         setShowPremiumModal(true);
         return;
       }
@@ -172,7 +182,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       // Remove optimistic user message on failure
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setInput(userMessageText); // Restaurar el mensaje para que no se pierda
-      alert(`No se pudo enviar el mensaje: ${err.message}`);
+      setErrorMessage(err.message);
+      setShowErrorModal(true);
     } finally {
       setSending(false);
     }
@@ -229,10 +240,16 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       const result = await response.json();
 
       if (!response.ok) {
+        if (response.status === 403 && result.trigger_premium_modal) {
+          setErrorMessage(result.error);
+          setShowPremiumModal(true);
+          return;
+        }
         throw new Error(result.error || 'Error desconocido al hablar con la IA');
       }
 
       if (result.trigger_premium_modal) {
+        setErrorMessage(result.content || '');
         setShowPremiumModal(true);
         return;
       }
@@ -256,7 +273,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
     } catch (err: any) {
       console.error('Error reintentando mensaje:', err);
-      alert(`No se pudo enviar el mensaje: ${err.message}`);
+      setErrorMessage(err.message);
+      setShowErrorModal(true);
     } finally {
       setSending(false);
     }
@@ -668,7 +686,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             
             {/* Botón de cerrar */}
             <button 
-              onClick={() => setShowPremiumModal(false)}
+              onClick={() => { setShowPremiumModal(false); setErrorMessage(''); }}
               className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
@@ -681,13 +699,12 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
             {/* Título */}
             <h3 className="text-3xl font-extrabold gold-gradient tracking-tight mb-3">
-              Modo Premium
+              {errorMessage && errorMessage.includes('límite') ? 'Límite Alcanzado' : 'Modo Premium'}
             </h3>
             
             {/* Descripción */}
             <p className="text-white/80 text-sm leading-relaxed mb-6">
-              ¡Este avatar quiere llevar la conversación al siguiente nivel! 
-              Las conversaciones íntimas, explícitas y 100% sin censura son una característica exclusiva de nuestros compañeros **Premium**.
+              {errorMessage || '¡Este avatar quiere llevar la conversación al siguiente nivel! Las conversaciones íntimas, explícitas y 100% sin censura son una característica exclusiva de nuestros compañeros Premium.'}
             </p>
 
             {/* Beneficios breves */}
@@ -715,12 +732,45 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 Suscribirse ahora <Sparkles className="w-5 h-5 fill-current" />
               </a>
               <button 
-                onClick={() => setShowPremiumModal(false)}
+                onClick={() => { setShowPremiumModal(false); setErrorMessage(''); }}
                 className="w-full py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-colors text-sm font-medium"
               >
                 Quizás más tarde
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Error */}
+      {showErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-md overflow-hidden glass-morphism rounded-3xl border border-destructive/30 p-8 text-center shadow-[0_0_50px_rgba(239,68,68,0.15)] animate-in scale-in duration-300">
+            <button 
+              onClick={() => setShowErrorModal(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="w-16 h-16 bg-destructive/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-destructive/20">
+              <AlertTriangle className="w-8 h-8 text-destructive animate-pulse" />
+            </div>
+
+            <h3 className="text-2xl font-bold text-white tracking-tight mb-3">
+              Oops, algo salió mal
+            </h3>
+            
+            <p className="text-white/70 text-sm leading-relaxed mb-8">
+              Hubo un problema de conexión. Por favor, intenta de nuevo.
+            </p>
+
+            <button 
+              onClick={() => setShowErrorModal(false)}
+              className="w-full py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-colors text-sm font-semibold"
+            >
+              Entendido
+            </button>
           </div>
         </div>
       )}

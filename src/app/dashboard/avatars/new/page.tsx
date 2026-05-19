@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Sparkles, AlertCircle } from 'lucide-react';
 import { compressAvatarImage } from '@/lib/image-utils';
@@ -21,6 +21,42 @@ export default function NewAvatarPage() {
     physical_description: '',
   });
   const [file, setFile] = useState<File | null>(null);
+  const [checkingLimit, setCheckingLimit] = useState(true);
+  const [limitReached, setLimitReached] = useState(false);
+
+  useEffect(() => {
+    async function checkLimits() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+
+        if (!isPremium) {
+          const { count } = await supabase
+            .from('avatars')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+
+          if (count && count >= 1) {
+            setLimitReached(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error al comprobar límites:', err);
+      } finally {
+        setCheckingLimit(false);
+      }
+    }
+    checkLimits();
+  }, []);
 
   // Convertir archivo a Base64 para análisis
   const fileToBase64 = (file: File): Promise<string> => {
@@ -99,6 +135,27 @@ export default function NewAvatarPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
+      // Validar límites del plan Gratuito
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+
+      if (!isPremium) {
+        const { count } = await supabase
+          .from('avatars')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (count && count >= 1) {
+          throw new Error('Tu plan Gratuito solo te permite tener 1 avatar activo. Por favor, actualiza a Premium para tener avatares ilimitados.');
+        }
+      }
+
       // 1. Subir imagen a Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
@@ -132,6 +189,49 @@ export default function NewAvatarPage() {
       setLoading(false);
     }
   };
+
+  if (checkingLimit) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (limitReached) {
+    return (
+      <div className="max-w-xl mx-auto text-center space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="w-20 h-20 bg-amber-400/10 rounded-3xl flex items-center justify-center mx-auto border border-amber-400/20">
+          <AlertCircle className="w-10 h-10 text-amber-400" />
+        </div>
+        <div className="space-y-4">
+          <h1 className="text-4xl font-bold tracking-tight">Límite de <span className="gold-gradient">Avatares</span></h1>
+          <p className="text-white/80 leading-relaxed font-semibold">
+            Has alcanzado el límite máximo del plan Gratuito (1 avatar activo).
+          </p>
+          <p className="text-muted-foreground text-sm max-w-md mx-auto">
+            Para crear múltiples avatares personalizados con rasgos exclusivos y voces premium, te invitamos a adquirir cualquiera de nuestros planes Premium.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+          <button 
+            type="button"
+            onClick={() => router.push('/dashboard')}
+            className="px-6 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-all font-semibold"
+          >
+            Volver al Dashboard
+          </button>
+          <button 
+            type="button"
+            onClick={() => router.push('/dashboard/billing')}
+            className="premium-button px-8 py-3 rounded-xl text-primary-foreground font-bold shadow-lg flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-[0.98] transition-transform"
+          >
+            Ver Planes Premium ✨
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-3xl mx-auto space-y-8">

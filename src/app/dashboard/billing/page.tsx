@@ -7,10 +7,12 @@ const plans = [
   {
     name: 'Gratuito',
     price: '0',
+    period: 'siempre',
     description: 'Para probar la experiencia básica.',
     features: [
       '1 Avatar activo',
-      '50 mensajes diarios',
+      '30 mensajes cada 3 horas',
+      'Espera de 3h tras límite',
       'Voz estándar (Gemini)',
       'Cambios de look manuales',
     ],
@@ -18,31 +20,53 @@ const plans = [
     premium: false,
   },
   {
-    name: 'Pro',
-    price: '9.99',
-    description: 'Para entusiastas de la IA y el estilo.',
+    name: 'Pase Diario',
+    price: '3',
+    period: 'día',
+    description: 'Acceso total de prueba intensiva.',
     features: [
       'Avatares ilimitados',
       'Mensajes ilimitados',
-      'Voz premium ultra-realista',
-      'Prioridad en generación Leffa',
-      'Soporte exclusivo',
+      'Roleplay explícito sin censura',
+      'Voces premium ultra-realistas',
+      'Cambios de look con IA',
     ],
-    buttonText: 'Suscribirse Ahora',
+    buttonText: 'Adquirir Pase',
     premium: true,
   },
   {
-    name: 'Pack Estilo',
-    price: '5.00',
-    description: 'Créditos para cambios de look.',
+    name: 'Pase Semanal',
+    price: '8',
+    period: 'semana',
+    description: 'La opción flexible favorita.',
     features: [
-      '100 cambios de vestuario',
-      'Sin vencimiento',
-      'Uso en cualquier avatar',
-      'Sin suscripción mensual',
+      'Avatares ilimitados',
+      'Mensajes ilimitados',
+      'Roleplay explícito sin censura',
+      'Voces premium ultra-realistas',
+      'Cambios de look con IA',
+      'Ahorras más del 60%',
     ],
-    buttonText: 'Comprar Pack',
-    premium: false,
+    buttonText: 'Adquirir Pase',
+    premium: true,
+    badge: 'Popular',
+  },
+  {
+    name: 'Mensual Pro',
+    price: '25',
+    period: 'mes',
+    description: 'El compañero perfecto a largo plazo.',
+    features: [
+      'Avatares ilimitados',
+      'Mensajes ilimitados',
+      'Roleplay explícito sin censura',
+      'Voces premium ultra-realistas',
+      'Cambios de look con IA',
+      'Soporte VIP prioritario',
+    ],
+    buttonText: 'Suscribirse Ahora',
+    premium: true,
+    badge: 'Mejor Valor',
   },
 ];
 
@@ -61,29 +85,29 @@ export default function BillingPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
         {plans.map((plan) => (
           <div 
             key={plan.name}
             className={cn(
-              "relative glass-morphism rounded-3xl p-8 flex flex-col h-full transition-all duration-300 hover:scale-[1.02]",
-              plan.premium ? "border-primary/50 shadow-[0_0_40px_rgba(212,175,55,0.15)]" : "border-white/10"
+              "relative glass-morphism rounded-3xl p-6 flex flex-col h-full transition-all duration-300 hover:scale-[1.02]",
+              plan.premium ? "border-amber-400/30 shadow-[0_0_30px_rgba(251,191,36,0.08)] bg-gradient-to-b from-amber-400/5 via-transparent to-transparent" : "border-white/10"
             )}
           >
-            {plan.premium && (
-              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground px-4 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-                <Star className="w-3 h-3 fill-current" />
-                RECOMENDADO
+            {plan.badge && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black px-4 py-1 rounded-full text-[10px] font-black tracking-wider uppercase flex items-center gap-1 shadow-lg shadow-amber-400/20 shrink-0 whitespace-nowrap">
+                <Star className="w-2.5 h-2.5 fill-current" />
+                {plan.badge}
               </div>
             )}
 
-            <div className="mb-8">
-              <h3 className="text-2xl font-bold mb-2">{plan.name}</h3>
+            <div className="mb-6 mt-2">
+              <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-bold">${plan.price}</span>
-                <span className="text-muted-foreground text-sm">/mes</span>
+                <span className="text-3xl font-extrabold text-white">${plan.price}</span>
+                <span className="text-muted-foreground text-xs font-semibold">/{plan.period}</span>
               </div>
-              <p className="text-muted-foreground text-sm mt-4">{plan.description}</p>
+              <p className="text-muted-foreground text-xs mt-3 min-h-[32px]">{plan.description}</p>
             </div>
 
             <div className="flex-1 space-y-4 mb-8">

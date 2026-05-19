@@ -38,15 +38,6 @@ export async function POST(req: Request) {
       content: m.content
     })) || [];
 
-    // 2. Guardar mensaje del usuario PRIMERO
-    const { error: userInsertError } = await supabase.from('messages').insert([
-      { conversation_id, role: 'user', content: message }
-    ]);
-    
-    if (userInsertError) {
-      throw new Error(`Error saving user message: ${userInsertError.message}`);
-    }
-
     // Obtener detalles de la conversación para saber a qué usuario pertenece
     const { data: conversation, error: convoError } = await supabase
       .from('conversations')
@@ -63,11 +54,75 @@ export async function POST(req: Request) {
       .from('subscriptions')
       .select('*')
       .eq('user_id', conversation.user_id)
-      .eq('plan_type', 'pro')
       .eq('status', 'active')
       .maybeSingle();
 
-    const isPremium = !!subscription;
+    const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+
+    if (!isPremium) {
+      // 1. Obtener todas las conversaciones de este usuario para verificar sus límites en todo el sistema
+      const { data: userConvos } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('user_id', conversation.user_id);
+      
+      const convoIds = userConvos?.map(c => c.id) || [];
+
+      if (convoIds.length > 0) {
+        const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
+        
+        // Contar cuántos mensajes de tipo 'user' ha enviado en total en las últimas 3 horas
+        const { count, error: countError } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'user')
+          .in('conversation_id', convoIds)
+          .gt('created_at', threeHoursAgo);
+
+        if (countError) {
+          console.error('Error counting user messages for limit:', countError);
+        }
+
+        if (count !== null && count >= 30) {
+          // Buscar el mensaje más antiguo dentro del rango para calcular cuándo se liberará el cooldown
+          const { data: oldestMsg } = await supabase
+            .from('messages')
+            .select('created_at')
+            .eq('role', 'user')
+            .in('conversation_id', convoIds)
+            .gt('created_at', threeHoursAgo)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+          let minutesLeft = 180;
+          if (oldestMsg) {
+            const oldestTime = new Date(oldestMsg.created_at).getTime();
+            const nextAvailableTime = oldestTime + 3 * 60 * 60 * 1000;
+            minutesLeft = Math.ceil((nextAvailableTime - Date.now()) / (60 * 1000));
+            if (minutesLeft < 0) minutesLeft = 0;
+          }
+
+          const hours = Math.floor(minutesLeft / 60);
+          const mins = minutesLeft % 60;
+          const timeString = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
+
+          return NextResponse.json({
+            error: `Has alcanzado el límite de 30 mensajes gratis cada 3 horas. Espera ${timeString} o pásate a un plan Premium para continuar sin límites inmediatamente.`,
+            trigger_premium_modal: true
+          }, { status: 403 });
+        }
+      }
+    }
+
+    // 2. Guardar mensaje del usuario (solo si pasó los límites de seguridad)
+    const { error: userInsertError } = await supabase.from('messages').insert([
+      { conversation_id, role: 'user', content: message }
+    ]);
+    
+    if (userInsertError) {
+      throw new Error(`Error saving user message: ${userInsertError.message}`);
+    }
 
     // 3. Selección de modelos y Fallbacks (cascada para usuarios gratuitos)
     const premiumModel = process.env.PREMIUM_CHAT_MODEL || "sao10k/l3.1-euryale-70b";
