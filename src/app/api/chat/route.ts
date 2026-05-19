@@ -96,9 +96,10 @@ export async function POST(req: Request) {
             .maybeSingle();
 
           let minutesLeft = 180;
+          let nextAvailableTime = Date.now() + 3 * 60 * 60 * 1000;
           if (oldestMsg) {
             const oldestTime = new Date(oldestMsg.created_at).getTime();
-            const nextAvailableTime = oldestTime + 3 * 60 * 60 * 1000;
+            nextAvailableTime = oldestTime + 3 * 60 * 60 * 1000;
             minutesLeft = Math.ceil((nextAvailableTime - Date.now()) / (60 * 1000));
             if (minutesLeft < 0) minutesLeft = 0;
           }
@@ -109,7 +110,9 @@ export async function POST(req: Request) {
 
           return NextResponse.json({
             error: `Has alcanzado el límite de 30 mensajes gratis cada 3 horas. Espera ${timeString} o pásate a un plan Premium para continuar sin límites inmediatamente.`,
-            trigger_premium_modal: true
+            trigger_premium_modal: true,
+            next_available_time: new Date(nextAvailableTime).toISOString(),
+            reset_duration_ms: Math.max(0, nextAvailableTime - Date.now())
           }, { status: 403 });
         }
       }

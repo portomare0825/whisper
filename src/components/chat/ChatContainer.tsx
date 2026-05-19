@@ -24,11 +24,26 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [countdownTime, setCountdownTime] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
   const router = useRouter();
+
+  const formatCountdown = (ms: number) => {
+    const totalSecs = Math.max(0, Math.floor(ms / 1000));
+    const hours = Math.floor(totalSecs / 3600);
+    const mins = Math.floor((totalSecs % 3600) / 60);
+    const secs = totalSecs % 60;
+
+    const parts = [];
+    if (hours > 0) parts.push(`${hours}h`);
+    if (mins > 0 || hours > 0) parts.push(`${mins}m`);
+    parts.push(`${secs}s`);
+
+    return parts.join(' ');
+  };
 
   const handleGetSuggestions = async () => {
     if (loadingSuggestions) return;
@@ -101,6 +116,22 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages]);
 
+  useEffect(() => {
+    if (countdownTime === null || countdownTime <= 0) return;
+
+    const timer = setInterval(() => {
+      setCountdownTime(prev => {
+        if (prev === null || prev <= 1000) {
+          clearInterval(timer);
+          return null;
+        }
+        return prev - 1000;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [countdownTime]);
+
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || sending) return;
@@ -143,6 +174,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           setMessages(prev => prev.filter(m => m.id !== tempId));
           setInput(userMessageText); // Restaurar el mensaje en el input
           setErrorMessage(result.error);
+          if (result.reset_duration_ms) {
+            setCountdownTime(result.reset_duration_ms);
+          }
           setShowPremiumModal(true);
           return;
         }
@@ -242,6 +276,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       if (!response.ok) {
         if (response.status === 403 && result.trigger_premium_modal) {
           setErrorMessage(result.error);
+          if (result.reset_duration_ms) {
+            setCountdownTime(result.reset_duration_ms);
+          }
           setShowPremiumModal(true);
           return;
         }
@@ -363,7 +400,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const handleClearChat = async () => {
     try {
       setSending(true);
-      
+
       // 1. Borrar mensajes de la conversación
       const { error: msgError } = await supabase
         .from('messages')
@@ -706,6 +743,21 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             <p className="text-white/80 text-sm leading-relaxed mb-6">
               {errorMessage || '¡Este avatar quiere llevar la conversación al siguiente nivel! Las conversaciones íntimas, explícitas y 100% sin censura son una característica exclusiva de nuestros compañeros Premium.'}
             </p>
+
+            {countdownTime !== null && countdownTime > 0 && (
+              <div className="mb-6 flex flex-col items-center">
+                <span className="text-[10px] uppercase tracking-wider text-amber-400 font-bold mb-1.5">El límite se restablecerá en:</span>
+                <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-full shadow-[0_0_15px_rgba(245,158,11,0.15)] animate-pulse">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                  </span>
+                  <span className="text-sm font-extrabold text-amber-300 font-mono tracking-wider">
+                    {formatCountdown(countdownTime)}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Beneficios breves */}
             <div className="space-y-3 text-left bg-white/5 rounded-2xl p-4 border border-white/10 mb-8">
