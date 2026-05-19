@@ -63,12 +63,13 @@ export default function NewAvatarPage() {
 
         if (response.ok) {
           const data = await response.json();
-          if (data.description) {
-            setFormData(prev => ({
-              ...prev,
-              physical_description: data.description
-            }));
-          }
+          setFormData(prev => ({
+            ...prev,
+            name: data.name || prev.name,
+            personality: data.personality || prev.personality,
+            physical_description: data.physical_description || data.description || prev.physical_description,
+            system_prompt: data.system_prompt || prev.system_prompt
+          }));
         } else {
           console.warn('Fallo en el endpoint de análisis de imagen');
         }
