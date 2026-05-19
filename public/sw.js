@@ -10,9 +10,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Solo interceptar peticiones HTTP/HTTPS (ignora extensiones del navegador, etc.)
+  if (!event.request.url.startsWith('http')) {
+    return;
+  }
+
   // Respondemos directamente de la red para garantizar respuestas en tiempo real de chat y voz,
-  // pero manteniendo la estructura de Service Worker necesaria para que sea instalable como App
-  event.respondWith(fetch(event.request).catch(() => {
-    // Aquí se puede manejar lógica de fallback sin conexión si se requiere en el futuro
-  }));
+  // pero retornando un fallback seguro en caso de error de red para evitar crashes en el navegador.
+  event.respondWith(
+    fetch(event.request).catch(() => {
+      return new Response('Sin conexión de red', {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: new Headers({ 'Content-Type': 'text/plain; charset=utf-8' }),
+      });
+    })
+  );
 });
