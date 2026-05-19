@@ -1,7 +1,23 @@
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { Sparkles, MessageCircle, Shield, Zap } from 'lucide-react';
 
-export default function LandingPage() {
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ code?: string }> | { code?: string };
+}) {
+  const resolvedParams = searchParams instanceof Promise ? await searchParams : searchParams;
+  const code = resolvedParams?.code;
+
+  if (code) {
+    const cookieStore = await cookies();
+    const isResetting = cookieStore.get('is_resetting_password')?.value === 'true';
+    const next = isResetting ? '/auth/reset-password' : '/dashboard';
+    
+    redirect(`/auth/callback?code=${code}&next=${next}`);
+  }
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
       {/* Hero Section */}

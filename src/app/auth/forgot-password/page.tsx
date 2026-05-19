@@ -17,6 +17,9 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError(null);
 
+    // Guardamos una cookie temporal de que estamos restableciendo contraseña
+    document.cookie = "is_resetting_password=true; path=/; max-age=900; SameSite=Lax";
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
     });

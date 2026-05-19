@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
@@ -10,6 +10,11 @@ export default function ResetPasswordPage() {
   const router = useRouter();
   const supabase = createClient();
   const [password, setPassword] = useState('');
+
+  // Limpiamos la cookie temporal de recuperación al cargar la página
+  useEffect(() => {
+    document.cookie = "is_resetting_password=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax";
+  }, []);
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
