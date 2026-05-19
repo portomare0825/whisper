@@ -202,7 +202,7 @@ export default function MessageBubble({
       isAvatar ? "justify-start" : "justify-end"
     )}>
       <div className={cn(
-        "max-w-[90%] md:max-w-[80%] rounded-2xl px-4 md:px-5 py-2.5 md:py-3 shadow-lg transition-all",
+        "max-w-[92%] md:max-w-[80%] rounded-2xl px-4 md:px-5 py-2.5 md:py-3 shadow-lg transition-all",
         isAvatar 
           ? "bg-white/5 border border-white/10 rounded-tl-none" 
           : "premium-button text-primary-foreground rounded-tr-none"
