@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase';
 import { User, Shield, Key, Mail, Sparkles, Check, AlertCircle } from 'lucide-react';
 
@@ -16,6 +16,7 @@ interface SettingsFormProps {
 }
 
 export default function SettingsForm({ initialUser }: SettingsFormProps) {
+  const [mounted, setMounted] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [updating, setUpdating] = useState(false);
@@ -25,6 +26,10 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
   });
 
   const supabase = createClient();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,11 +102,11 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
                 Miembro Desde
               </label>
               <p className="text-sm text-white/70 font-medium px-1">
-                {new Date(initialUser.created_at).toLocaleDateString(undefined, {
+                {mounted ? new Date(initialUser.created_at).toLocaleDateString('es-ES', {
                   year: 'numeric',
                   month: 'long',
                   day: 'numeric'
-                })}
+                }) : ''}
               </p>
             </div>
           </div>
