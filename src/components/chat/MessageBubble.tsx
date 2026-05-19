@@ -198,60 +198,60 @@ export default function MessageBubble({
 
   return (
     <div className={cn(
-      "flex w-full mb-5 md:mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300",
+      "flex w-full mb-1.5 md:mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300",
       isAvatar ? "justify-start" : "justify-end"
     )}>
       <div className={cn(
-        "max-w-[92%] md:max-w-[80%] rounded-2xl px-5 py-3 md:px-6 md:py-4 shadow-lg transition-all",
+        "max-w-[97%] md:max-w-[80%] rounded-xl md:rounded-2xl px-2.5 py-1.5 md:px-6 md:py-4 shadow-lg transition-all",
         isAvatar 
           ? "bg-white/5 border border-white/10 rounded-tl-none" 
           : "premium-button text-primary-foreground rounded-tr-none"
       )}>
         {isAvatar && (
-          <div className="flex items-center justify-between mb-2 gap-4">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-primary">{avatar.name}</span>
-            <div className="flex items-center gap-1.5">
+          <div className="flex items-center justify-between mb-1 md:mb-2 gap-2 md:gap-4">
+            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-primary">{avatar.name}</span>
+            <div className="flex items-center gap-1 md:gap-1.5">
               {isLast && onRegenerate && !sending && (
                 <button
                   onClick={onRegenerate}
-                  className="p-1.5 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                  className="p-1 md:p-1.5 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors"
                   title="Regenerar respuesta"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
+                  <RefreshCw className="w-3 h-3 md:w-3.5 md:h-3.5" />
                 </button>
               )}
               <button 
                 onClick={playAudio}
                 className={cn(
-                  "p-1.5 rounded-full transition-colors",
+                  "p-1 md:p-1.5 rounded-full transition-colors",
                   isPlaying ? "bg-primary/20 text-primary" : "hover:bg-white/10 text-white/70 hover:text-white"
                 )}
                 title={isPlaying ? "Detener audio" : "Escuchar mensaje"}
               >
-                {isPlaying ? <Square className="w-3.5 h-3.5 fill-current" /> : <Volume2 className="w-3.5 h-3.5" />}
+                {isPlaying ? <Square className="w-3 h-3 md:w-3.5 md:h-3.5 fill-current" /> : <Volume2 className="w-3 h-3 md:w-3.5 md:h-3.5" />}
               </button>
             </div>
           </div>
         )}
         
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">
+        <p className="text-xs md:text-sm leading-normal md:leading-relaxed whitespace-pre-wrap">
           {message.content}
         </p>
         
         <div className={cn(
-          "flex items-center gap-3 mt-2 text-[10px]",
+          "flex items-center gap-2 md:gap-3 mt-1 md:mt-2 text-[9px] md:text-[10px]",
           !isAvatar ? "justify-end text-right" : "justify-between"
         )}>
           {!isAvatar && (
-            <div className="flex items-center gap-2 mr-auto">
+            <div className="flex items-center gap-1 md:gap-2 mr-auto">
               {isLastUser && onEdit && !sending && (
                 <button
                   type="button"
                   onClick={() => onEdit(message.content)}
-                  className="px-1.5 py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-1 text-[9px] uppercase tracking-wider border border-white/10"
+                  className="px-1 py-0.2 md:px-1.5 md:py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] uppercase tracking-wider border border-white/10"
                   title="Editar esta pregunta"
                 >
-                  <Edit3 className="w-2.5 h-2.5" />
+                  <Edit3 className="w-2 h-2 md:w-2.5 md:h-2.5" />
                   <span>Editar</span>
                 </button>
               )}
@@ -259,10 +259,10 @@ export default function MessageBubble({
                 <button
                   type="button"
                   onClick={() => onRetry(message.content)}
-                  className="px-1.5 py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-1 text-[9px] uppercase tracking-wider border border-white/10"
+                  className="px-1 py-0.2 md:px-1.5 md:py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] uppercase tracking-wider border border-white/10"
                   title="Reintentar respuesta de la IA"
                 >
-                  <RefreshCw className="w-2.5 h-2.5" />
+                  <RefreshCw className="w-2 h-2 md:w-2.5 md:h-2.5" />
                   <span>Reintentar</span>
                 </button>
               )}

@@ -406,36 +406,36 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   return (
     <div className="flex flex-col h-full">
       {/* Cabecera del Chat (Unificada Premium) */}
-      <div className="p-3 md:p-4 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard" className="p-2 hover:bg-white/10 rounded-xl transition-colors">
-            <ArrowLeft className="w-5 h-5 text-white/70" />
+      <div className="p-1 md:p-4 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md">
+        <div className="flex items-center gap-2 md:gap-4">
+          <Link href="/dashboard" className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg md:rounded-xl transition-colors">
+            <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 text-white/70" />
           </Link>
-          <div className="w-10 h-10 rounded-full overflow-hidden border border-primary/50 relative">
+          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-primary/50 relative">
             <img src={currentImage} alt={avatar.name} className="w-full h-full object-cover" />
           </div>
           <div>
-            <h3 className="font-bold text-white text-base leading-none">{avatar.name}</h3>
-            <p className="text-[10px] text-primary mt-1.5 uppercase tracking-widest font-semibold">En línea</p>
+            <h3 className="font-bold text-white text-sm md:text-base leading-none">{avatar.name}</h3>
+            <p className="text-[9px] md:text-[10px] text-primary mt-1 md:mt-1.5 uppercase tracking-widest font-semibold">En línea</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           <button
             type="button"
             onClick={() => setShowClearModal(true)}
             title="Limpiar chat y empezar de nuevo"
-            className="p-2.5 bg-white/5 hover:bg-white/10 hover:text-primary text-white/70 rounded-xl transition-all border border-white/5"
+            className="p-1.5 md:p-2.5 bg-white/5 hover:bg-white/10 hover:text-primary text-white/70 rounded-lg md:rounded-xl transition-all border border-white/5"
           >
-            <RotateCcw className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
           <button
             type="button"
             onClick={() => setShowDeleteModal(true)}
             title="Eliminar avatar permanentemente"
-            className="p-2.5 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-xl transition-all border border-destructive/20"
+            className="p-1.5 md:p-2.5 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg md:rounded-xl transition-all border border-destructive/20"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
         </div>
       </div>
@@ -463,7 +463,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           {/* Lista de Mensajes */}
           <div 
             ref={scrollRef}
-            className="flex-1 p-5 md:p-6 overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent"
+            className="flex-1 p-0.5 md:p-6 overflow-y-auto space-y-1 md:space-y-1.5 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent"
           >
             {messages.map((msg, index) => {
               const isLast = index === messages.length - 1;
@@ -486,7 +486,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             })}
             {sending && (
               <div className="flex justify-start animate-pulse">
-                <div className="bg-white/5 border border-white/10 rounded-2xl rounded-tl-none px-5 py-3">
+                <div className="bg-white/5 border border-white/10 rounded-xl md:rounded-2xl px-3 py-1.5 md:px-5 md:py-3">
                   <div className="flex gap-1">
                     <div className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-bounce" />
                     <div className="w-1.5 h-1.5 bg-primary/50 rounded-full animate-bounce [animation-delay:0.2s]" />
@@ -498,24 +498,24 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           </div>
 
           {/* Banner Pro */}
-          <div className="mx-5 md:mx-6 mb-3 md:mb-4 rounded-2xl overflow-hidden relative group cursor-pointer" onClick={() => setShowPremiumModal(true)}>
+          <div className="mx-0.5 md:mx-6 mb-1 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden relative group cursor-pointer" onClick={() => setShowPremiumModal(true)}>
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 via-yellow-400/15 to-amber-500/20 animate-pulse" />
-            <div className="relative flex items-center justify-between gap-3 px-4 md:px-5 py-2.5 md:py-3 border border-amber-400/30 rounded-2xl bg-black/30 backdrop-blur-sm hover:border-amber-400/60 transition-all duration-300">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0 border border-amber-400/40">
-                  <Zap className="w-4 h-4 text-amber-400" />
+            <div className="relative flex items-center justify-between gap-1.5 md:gap-3 px-2 py-1 md:px-3 md:py-2 border border-amber-400/30 rounded-lg md:rounded-xl bg-black/30 backdrop-blur-sm hover:border-amber-400/60 transition-all duration-300">
+              <div className="flex items-center gap-2 md:gap-3">
+                <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-amber-400/20 flex items-center justify-center flex-shrink-0 border border-amber-400/40">
+                  <Zap className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-amber-300 leading-none mb-0.5">
+                  <p className="text-[10px] md:text-xs font-bold text-amber-300 leading-none mb-0.5">
                     ¿Sin límites en el chat?
                   </p>
-                  <p className="text-[10px] text-white/50 leading-none">
+                  <p className="text-[8px] md:text-[10px] text-white/50 leading-none">
                     Actualiza a <span className="text-amber-400 font-semibold">Pro</span> y chatea sin restricciones
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <span className="text-[10px] font-bold text-amber-300 bg-amber-400/20 border border-amber-400/30 px-3 py-1.5 rounded-xl whitespace-nowrap group-hover:bg-amber-400/30 transition-colors">
+              <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+                <span className="text-[9px] md:text-[10px] font-bold text-amber-300 bg-amber-400/20 border border-amber-400/30 px-2 py-1 md:px-3 md:py-1.5 rounded-lg md:rounded-xl whitespace-nowrap group-hover:bg-amber-400/30 transition-colors">
                   ✨ Ver planes
                 </span>
               </div>
@@ -524,18 +524,18 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
           {/* Sugerencias de IA */}
           {suggestions.length > 0 && (
-            <div className="mx-5 md:mx-6 mb-3 md:mb-4 flex flex-col gap-2 animate-in slide-in-from-bottom-4 duration-300">
-              <div className="flex items-center gap-2 mb-1">
-                <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-xs font-semibold text-primary/80 uppercase tracking-wider">Sugerencias del asistente</span>
+            <div className="mx-0.5 md:mx-6 mb-1 md:mb-4 flex flex-col gap-1 md:gap-1.5 animate-in slide-in-from-bottom-4 duration-300">
+              <div className="flex items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
+                <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
+                <span className="text-[10px] md:text-xs font-semibold text-primary/80 uppercase tracking-wider">Sugerencias del asistente</span>
                 <button 
                   onClick={() => setSuggestions([])}
                   className="ml-auto text-muted-foreground hover:text-white"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-2">
                 {suggestions.map((suggestion, idx) => (
                   <button
                     key={idx}
@@ -543,7 +543,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                       setInput(suggestion);
                       setSuggestions([]);
                     }}
-                    className="text-left text-sm text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl p-3 transition-colors"
+                    className="text-left text-xs md:text-sm text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg md:rounded-xl p-2 md:p-3 transition-colors"
                   >
                     "{suggestion}"
                   </button>
@@ -553,7 +553,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           )}
 
           {/* Input de Mensaje */}
-          <form onSubmit={handleSend} className="p-5 md:p-6 pt-0">
+          <form onSubmit={handleSend} className="p-0.5 md:p-6 pt-0">
             <div className="relative group">
               <input
                 type="text"
@@ -561,30 +561,30 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={`Habla con ${avatar.name}... o *describe una acción*`}
                 disabled={sending}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 md:px-6 py-3.5 md:py-4 pr-20 md:pr-24 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/50 text-sm md:text-base"
+                className="w-full bg-white/5 border border-white/10 rounded-lg md:rounded-xl px-2 py-1.5 md:px-3 md:py-2 pr-16 md:pr-24 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/50 text-xs md:text-base text-white"
               />
-              <div className="absolute right-1.5 top-1.5 bottom-1.5 flex gap-0 items-center">
+              <div className="absolute right-1 top-1 bottom-1 flex gap-0 items-center">
                 <button
                   type="button"
-                  className="p-2 text-muted-foreground hover:text-primary transition-colors"
+                  className="p-1 md:p-2 text-muted-foreground hover:text-primary transition-colors"
                 >
-                  <ImageIcon className="w-5 h-5" />
+                  <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
                 </button>
                 <button
                   type="button"
                   onClick={handleGetSuggestions}
                   disabled={loadingSuggestions || sending}
                   title="Obtener sugerencias de respuesta"
-                  className="p-2 text-muted-foreground hover:text-amber-400 transition-colors disabled:opacity-50"
+                  className="p-1 md:p-2 text-muted-foreground hover:text-amber-400 transition-colors disabled:opacity-50"
                 >
-                  <Lightbulb className={`w-5 h-5 ${loadingSuggestions ? 'animate-pulse text-amber-400' : ''}`} />
+                  <Lightbulb className={`w-4 h-4 md:w-5 md:h-5 ${loadingSuggestions ? 'animate-pulse text-amber-400' : ''}`} />
                 </button>
                 <button
                   type="submit"
                   disabled={!input.trim() || sending}
-                  className="premium-button p-2 md:p-2.5 ml-1 rounded-xl disabled:opacity-50 disabled:grayscale"
+                  className="premium-button p-1.5 md:p-2.5 ml-0.5 rounded-lg md:rounded-xl disabled:opacity-50 disabled:grayscale"
                 >
-                  <Send className="w-4 h-4 md:w-5 md:h-5" />
+                  <Send className="w-3.5 h-3.5 md:w-5 md:h-5" />
                 </button>
               </div>
             </div>
