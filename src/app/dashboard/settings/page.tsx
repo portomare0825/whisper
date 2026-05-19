@@ -18,10 +18,24 @@ export default async function SettingsPage() {
 
   const { data: { user } } = await supabase.auth.getUser();
 
+  // Validar si el usuario es premium consultando la tabla subscriptions
+  let isPremium = false;
+  if (user) {
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+  }
+
   const userData = {
     email: user?.email || 'usuario@dominio.com',
     id: user?.id || 'no-id',
     created_at: user?.created_at || new Date().toISOString(),
+    isPremium,
   };
 
   return (

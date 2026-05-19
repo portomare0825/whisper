@@ -4,11 +4,14 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase';
 import { User, Shield, Key, Mail, Sparkles, Check, AlertCircle } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
+
 interface SettingsFormProps {
   initialUser: {
     email?: string;
     id: string;
     created_at: string;
+    isPremium: boolean;
   };
 }
 
@@ -106,18 +109,31 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
 
         {/* Nivel de Suscripción */}
         <div className="glass-morphism p-6 rounded-2xl border-white/10 relative overflow-hidden">
-          <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-amber-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className={cn(
+            "absolute -bottom-6 -right-6 w-32 h-32 rounded-full blur-3xl animate-pulse",
+            initialUser.isPremium ? "bg-amber-500/10" : "bg-primary/5"
+          )} />
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-            <Shield className="w-5 h-5 text-amber-400" /> Plan de Cuenta
+            <Shield className={cn("w-5 h-5", initialUser.isPremium ? "text-amber-400" : "text-primary")} /> Plan de Cuenta
           </h2>
 
-          <div className="p-4 bg-gradient-to-tr from-amber-500/20 to-yellow-400/15 border border-amber-400/30 rounded-xl">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Plan Actual</span>
-              <span className="text-xs font-extrabold text-black bg-amber-400 px-2 py-0.5 rounded-full uppercase">Pro</span>
+          {initialUser.isPremium ? (
+            <div className="p-4 bg-gradient-to-tr from-amber-500/20 to-yellow-400/15 border border-amber-400/30 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Plan Actual</span>
+                <span className="text-xs font-extrabold text-black bg-amber-400 px-2 py-0.5 rounded-full uppercase">Pro</span>
+              </div>
+              <p className="text-xs text-white/70 leading-relaxed"> Chatea ilimitadamente sin censura, crea tantos avatares como quieras y accede a voces e imágenes premium de última generación.</p>
             </div>
-            <p className="text-xs text-white/70 leading-relaxed"> Chatea ilimitadamente sin censura, crea tantos avatares como quieras y accede a voces e imágenes premium de última generación.</p>
-          </div>
+          ) : (
+            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-white/50">Plan Actual</span>
+                <span className="text-xs font-extrabold text-white/70 bg-white/10 px-2 py-0.5 rounded-full uppercase">Gratuito</span>
+              </div>
+              <p className="text-xs text-white/50 leading-relaxed"> Tu plan gratuito tiene un límite de 1 avatar y restricciones de chat. ¡Actualiza para desbloquear la experiencia completa!</p>
+            </div>
+          )}
         </div>
       </div>
 

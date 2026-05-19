@@ -27,6 +27,19 @@ export default async function DashboardPage() {
     .eq('user_id', user?.id)
     .order('created_at', { ascending: false });
 
+  // Validar si el usuario es premium consultando la tabla subscriptions
+  let isPremium = false;
+  if (user) {
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+  }
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -61,7 +74,7 @@ export default async function DashboardPage() {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Plan Actual</p>
-            <p className="text-2xl font-bold">Pro</p>
+            <p className="text-2xl font-bold">{isPremium ? 'Pro' : 'Gratuito'}</p>
           </div>
         </div>
       </div>
