@@ -5,7 +5,7 @@ import Stripe from 'stripe';
 // no fallará aquí pero fallará al intentar hacer peticiones reales.
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
 const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2025-02-24.acacia', // Usa la versión más reciente de la API
+  apiVersion: '2026-04-22.dahlia' as any, // Ignoramos el error de tipos si cambia o forzamos la que pide
 });
 
 export async function POST(req: Request) {
