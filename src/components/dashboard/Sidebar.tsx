@@ -38,7 +38,10 @@ export default function Sidebar() {
     <>
       {/* Botón Hamburger / Top Navbar en Móvil */}
       <header className="fixed top-0 left-0 right-0 h-16 glass-morphism border-b border-white/5 flex items-center justify-between px-6 z-40 md:hidden">
-        <h2 className="text-xl font-bold gold-gradient tracking-tight">AvatarChat Pro</h2>
+        <div className="flex items-center gap-3">
+          <img src="/icon-192.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-[0_0_15px_rgba(212,175,55,0.4)]" />
+          <h2 className="text-xl font-bold gold-gradient tracking-tight">AvatarChat Pro</h2>
+        </div>
         <button
           onClick={() => setIsOpen(true)}
           className="p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
@@ -64,7 +67,10 @@ export default function Sidebar() {
         )}
       >
         <div className="mb-8 px-4 flex items-center justify-between">
-          <h2 className="text-2xl font-bold gold-gradient tracking-tight">AvatarChat Pro</h2>
+          <div className="flex items-center gap-3">
+            <img src="/icon-192.png" alt="Logo" className="w-10 h-10 rounded-xl shadow-[0_0_20px_rgba(212,175,55,0.5)]" />
+            <h2 className="text-2xl font-bold gold-gradient tracking-tight">AvatarChat Pro</h2>
+          </div>
           {/* Botón para cerrar en móvil */}
           <button
             onClick={() => setIsOpen(false)}

@@ -66,9 +66,14 @@ export default function SignupPage() {
           <ArrowLeft className="w-4 h-4" /> Volver al inicio
         </Link>
 
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold gold-gradient tracking-tight">Crea tu cuenta</h1>
-          <p className="text-muted-foreground text-sm">Únete a la élite de AvatarChat Pro</p>
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <img src="/icon-192.png" alt="Logo" className="w-16 h-16 rounded-2xl shadow-[0_0_20px_rgba(212,175,55,0.4)]" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold gold-gradient tracking-tight">Crea tu cuenta</h1>
+            <p className="text-muted-foreground text-sm mt-2">Únete a la élite de AvatarChat Pro</p>
+          </div>
         </div>
 
         <form onSubmit={handleSignup} className="space-y-4">

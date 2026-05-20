@@ -61,9 +61,14 @@ function LoginContent() {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(212,175,55,0.05),transparent_50%)]" />
       
       <div className="w-full max-w-md space-y-8 glass-morphism p-8 rounded-3xl relative z-10 border-white/10 shadow-2xl">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold gold-gradient tracking-tight">Bienvenido de nuevo</h1>
-          <p className="text-muted-foreground text-sm">Ingresa a tu cuenta de AvatarChat Pro</p>
+        <div className="text-center space-y-4">
+          <div className="flex justify-center">
+            <img src="/icon-192.png" alt="Logo" className="w-16 h-16 rounded-2xl shadow-[0_0_20px_rgba(212,175,55,0.4)]" />
+          </div>
+          <div>
+            <h1 className="text-3xl font-bold gold-gradient tracking-tight">Bienvenido de nuevo</h1>
+            <p className="text-muted-foreground text-sm mt-2">Ingresa a tu cuenta de AvatarChat Pro</p>
+          </div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">

@@ -25,6 +25,9 @@ export default async function LandingPage({
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(212,175,55,0.1),transparent_50%)]" />
         
         <div className="z-10 text-center px-4 space-y-6 max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
+          <div className="flex justify-center mb-6">
+            <img src="/icon-192.png" alt="AvatarChat Pro Logo" className="w-24 h-24 md:w-32 md:h-32 rounded-3xl shadow-[0_0_40px_rgba(212,175,55,0.4)]" />
+          </div>
           <h1 className="text-6xl md:text-8xl font-bold tracking-tighter">
             AvatarChat <span className="gold-gradient">Pro</span>
           </h1>
