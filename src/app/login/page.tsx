@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase';
 import { LogIn, Mail, Lock, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const nextParam = searchParams.get('next') || '/dashboard';
   const supabase = createClient();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -29,7 +31,7 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push('/dashboard');
+      router.push(nextParam);
     }
   };
 
@@ -40,7 +42,7 @@ export default function LoginPage() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextParam)}`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -168,5 +170,17 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="w-8 h-8 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
