@@ -21,6 +21,18 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return notFound();
 
+  let isPremium = false;
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('*')
+    .eq('user_id', user.id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date())) {
+    isPremium = true;
+  }
+
   // 1. Obtener la información del Avatar
   const { data: avatar } = await supabase
     .from('avatars')
@@ -93,6 +105,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
         avatar={avatar}
         conversation={conversation}
         initialMessages={messages || []}
+        isPremium={isPremium}
       />
     </div>
   );

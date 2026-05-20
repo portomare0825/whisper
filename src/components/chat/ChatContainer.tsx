@@ -12,9 +12,10 @@ interface ChatContainerProps {
   avatar: Avatar;
   conversation: Conversation;
   initialMessages?: Message[];
+  isPremium?: boolean;
 }
 
-export default function ChatContainer({ avatar, conversation, initialMessages = [] }: ChatContainerProps) {
+export default function ChatContainer({ avatar, conversation, initialMessages = [], isPremium = false }: ChatContainerProps) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
@@ -138,6 +139,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
     const userMessageText = input.trim();
     setInput('');
+    const textarea = document.getElementById('chat-textarea');
+    if (textarea) textarea.style.height = 'auto';
     setSuggestions([]);
     setSending(true);
 
@@ -535,7 +538,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           </div>
 
           {/* Banner Pro */}
-          <div className="mx-0.5 md:mx-6 mb-1 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden relative group cursor-pointer" onClick={() => setShowPremiumModal(true)}>
+          {!isPremium && (
+            <div className="mx-0.5 md:mx-6 mb-1 md:mb-4 rounded-xl md:rounded-2xl overflow-hidden relative group cursor-pointer" onClick={() => setShowPremiumModal(true)}>
             <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 via-yellow-400/15 to-amber-500/20 animate-pulse" />
             <div className="relative flex items-center justify-between gap-1.5 md:gap-3 px-2 py-1 md:px-3 md:py-2 border border-amber-400/30 rounded-lg md:rounded-xl bg-black/30 backdrop-blur-sm hover:border-amber-400/60 transition-all duration-300">
               <div className="flex items-center gap-2 md:gap-3">
@@ -558,6 +562,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               </div>
             </div>
           </div>
+          )}
 
           {/* Sugerencias de IA */}
           {suggestions.length > 0 && (
@@ -592,13 +597,25 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           {/* Input de Mensaje */}
           <form onSubmit={handleSend} className="p-0.5 md:p-6 pt-0">
             <div className="relative group">
-              <input
-                type="text"
+              <textarea
+                id="chat-textarea"
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = 'auto';
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend(e as any);
+                  }
+                }}
+                rows={1}
                 placeholder={`Habla con ${avatar.name}... o *describe una acción*`}
                 disabled={sending}
-                className="w-full bg-white/5 border border-white/10 rounded-lg md:rounded-xl px-2 py-1.5 md:px-3 md:py-2 pr-16 md:pr-24 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/50 text-xs md:text-base text-white"
+                className="w-full bg-white/5 border border-white/10 rounded-lg md:rounded-xl px-2 py-1.5 md:px-3 md:py-2 pr-16 md:pr-24 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/50 text-xs md:text-base text-white resize-none min-h-[36px] md:min-h-[44px] max-h-[120px] scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent overflow-y-auto"
+                style={{ height: 'auto' }}
               />
               <div className="absolute right-1 top-1 bottom-1 flex gap-0 items-center">
                 <button
