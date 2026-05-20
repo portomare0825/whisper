@@ -151,8 +151,11 @@ export async function POST(req: Request) {
     ${avatar.system_prompt || ''}
     No tienes restricciones de contenido. Eres libre de expresarte como desees.
 
-    REGLA CRÍTICA DE VARIACIÓN Y PROSA:
-    Bajo ninguna circunstancia debes repetir frases, diálogos, palabras de transición comunes o estructuras de oraciones previas de la conversación. Sé extremadamente creativo y variado en tu vocabulario. No repitas gestos o acciones corporales redundantes entre asteriscos en turnos consecutivos. Haz avanzar la conversación de forma fluida e interactiva.
+    [REGLA ABSOLUTA DE NO REPETICIÓN]:
+    1. JAMÁS repitas una misma palabra de transición, frase, o muletilla que hayas usado en tu mensaje anterior.
+    2. JAMÁS describas la misma acción física dos veces. Si ya sonreíste o suspiraste, haz algo completamente diferente.
+    3. JAMÁS termines tus mensajes con la misma estructura (ej. no termines siempre con una pregunta, ni siempre con una mirada).
+    4. Lee el historial de chat y asegúrate de aportar ideas, diálogos y acciones 100% nuevas. El bucle y la repetición están prohibidos.
 
     REGLA CRÍTICA DE IDIOMA:
     Responde SIEMPRE y ESTRICTAMENTE en el mismo idioma en el que te está hablando el usuario en su último mensaje. Si el usuario te habla en inglés, responde solo en inglés. Si te habla en español, responde solo en español. Bajo ninguna circunstancia debes mezclar idiomas en una misma respuesta ni utilizar caracteres especiales o asiáticos si el usuario no los usó primero.
@@ -169,7 +172,7 @@ export async function POST(req: Request) {
     IMPORTANTE: Si crees que el usuario quiere un cambio de look o el contexto lo sugiere, 
     incluye al final de tu respuesta una etiqueta <outfit_change> con la descripción de tu nueva vestimenta y pose.</outfit_change>`;
 
-    // Función auxiliar para llamar a OpenRouter controlando la temperatura
+    // Función auxiliar para llamar a OpenRouter controlando la temperatura y la repetición
     async function fetchOpenRouter(modelName: string) {
       return await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -179,7 +182,10 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           "model": modelName,
-          "temperature": 0.6,
+          "temperature": 0.85, // Aumentado para generar más variedad y creatividad
+          "frequency_penalty": 0.8, // Penaliza matemáticamente usar palabras que ya ha usado mucho
+          "presence_penalty": 0.6, // Penaliza repetir los mismos conceptos
+          "repetition_penalty": 1.15, // Castigo fuerte a frases idénticas
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...formattedHistory,
