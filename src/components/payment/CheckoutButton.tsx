@@ -34,6 +34,9 @@ export function CheckoutButton({ priceId, planName }: CheckoutButtonProps) {
         return;
       }
 
+      // Inicializa Stripe en el cliente de forma segura para evitar que Vercel rompa en el build si falta la llave
+      const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_51Qo8eS2e9y3Z5v8NnJkP1m5w7x9a8b6c4d2e0f1g3h5i7j9k1l3m5n7o9p';
+
       // Si estamos en modo simulador, el backend nos devuelve una URL local
       // de éxito a la cual debemos redirigir directamente.
       if (isSimulated && url) {

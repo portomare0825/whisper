@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
 // Inicializamos el cliente de Stripe de forma segura para evitar crashes en el build de Vercel
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_simulador_fallback';
+// La llave falsa debe parecer real para que el constructor de Stripe no falle por validación de formato
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51FakeKeyForSimulationOnly123456789';
 const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2026-04-22.dahlia' as any, // Ignoramos el error de tipos si cambia o forzamos la que pide
 });
@@ -11,9 +12,8 @@ export async function POST(req: Request) {
   try {
     const { priceId, planName } = await req.json();
 
-    // 1. MODO SIMULADOR
-    // Si detectamos las llaves de prueba del simulador, omitimos Stripe
-    if (stripeSecretKey === 'sk_test_simulador' || !stripeSecretKey) {
+    // Si no tienes configurada la llave real (o si usa la falsa del simulador), activamos el modo simulador
+    if (!process.env.STRIPE_SECRET_KEY || stripeSecretKey.includes('FakeKey')) {
       console.log(`[SIMULADOR] Petición de pago interceptada para plan: ${planName}`);
       
       // Simulamos un retraso de red
