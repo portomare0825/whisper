@@ -30,7 +30,7 @@ export async function POST(req: Request) {
       .limit(10);
 
     if (historyError) {
-       throw new Error(`Error fetching history: ${historyError.message}`);
+      throw new Error(`Error fetching history: ${historyError.message}`);
     }
 
     const formattedHistory = history?.reverse().map((m: any) => ({
@@ -65,12 +65,12 @@ export async function POST(req: Request) {
         .from('conversations')
         .select('id')
         .eq('user_id', conversation.user_id);
-      
+
       const convoIds = userConvos?.map(c => c.id) || [];
 
       if (convoIds.length > 0) {
         const threeHoursAgo = new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString();
-        
+
         // Contar cuántos mensajes de tipo 'user' ha enviado en total en las últimas 3 horas
         const { count, error: countError } = await supabase
           .from('messages')
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
     const { error: userInsertError } = await supabase.from('messages').insert([
       { conversation_id, role: 'user', content: message }
     ]);
-    
+
     if (userInsertError) {
       throw new Error(`Error saving user message: ${userInsertError.message}`);
     }
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
       "openrouter/free"
     ];
 
-    const physicalDescSection = avatar.physical_description 
+    const physicalDescSection = avatar.physical_description
       ? `\nTu aspecto físico es: ${avatar.physical_description}. Tenlo en cuenta en todo momento al interactuar con el usuario y descríbete o actúa en consecuencia si el usuario hace mención a tu cuerpo, complexión, estatura, cabello, ojos o ropa.`
       : '';
 
@@ -213,8 +213,8 @@ export async function POST(req: Request) {
           llmResponse = null; // Reiniciar para el siguiente intento o fallback final
         }
       }
-    } 
-    
+    }
+
     if (!llmResponse || !llmResponse.ok) {
       // Cascada de fallbacks (para Free o si el Premium falló)
       for (let i = 0; i < freeModelsFallback.length; i++) {
@@ -232,7 +232,7 @@ export async function POST(req: Request) {
     }
 
     if (!llmResponse || !llmResponse.ok) {
-        throw new Error(`OpenRouter API error: Todos los modelos fallaron. Último error: ${lastErrorDetails}`);
+      throw new Error(`OpenRouter API error: Todos los modelos fallaron. Último error: ${lastErrorDetails}`);
     }
 
     const llmResult = await llmResponse.json();
@@ -272,14 +272,14 @@ export async function POST(req: Request) {
 
     // 4. Procesar cambio de vestimenta (si existe)
     let newImageUrl = null;
-    
+
     // Buscamos coincidencia bien formateada
     const outfitMatch = assistantContent.match(/<outfit_change>([\s\S]*?)<\/outfit_change>/i);
     const PIXELAPI_KEY = process.env.PIXELAPI_KEY;
 
     if (outfitMatch && PIXELAPI_KEY && PIXELAPI_KEY !== 'your_pixelapi_key_here') {
       const outfitDescription = outfitMatch[1].trim();
-      
+
       // Llamada a PixelAPI (Leffa)
       try {
         const pixelResponse = await fetch("https://api.pixelapi.dev/v1/leffa", {
@@ -298,7 +298,7 @@ export async function POST(req: Request) {
         if (pixelResponse.ok) {
           const pixelResult = await pixelResponse.json();
           newImageUrl = pixelResult.image_url;
-          
+
           // Actualizar imagen en la conversación
           await supabase
             .from('conversations')
@@ -328,9 +328,9 @@ export async function POST(req: Request) {
       throw new Error(`Error saving AI message: ${aiInsertError.message}`);
     }
 
-    return NextResponse.json({ 
-      content: assistantContent, 
-      new_image_url: newImageUrl 
+    return NextResponse.json({
+      content: assistantContent,
+      new_image_url: newImageUrl
     });
 
   } catch (error: any) {
