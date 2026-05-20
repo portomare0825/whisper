@@ -522,6 +522,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   onRetry={handleRetry}
                   sending={sending}
                 />
+              );
             })}
             {sending && (
               <div className="flex justify-start animate-pulse">
