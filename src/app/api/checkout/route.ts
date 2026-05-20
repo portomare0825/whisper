@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
+import { createClient } from '@supabase/supabase-js';
 
 // Inicializamos el cliente de Stripe de forma segura para evitar crashes en el build de Vercel
 // La llave falsa debe parecer real para que el constructor de Stripe no falle por validación de formato
@@ -16,6 +19,53 @@ export async function POST(req: Request) {
     if (!process.env.STRIPE_SECRET_KEY || stripeSecretKey.includes('FakeKey')) {
       console.log(`[SIMULADOR] Petición de pago interceptada para plan: ${planName}`);
       
+      // Obtenemos al usuario para actualizar su suscripción
+      const cookieStore = await cookies();
+      const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() { return cookieStore.getAll() },
+            setAll() {},
+          },
+        }
+      );
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (user) {
+        // Usamos el rol de servicio para saltar las reglas de seguridad
+        const adminClient = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!, 
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        
+        await adminClient.from('subscriptions').delete().eq('user_id', user.id);
+        
+        // Asignamos Pro o Pay per use (los pases temporales)
+        const planType = planName.toLowerCase().includes('pase') ? 'pay_per_use' : 'pro';
+        
+        // Expiración: Si es diario, +1 día. Si es semanal, +7 días. Si es Mensual, +30 días
+        const expiresAt = new Date();
+        if (planName.toLowerCase().includes('diario')) {
+          expiresAt.setDate(expiresAt.getDate() + 1);
+        } else if (planName.toLowerCase().includes('semanal')) {
+          expiresAt.setDate(expiresAt.getDate() + 7);
+        } else {
+          expiresAt.setDate(expiresAt.getDate() + 30);
+        }
+
+        await adminClient.from('subscriptions').insert({
+          user_id: user.id,
+          status: 'active',
+          plan_type: planType,
+          expires_at: expiresAt.toISOString()
+        });
+        
+        console.log(`[SIMULADOR] Suscripción actualizada a ${planType} para el usuario ${user.email}`);
+      }
+
       // Simulamos un retraso de red
       await new Promise(resolve => setTimeout(resolve, 1500));
       
