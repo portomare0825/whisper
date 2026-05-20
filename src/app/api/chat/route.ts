@@ -182,7 +182,7 @@ export async function POST(req: Request) {
         },
         body: JSON.stringify({
           "model": modelName,
-          "temperature": 0.85, // Aumentado para generar más variedad y creatividad
+          "temperature": 0.7, // Ajustado a petición para evitar alucinaciones
           "frequency_penalty": 0.8, // Penaliza matemáticamente usar palabras que ya ha usado mucho
           "presence_penalty": 0.6, // Penaliza repetir los mismos conceptos
           "repetition_penalty": 1.15, // Castigo fuerte a frases idénticas
