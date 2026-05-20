@@ -26,7 +26,6 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [countdownTime, setCountdownTime] = useState<number | null>(null);
-  const [contextWarningDismissed, setContextWarningDismissed] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -523,59 +522,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   onRetry={handleRetry}
                   sending={sending}
                 />
-              );
             })}
-            {/* Banner de aviso de límite de contexto */}
-            {(() => {
-              const userMsgCount = messages.filter(m => m.role === 'user').length;
-              const showWarning = !contextWarningDismissed && userMsgCount >= 15;
-              const isCritical = userMsgCount >= 20;
-              if (!showWarning) return null;
-              return (
-                <div className={`mx-1 my-2 rounded-xl border px-3 py-2.5 flex items-start gap-2.5 animate-in fade-in duration-500 ${
-                  isCritical 
-                    ? 'bg-red-950/40 border-red-500/40' 
-                    : 'bg-amber-950/40 border-amber-500/40'
-                }`}>
-                  <AlertTriangle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
-                    isCritical ? 'text-red-400' : 'text-amber-400'
-                  }`} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-bold leading-none mb-1 ${
-                      isCritical ? 'text-red-300' : 'text-amber-300'
-                    }`}>
-                      {isCritical ? '⚠️ Límite de memoria alcanzado' : '🧠 Memoria del avatar al límite'}
-                    </p>
-                    <p className="text-[10px] text-white/50 leading-snug">
-                      {isCritical
-                        ? `${avatar.name} puede empezar a perder el hilo o repetir cosas. Recomendamos reiniciar el chat.`
-                        : `Llevas ${userMsgCount} mensajes. En conversaciones largas, ${avatar.name} puede comenzar a alucinar. Considera reiniciar el chat pronto.`
-                      }
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-1 flex-shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setShowClearModal(true)}
-                      className={`text-[9px] font-bold px-2 py-1 rounded-lg border transition-all whitespace-nowrap ${
-                        isCritical
-                          ? 'bg-red-500/20 border-red-500/40 text-red-300 hover:bg-red-500/30'
-                          : 'bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
-                      }`}
-                    >
-                      Nuevo chat
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setContextWarningDismissed(true)}
-                      className="text-[9px] text-white/30 hover:text-white/50 transition-colors text-center"
-                    >
-                      Ignorar
-                    </button>
-                  </div>
-                </div>
-              );
-            })()}
             {sending && (
               <div className="flex justify-start animate-pulse">
                 <div className="bg-white/5 border border-white/10 rounded-xl md:rounded-2xl px-3 py-1.5 md:px-5 md:py-3">

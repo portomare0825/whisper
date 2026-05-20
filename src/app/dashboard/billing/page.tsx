@@ -11,7 +11,7 @@ const plans = [
     description: 'Para probar la experiencia básica.',
     features: [
       '1 Avatar activo',
-      '30 mensajes cada 3 horas',
+      '20 mensajes cada 3 horas',
       'Espera de 3h tras límite',
       'Voz estándar (Gemini)',
       'Cambios de look manuales',

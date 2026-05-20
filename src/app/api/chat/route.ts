@@ -83,7 +83,7 @@ export async function POST(req: Request) {
           console.error('Error counting user messages for limit:', countError);
         }
 
-        if (count !== null && count >= 30) {
+        if (count !== null && count >= 20) {
           // Buscar el mensaje más antiguo dentro del rango para calcular cuándo se liberará el cooldown
           const { data: oldestMsg } = await supabase
             .from('messages')
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
           const timeString = hours > 0 ? `${hours}h ${mins}m` : `${mins} min`;
 
           return NextResponse.json({
-            error: `Has alcanzado el límite de 30 mensajes gratis cada 3 horas. Espera ${timeString} o pásate a un plan Premium para continuar sin límites inmediatamente.`,
+            error: `Has alcanzado el límite de 20 mensajes gratis cada 3 horas. Espera ${timeString} o pásate a un plan Premium para continuar sin límites inmediatamente.`,
             trigger_premium_modal: true,
             next_available_time: new Date(nextAvailableTime).toISOString(),
             reset_duration_ms: Math.max(0, nextAvailableTime - Date.now())
