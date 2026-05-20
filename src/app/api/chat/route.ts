@@ -182,25 +182,38 @@ export async function POST(req: Request) {
     }
 
     let llmResponse;
+    let lastErrorDetails = "";
 
     if (isPremium) {
-      // Premium usa su modelo dedicado sin fallbacks
+      // Premium usa su modelo dedicado
       llmResponse = await fetchOpenRouter(premiumModel);
-    } else {
-      // Free usa cascada de fallbacks
+      if (!llmResponse.ok) {
+        const errText = await llmResponse.text();
+        console.error(`Premium model ${premiumModel} failed: ${llmResponse.status} - ${errText}`);
+        lastErrorDetails = `Status: ${llmResponse.status}. Details: ${errText}`;
+        // Si falla el modelo premium (ej. sin saldo), intentamos con los gratuitos para no romper la app
+        llmResponse = null;
+      }
+    } 
+    
+    if (!llmResponse || !llmResponse.ok) {
+      // Cascada de fallbacks (para Free o si el Premium falló)
       for (let i = 0; i < freeModelsFallback.length; i++) {
         const modelToTry = freeModelsFallback[i];
         llmResponse = await fetchOpenRouter(modelToTry);
         if (llmResponse.ok) {
+          console.log(`Fallback exitoso usando: ${modelToTry}`);
           break;
         } else {
-          console.warn(`Llamada fallida con ${modelToTry} (status: ${llmResponse?.status}). Pasando al siguiente...`);
+          const errText = await llmResponse.text();
+          console.warn(`Llamada fallida con ${modelToTry} (status: ${llmResponse?.status}). Error: ${errText}`);
+          lastErrorDetails = `Status: ${llmResponse.status}.`;
         }
       }
     }
 
     if (!llmResponse || !llmResponse.ok) {
-        throw new Error(`OpenRouter API error: Todos los modelos fallaron.`);
+        throw new Error(`OpenRouter API error: Todos los modelos fallaron. Último error: ${lastErrorDetails}`);
     }
 
     const llmResult = await llmResponse.json();
