@@ -71,9 +71,33 @@ const plans = [
 ];
 
 export default function BillingPage() {
-  const handleCheckout = (planName: string) => {
-    // Aquí se integraría la llamada al backend para crear la preferencia de Mercado Pago
-    alert(`Redirigiendo a Mercado Pago para el plan: ${planName}`);
+  const handleCheckout = async (planName: string) => {
+    try {
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId: 'fake_price_id', planName }),
+      });
+
+      const { url, error, isSimulated } = await response.json();
+
+      if (error) {
+        console.error('Error in checkout:', error);
+        alert('Ocurrió un error al procesar el pago.');
+        return;
+      }
+
+      if (isSimulated && url) {
+        window.location.href = url;
+        return;
+      }
+
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+    }
   };
 
   return (
