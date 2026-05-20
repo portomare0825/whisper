@@ -19,6 +19,7 @@ export default function Sidebar() {
 
   // Cerrar el sidebar al cambiar de ruta
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsOpen(false);
   }, [pathname]);
 

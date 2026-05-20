@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
       .order('created_at', { ascending: false })
       .limit(10);
 
-    const formattedHistory = history?.reverse().map((m: any) => ({
+    const formattedHistory = history?.reverse().map((m: { role: string; content: string }) => ({
       role: m.role === 'avatar' ? 'assistant' : 'user',
       content: m.content
     })) || [];

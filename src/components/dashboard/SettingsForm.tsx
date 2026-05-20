@@ -31,6 +31,7 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
   const supabase = createClient();
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -51,7 +52,7 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
       const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
       const minutes = Math.floor((diff / 1000 / 60) % 60);
       
-      let parts = [];
+      const parts: string[] = [];
       if (days > 0) parts.push(`${days} día${days > 1 ? 's' : ''}`);
       if (hours > 0) parts.push(`${hours} hora${hours > 1 ? 's' : ''}`);
       if (minutes > 0) parts.push(`${minutes} min`);
@@ -93,9 +94,10 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
       setStatus({ type: 'success', message: '¡Contraseña actualizada con éxito!' });
       setNewPassword('');
       setConfirmPassword('');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error al actualizar contraseña:', err);
-      setStatus({ type: 'error', message: err.message || 'Error al actualizar la contraseña.' });
+      const message = err instanceof Error ? err.message : 'Error al actualizar la contraseña.';
+      setStatus({ type: 'error', message });
     } finally {
       setUpdating(false);
     }

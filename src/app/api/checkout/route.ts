@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-// Inicializamos el cliente de Stripe. Si la clave es vacía o simulada, 
-// no fallará aquí pero fallará al intentar hacer peticiones reales.
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY || '';
+// Inicializamos el cliente de Stripe de forma segura para evitar crashes en el build de Vercel
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_simulador_fallback';
 const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2026-04-22.dahlia' as any, // Ignoramos el error de tipos si cambia o forzamos la que pide
 });

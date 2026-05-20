@@ -1,13 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
 import { CreditCard, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-
-// Inicializa Stripe en el cliente de forma segura para evitar que Vercel rompa en el build si falta la llave
-const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_simulador';
-const stripePromise = loadStripe(stripeKey);
 
 interface CheckoutButtonProps {
   priceId: string;
