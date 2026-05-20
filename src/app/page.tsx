@@ -26,14 +26,13 @@ export default async function LandingPage({
         
         <div className="z-10 text-center px-4 space-y-6 max-w-4xl animate-in fade-in slide-in-from-bottom-8 duration-1000">
           <div className="flex justify-center mb-6">
-            <img src="/icon-192.png" alt="AvatarChat Pro Logo" className="w-24 h-24 md:w-32 md:h-32 rounded-3xl shadow-[0_0_40px_rgba(212,175,55,0.4)]" />
+            <img src="/icon-192.png" alt="Whisper Logo" className="w-24 h-24 md:w-32 md:h-32 rounded-3xl shadow-[0_0_40px_rgba(212,175,55,0.4)]" />
           </div>
-          <h1 className="text-6xl md:text-8xl font-bold tracking-tighter">
-            AvatarChat <span className="gold-gradient">Pro</span>
+          <h1 className="text-6xl md:text-8xl font-bold tracking-tighter gold-gradient">
+            Whisper
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground font-light max-w-2xl mx-auto leading-relaxed">
-            Crea compañeros digitales inteligentes con personalidad propia y estilo dinámico. 
-            El futuro de la interacción humana-IA ha llegado.
+            Conversaciones sin censura con tu confidente digital. Habla sin miedo, responde sin filtros. Donde cada palabra encuentra un refugio y todo está permitido. Tu compañero, tu regla, tu libertad.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-8">
@@ -91,7 +90,7 @@ export default async function LandingPage({
 
       {/* Footer */}
       <footer className="py-12 border-t border-white/5 text-center text-muted-foreground">
-        <p>© 2026 AvatarChat Pro. Diseñado para la excelencia.</p>
+        <p>© 2026 Whisper. Diseñado para la excelencia.</p>
       </footer>
     </div>
   );

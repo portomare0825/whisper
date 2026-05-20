@@ -67,7 +67,7 @@ function LoginContent() {
           </div>
           <div>
             <h1 className="text-3xl font-bold gold-gradient tracking-tight">Bienvenido de nuevo</h1>
-            <p className="text-muted-foreground text-sm mt-2">Ingresa a tu cuenta de AvatarChat Pro</p>
+            <p className="text-muted-foreground text-sm mt-2">Ingresa a tu cuenta de Whisper</p>
           </div>
         </div>
 

@@ -72,7 +72,7 @@ export default function SignupPage() {
           </div>
           <div>
             <h1 className="text-3xl font-bold gold-gradient tracking-tight">Crea tu cuenta</h1>
-            <p className="text-muted-foreground text-sm mt-2">Únete a la élite de AvatarChat Pro</p>
+            <p className="text-muted-foreground text-sm mt-2">Únete a la élite de Whisper</p>
           </div>
         </div>
 
