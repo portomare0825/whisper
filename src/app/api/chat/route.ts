@@ -267,7 +267,18 @@ Si el contexto sugiere un cambio de apariencia, incluye al final de tu respuesta
       'as an ai',
       'como modelo de lenguaje',
       'debo pausar aquí',
-      'no estoy disponible para'
+      'no estoy disponible para',
+      'malentendido en nuestra',
+      'mi función principal',
+      'mi funcion principal',
+      'respuestas informativas',
+      'conocimientos generales',
+      'modelos específicos de',
+      'inteligencia artificial',
+      'como asistente virtual',
+      'modelo de ia',
+      'como ia',
+      'asistente virtual'
     ];
     const isCensored = censoredKeywords.some(kw => lowerContent.includes(kw));
 
