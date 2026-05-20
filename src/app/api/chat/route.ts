@@ -127,8 +127,16 @@ export async function POST(req: Request) {
       throw new Error(`Error saving user message: ${userInsertError.message}`);
     }
 
-    // 3. Selección de modelos y Fallbacks (cascada para usuarios gratuitos)
-    const premiumModel = process.env.PREMIUM_CHAT_MODEL || "sao10k/l3.1-euryale-70b";
+    // 3. Selección de modelos y Fallbacks
+    // Lista de modelos Premium sin censura (Cascada de seguridad por si alguno se cae)
+    const premiumModelsFallback = [
+      process.env.PREMIUM_CHAT_MODEL || "sao10k/l3.1-euryale-70b", // Prioridad 1
+      "neversleep/llama-3.1-lumimaid-70b",                         // Prioridad 2 (Excelente para RP sin censura)
+      "nousresearch/hermes-3-llama-3.1-70b",                       // Prioridad 3 (Modelo grande sin censura)
+      "cognitivecomputations/dolphin-mixtral-8x22b",               // Prioridad 4 (Súper versátil y uncensored)
+      "sao10k/l3-euryale-70b"                                      // Prioridad 5 (Versión anterior muy estable)
+    ];
+
     const freeModelsFallback = [
       "meta-llama/llama-3.1-8b-instruct:free",
       "google/gemma-2-9b-it:free",
@@ -181,18 +189,23 @@ export async function POST(req: Request) {
       });
     }
 
-    let llmResponse;
+    let llmResponse = null;
     let lastErrorDetails = "";
 
     if (isPremium) {
-      // Premium usa su modelo dedicado
-      llmResponse = await fetchOpenRouter(premiumModel);
-      if (!llmResponse.ok) {
-        const errText = await llmResponse.text();
-        console.error(`Premium model ${premiumModel} failed: ${llmResponse.status} - ${errText}`);
-        lastErrorDetails = `Status: ${llmResponse.status}. Details: ${errText}`;
-        // Si falla el modelo premium (ej. sin saldo), intentamos con los gratuitos para no romper la app
-        llmResponse = null;
+      // Cascada de modelos Premium
+      for (let i = 0; i < premiumModelsFallback.length; i++) {
+        const modelToTry = premiumModelsFallback[i];
+        llmResponse = await fetchOpenRouter(modelToTry);
+        if (llmResponse.ok) {
+          console.log(`[PREMIUM] Chat exitoso usando: ${modelToTry}`);
+          break;
+        } else {
+          const errText = await llmResponse.text();
+          console.warn(`[PREMIUM] Modelo ${modelToTry} falló (status: ${llmResponse?.status}). Error: ${errText}`);
+          lastErrorDetails = `Status: ${llmResponse.status}. Details: ${errText}`;
+          llmResponse = null; // Reiniciar para el siguiente intento o fallback final
+        }
       }
     } 
     
