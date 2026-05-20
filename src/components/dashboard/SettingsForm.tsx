@@ -12,6 +12,8 @@ interface SettingsFormProps {
     id: string;
     created_at: string;
     isPremium: boolean;
+    planType?: string;
+    expiresAt?: string | null;
   };
 }
 
@@ -25,11 +27,44 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
     message: ''
   });
 
+  const [timeLeft, setTimeLeft] = useState<string>('');
   const supabase = createClient();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!initialUser.expiresAt) return;
+    
+    const calculateTimeLeft = () => {
+      const now = new Date();
+      const expiration = new Date(initialUser.expiresAt!);
+      const diff = expiration.getTime() - now.getTime();
+      
+      if (diff <= 0) {
+        setTimeLeft('Expirado');
+        return;
+      }
+      
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / 1000 / 60) % 60);
+      
+      let parts = [];
+      if (days > 0) parts.push(`${days} día${days > 1 ? 's' : ''}`);
+      if (hours > 0) parts.push(`${hours} hora${hours > 1 ? 's' : ''}`);
+      if (minutes > 0) parts.push(`${minutes} min`);
+      
+      if (parts.length === 0) parts.push('Menos de 1 minuto');
+      
+      setTimeLeft(parts.join(', '));
+    };
+
+    calculateTimeLeft();
+    const interval = setInterval(calculateTimeLeft, 60000);
+    return () => clearInterval(interval);
+  }, [initialUser.expiresAt]);
 
   const handleUpdatePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,9 +161,18 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
             <div className="p-4 bg-gradient-to-tr from-amber-500/20 to-yellow-400/15 border border-amber-400/30 rounded-xl">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold uppercase tracking-wider text-amber-300">Plan Actual</span>
-                <span className="text-xs font-extrabold text-black bg-amber-400 px-2 py-0.5 rounded-full uppercase">Pro</span>
+                <span className="text-xs font-extrabold text-black bg-amber-400 px-2 py-0.5 rounded-full uppercase">
+                  {initialUser.planType === 'pay_per_use' ? 'Pago por Uso' : 'Pro'}
+                </span>
               </div>
-              <p className="text-xs text-white/70 leading-relaxed"> Chatea ilimitadamente sin censura, crea tantos avatares como quieras y accede a voces e imágenes premium de última generación.</p>
+              <p className="text-xs text-white/70 leading-relaxed mb-3"> Chatea ilimitadamente sin censura, crea tantos avatares como quieras y accede a voces e imágenes premium de última generación.</p>
+              
+              {initialUser.expiresAt && mounted && (
+                <div className="pt-3 border-t border-amber-400/20 flex flex-col gap-1">
+                  <span className="text-[10px] font-bold text-amber-300/80 uppercase">Tiempo Restante</span>
+                  <span className="text-sm font-semibold text-amber-200">{timeLeft}</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="p-4 bg-white/5 border border-white/10 rounded-xl">

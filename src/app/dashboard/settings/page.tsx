@@ -20,6 +20,9 @@ export default async function SettingsPage() {
 
   // Validar si el usuario es premium consultando la tabla subscriptions
   let isPremium = false;
+  let planType = 'free';
+  let expiresAt = null;
+
   if (user) {
     const { data: subscription } = await supabase
       .from('subscriptions')
@@ -28,7 +31,11 @@ export default async function SettingsPage() {
       .eq('status', 'active')
       .maybeSingle();
 
-    isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+    if (subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date())) {
+      isPremium = true;
+      planType = subscription.plan_type || 'pro';
+      expiresAt = subscription.expires_at;
+    }
   }
 
   const userData = {
@@ -36,6 +43,8 @@ export default async function SettingsPage() {
     id: user?.id || 'no-id',
     created_at: user?.created_at || new Date().toISOString(),
     isPremium,
+    planType,
+    expiresAt,
   };
 
   return (
