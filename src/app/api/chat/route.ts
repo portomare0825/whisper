@@ -325,8 +325,30 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
 
     const PIXELAPI_KEY = process.env.PIXELAPI_KEY;
 
+function parsePixelAPIError(status: number, errText: string): string {
+  try {
+    const parsed = JSON.parse(errText);
+    if (parsed.detail) {
+      if (typeof parsed.detail === 'object' && parsed.detail.message) {
+        let msg = parsed.detail.message;
+        if (msg.includes("recovering from a memory pressure event")) {
+          const retryMatch = msg.match(/about (\d+)s/);
+          const seconds = retryMatch ? `${retryMatch[1]} segundos` : "unos minutos";
+          return `El motor de inteligencia artificial de PixelAPI se está reiniciando temporalmente por mantenimiento técnico. Por favor, vuelve a intentarlo en aproximadamente ${seconds}. No se han descontado tus monedas del saldo.`;
+        }
+        return msg;
+      }
+      return typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
+    }
+    if (parsed.error_message) return parsed.error_message;
+    if (parsed.message) return parsed.message;
+  } catch (e) {}
+  return `PixelAPI respondió con status ${status}: ${errText}`;
+}
+
+    let pendingOutfitGenerationId = null;
+
     if (outfitDescription && PIXELAPI_KEY && PIXELAPI_KEY !== 'your_pixelapi_key_here') {
-      // Llamada a PixelAPI (FireRed-Edit) con polling
       try {
         const submitResponse = await fetch("https://api.pixelapi.dev/v1/image/edit", {
           method: "POST",
@@ -343,46 +365,10 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
 
         if (submitResponse.ok) {
           const submitResult = await submitResponse.json();
-          const generationId = submitResult.id;
-
-          if (generationId) {
-            let status = submitResult.status;
-            let attempts = 0;
-            const maxAttempts = 30; // 60 segundos máx. (30 * 2s)
-
-            while ((status === 'queued' || status === 'processing') && attempts < maxAttempts) {
-              await new Promise((resolve) => setTimeout(resolve, 2000));
-              attempts++;
-
-              const pollResponse = await fetch(`https://api.pixelapi.dev/v1/image/${generationId}`, {
-                headers: {
-                  "Authorization": `Bearer ${PIXELAPI_KEY}`,
-                }
-              });
-
-              if (pollResponse.ok) {
-                const pollResult = await pollResponse.json();
-                status = pollResult.status;
-                if (status === 'completed') {
-                  newImageUrl = pollResult.output_url;
-                  break;
-                } else if (status === 'failed') {
-                  console.error('La generación de PixelAPI falló:', pollResult.error_message);
-                  break;
-                }
-              } else {
-                console.error(`Error al consultar estado de PixelAPI (status ${pollResponse.status})`);
-              }
-            }
-          }
-        }
-
-        if (newImageUrl) {
-          // Actualizar imagen en la conversación
-          await supabase
-            .from('conversations')
-            .update({ current_avatar_image_url: newImageUrl })
-            .eq('id', conversation_id);
+          pendingOutfitGenerationId = submitResult.id;
+        } else {
+          const errText = await submitResponse.text();
+          console.error(parsePixelAPIError(submitResponse.status, errText));
         }
       } catch (err) {
         console.error('PixelAPI Error:', err);
@@ -416,7 +402,8 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
 
     return NextResponse.json({
       content: assistantContent,
-      new_image_url: newImageUrl
+      pending_outfit_generation_id: pendingOutfitGenerationId,
+      outfit_prompt: outfitDescription ? outfitDescription.trim() : null
     });
 
   } catch (error: any) {
@@ -424,3 +411,4 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
+

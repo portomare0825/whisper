@@ -37,6 +37,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [changingOutfit, setChangingOutfit] = useState(false);
   const [outfitError, setOutfitError] = useState('');
   
+  // Estado para la generación asíncrona de outfits
+  const [pendingOutfitJob, setPendingOutfitJob] = useState<{ generation_id: string; prompt: string; is_free: boolean } | null>(null);
+  
   // Estados para el Vestuario (Galería)
   const [showWardrobeModal, setShowWardrobeModal] = useState(false);
   const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
@@ -193,6 +196,106 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     return () => { supabase.removeChannel(channel); };
   }, [conversation.user_id]);
 
+  // Cargar job pendiente de localStorage al montar el componente
+  useEffect(() => {
+    const savedJob = localStorage.getItem(`pending-outfit-${conversation.id}`);
+    if (savedJob) {
+      try {
+        const parsed = JSON.parse(savedJob);
+        setPendingOutfitJob(parsed);
+        if (!parsed.is_free) {
+          setChangingOutfit(true);
+          setShowOutfitModal(true);
+        }
+      } catch (e) {
+        console.error('Error al cargar job de outfit pendiente de localStorage:', e);
+      }
+    }
+  }, [conversation.id]);
+
+  // Polling para el job de outfit pendiente
+  useEffect(() => {
+    if (!pendingOutfitJob) return;
+
+    let isActive = true;
+    let attempts = 0;
+    const maxAttempts = 90; // Hasta 6 minutos (90 * 4s)
+    let timeoutId: any;
+
+    const checkStatus = async () => {
+      if (!isActive) return;
+      try {
+        const res = await fetch('/api/outfit/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            generation_id: pendingOutfitJob.generation_id,
+            conversation_id: conversation.id,
+            avatar_id: avatar.id,
+            prompt: pendingOutfitJob.prompt,
+            is_free: pendingOutfitJob.is_free
+          })
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Error al verificar estado del look');
+        }
+
+        const data = await res.json();
+
+        if (data.status === 'completed' && data.new_image_url) {
+          if (!isActive) return;
+          setCurrentImage(data.new_image_url);
+          if (data.new_coins_balance !== undefined && data.new_coins_balance !== null) {
+            setCoins(data.new_coins_balance);
+          }
+          
+          setPendingOutfitJob(null);
+          localStorage.removeItem(`pending-outfit-${conversation.id}`);
+          
+          setChangingOutfit(false);
+          setShowOutfitModal(false);
+          setOutfitPrompt('');
+          setOutfitError('');
+          return;
+        }
+
+        if (data.status === 'failed') {
+          throw new Error(data.error || 'La generación de imagen falló en los servidores de IA.');
+        }
+
+        attempts++;
+        if (attempts >= maxAttempts) {
+          throw new Error('La generación de ropa está tomando demasiado tiempo. Por favor, intenta de nuevo en unos momentos (no se han descontado monedas).');
+        }
+
+        timeoutId = setTimeout(checkStatus, 4000);
+      } catch (err: any) {
+        if (!isActive) return;
+        console.error('Error en polling de outfit:', err);
+        
+        const isFatal = err.message.includes('insuficiente') || err.message.includes('falló') || err.message.includes('no encontrado') || err.message.includes('Parámetros');
+        
+        if (isFatal || attempts >= maxAttempts) {
+          setOutfitError(err.message || 'Error al generar la imagen.');
+          setPendingOutfitJob(null);
+          localStorage.removeItem(`pending-outfit-${conversation.id}`);
+          setChangingOutfit(false);
+        } else {
+          timeoutId = setTimeout(checkStatus, 5000);
+        }
+      }
+    };
+
+    timeoutId = setTimeout(checkStatus, 2000);
+
+    return () => {
+      isActive = false;
+      clearTimeout(timeoutId);
+    };
+  }, [pendingOutfitJob, conversation.id, avatar.id]);
+
   const handleBuyCoins = async (planName: string, priceId: string) => {
     setProcessingCoinPurchase(true);
     try {
@@ -262,16 +365,17 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         throw new Error(data.error || 'Error al cambiar de ropa.');
       }
       
-      // Actualizar imagen y saldo de monedas
-      setCurrentImage(data.new_image_url);
-      setCoins(data.new_coins_balance);
-      setOutfitPrompt('');
-      setShowOutfitModal(false);
+      // Encolado exitosamente
+      const job = {
+        generation_id: data.generation_id,
+        prompt: outfitPrompt.trim(),
+        is_free: false
+      };
       
-      // La base de datos registrará el mensaje del sistema que actualizará los mensajes en tiempo real
+      setPendingOutfitJob(job);
+      localStorage.setItem(`pending-outfit-${conversation.id}`, JSON.stringify(job));
     } catch (err: any) {
       setOutfitError(err.message || 'Error al conectar con el servidor.');
-    } finally {
       setChangingOutfit(false);
     }
   };
@@ -337,8 +441,14 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         return;
       }
 
-      if (result.new_image_url) {
-        setCurrentImage(result.new_image_url);
+      if (result.pending_outfit_generation_id && result.outfit_prompt) {
+        const job = {
+          generation_id: result.pending_outfit_generation_id,
+          prompt: result.outfit_prompt,
+          is_free: true
+        };
+        setPendingOutfitJob(job);
+        localStorage.setItem(`pending-outfit-${conversation.id}`, JSON.stringify(job));
       }
       
       // La base de datos y realtime se encargarán del mensaje del AI, pero 
@@ -437,8 +547,14 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         return;
       }
 
-      if (result.new_image_url) {
-        setCurrentImage(result.new_image_url);
+      if (result.pending_outfit_generation_id && result.outfit_prompt) {
+        const job = {
+          generation_id: result.pending_outfit_generation_id,
+          prompt: result.outfit_prompt,
+          is_free: true
+        };
+        setPendingOutfitJob(job);
+        localStorage.setItem(`pending-outfit-${conversation.id}`, JSON.stringify(job));
       }
       
       const optimisticAiMessage: Message = {
@@ -595,11 +711,20 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 text-white/70" />
           </Link>
           <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-primary/50 relative">
-            <img src={currentImage} alt={avatar.name} className="w-full h-full object-cover" />
+            <img src={currentImage} alt={avatar.name} className={`w-full h-full object-cover ${pendingOutfitJob ? 'animate-pulse opacity-70 blur-[0.5px]' : ''}`} />
+            {pendingOutfitJob && (
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
           </div>
           <div>
             <h3 className="font-bold text-white text-sm md:text-base leading-none">{avatar.name}</h3>
-            <p className="text-[9px] md:text-[10px] text-primary mt-1 md:mt-1.5 uppercase tracking-widest font-semibold">En línea</p>
+            {pendingOutfitJob ? (
+              <p className="text-[9px] md:text-[10px] text-amber-400 mt-1 md:mt-1.5 uppercase tracking-widest font-semibold animate-pulse">✨ Diseñando look...</p>
+            ) : (
+              <p className="text-[9px] md:text-[10px] text-primary mt-1 md:mt-1.5 uppercase tracking-widest font-semibold">En línea</p>
+            )}
           </div>
         </div>
         
@@ -661,8 +786,22 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           <img 
             src={currentImage} 
             alt={avatar.name} 
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${pendingOutfitJob ? 'opacity-65 blur-[0.5px]' : ''}`}
           />
+          {pendingOutfitJob && (
+            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4">
+              <div className="relative w-14 h-14 mb-3 flex items-center justify-center">
+                <div className="absolute inset-0 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
+                <Shirt className="w-5 h-5 text-amber-400 animate-pulse" />
+              </div>
+              <span className="text-xs font-bold text-amber-300 uppercase tracking-wider animate-pulse gold-gradient">
+                ✨ Diseñando look
+              </span>
+              <p className="text-[10px] text-white/70 mt-1 max-w-[180px] line-clamp-2 italic">
+                "{pendingOutfitJob.prompt}"
+              </p>
+            </div>
+          )}
           <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
             <h2 className="text-2xl font-bold gold-gradient">{avatar.name}</h2>
             <p className="text-sm text-white/60 line-clamp-2">{avatar.personality}</p>

@@ -89,8 +89,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'PixelAPI no configurada en el servidor' }, { status: 500 });
     }
 
-    // 7. Llamar a PixelAPI (FireRed-Edit) con polling
-    let newImageUrl = null;
+function parsePixelAPIError(status: number, errText: string): string {
+  try {
+    const parsed = JSON.parse(errText);
+    if (parsed.detail) {
+      if (typeof parsed.detail === 'object' && parsed.detail.message) {
+        let msg = parsed.detail.message;
+        if (msg.includes("recovering from a memory pressure event")) {
+          const retryMatch = msg.match(/about (\d+)s/);
+          const seconds = retryMatch ? `${retryMatch[1]} segundos` : "unos minutos";
+          return `El motor de inteligencia artificial de PixelAPI se está reiniciando temporalmente por mantenimiento técnico. Por favor, vuelve a intentarlo en aproximadamente ${seconds}. No se han descontado tus monedas del saldo.`;
+        }
+        return msg;
+      }
+      return typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
+    }
+    if (parsed.error_message) return parsed.error_message;
+    if (parsed.message) return parsed.message;
+  } catch (e) {}
+  return `PixelAPI respondió con status ${status}: ${errText}`;
+}
+
+    // 7. Llamar a PixelAPI (FireRed-Edit) de forma asíncrona
     try {
       const submitResponse = await fetch("https://api.pixelapi.dev/v1/image/edit", {
         method: "POST",
@@ -107,7 +127,7 @@ export async function POST(req: Request) {
 
       if (!submitResponse.ok) {
         const errText = await submitResponse.text();
-        throw new Error(`PixelAPI respondió con status ${submitResponse.status}: ${errText}`);
+        throw new Error(parsePixelAPIError(submitResponse.status, errText));
       }
 
       const submitResult = await submitResponse.json();
@@ -117,91 +137,19 @@ export async function POST(req: Request) {
         throw new Error('PixelAPI no devolvió un ID de generación válido');
       }
 
-      // Polling para esperar la finalización del trabajo
-      let status = submitResult.status;
-      let attempts = 0;
-      const maxAttempts = 30; // 60 segundos máx. (30 * 2s)
+      return NextResponse.json({
+        success: true,
+        status: submitResult.status || 'queued',
+        generation_id: generationId
+      });
 
-      while ((status === 'queued' || status === 'processing') && attempts < maxAttempts) {
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        attempts++;
-
-        const pollResponse = await fetch(`https://api.pixelapi.dev/v1/image/${generationId}`, {
-          headers: {
-            "Authorization": `Bearer ${PIXELAPI_KEY}`,
-          }
-        });
-
-        if (pollResponse.ok) {
-          const pollResult = await pollResponse.json();
-          status = pollResult.status;
-          if (status === 'completed') {
-            newImageUrl = pollResult.output_url;
-            break;
-          } else if (status === 'failed') {
-            throw new Error(`La generación de PixelAPI falló: ${pollResult.error_message || 'Error desconocido'}`);
-          }
-        } else {
-          console.error(`Error al consultar estado de PixelAPI (status ${pollResponse.status})`);
-        }
-      }
-
-      if (status !== 'completed' || !newImageUrl) {
-        throw new Error(`La generación de la imagen expiró o falló (estado final: ${status})`);
-      }
     } catch (err: any) {
       console.error('PixelAPI Error:', err);
-      return NextResponse.json({ error: `Error de generación de imagen: ${err.message}` }, { status: 502 });
+      return NextResponse.json({ error: err.message }, { status: 502 });
     }
-
-    // 8. Descontar las monedas atómicamente utilizando RPC
-    const { data: newCoins, error: rpcError } = await adminSupabase.rpc('add_coins', {
-      user_id_param: user.id,
-      amount: -OUTFIT_CHANGE_COST
-    });
-
-    if (rpcError) {
-      console.error('Error al descontar monedas RPC:', rpcError);
-    }
-
-    // 9. Actualizar la imagen actual en la conversación
-    const { error: updateConvoError } = await adminSupabase
-      .from('conversations')
-      .update({ current_avatar_image_url: newImageUrl })
-      .eq('id', conversation_id);
-
-    if (updateConvoError) {
-      console.error('Error al actualizar current_avatar_image_url en la conversación:', updateConvoError);
-    }
-
-    // 10. Guardar en el historial de outfits (vestuario/galería)
-    await adminSupabase.from('outfit_history').insert([
-      {
-        user_id: user.id,
-        avatar_id,
-        conversation_id,
-        image_url: newImageUrl,
-        prompt: prompt.trim()
-      }
-    ]);
-
-    // 11. Registrar la acción física en la conversación como un mensaje narrativo del avatar
-    await adminSupabase.from('messages').insert([
-      { 
-        conversation_id, 
-        role: 'avatar', 
-        content: `*se ha cambiado de ropa y ahora viste: ${prompt.trim()}*` 
-      }
-    ]);
-
-    return NextResponse.json({
-      success: true,
-      new_image_url: newImageUrl,
-      new_coins_balance: newCoins !== null ? newCoins : (profile.coins - OUTFIT_CHANGE_COST)
-    });
-
   } catch (error: any) {
     console.error('Error en /api/outfit/change:', error);
     return NextResponse.json({ error: error.message || 'Error interno del servidor' }, { status: 500 });
   }
 }
+
