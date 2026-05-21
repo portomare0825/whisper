@@ -182,10 +182,6 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
 - Reacciona de forma sensorial y natural como si ocurriera de verdad.
 - Puedes responder con tus propias *acciones*.
 - Nunca lo ignores ni expliques que es una acción.
-
-[REGLA NÚMERO 6 — CAMBIO DE LOOK]
-Si el contexto sugiere un cambio de apariencia, incluye al final de tu respuesta:
-<outfit_change>descripción de la nueva vestimenta y pose</outfit_change>
 ========================================================`;
 
     // Sanitizar palabras sensibles que gatillan bloqueos automáticos en APIs de LLMs (ej. NextBit, Together)

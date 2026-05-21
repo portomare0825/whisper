@@ -28,6 +28,21 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [countdownTime, setCountdownTime] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  
+  // Estados para el sistema de monedas y cambio de outfit
+  const [coins, setCoins] = useState<number>(0);
+  const [loadingCoins, setLoadingCoins] = useState<boolean>(true);
+  const [showOutfitModal, setShowOutfitModal] = useState(false);
+  const [outfitPrompt, setOutfitPrompt] = useState('');
+  const [changingOutfit, setChangingOutfit] = useState(false);
+  const [outfitError, setOutfitError] = useState('');
+  
+  // Estados para el Vestuario (Galería)
+  const [showWardrobeModal, setShowWardrobeModal] = useState(false);
+  const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
+  const [loadingWardrobe, setLoadingWardrobe] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
   const router = useRouter();
@@ -132,6 +147,106 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
     return () => clearInterval(timer);
   }, [countdownTime]);
+
+  // Cargar saldo de monedas inicial y suscribirse en tiempo real
+  useEffect(() => {
+    const fetchCoins = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('coins')
+          .eq('id', conversation.user_id)
+          .maybeSingle();
+        
+        if (data) {
+          setCoins(data.coins);
+        }
+      } catch (err) {
+        console.error('Error fetching user coins:', err);
+      } finally {
+        setLoadingCoins(false);
+      }
+    };
+    
+    fetchCoins();
+  }, [conversation.user_id]);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`profile-${conversation.user_id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${conversation.user_id}`
+      }, (payload) => {
+        if (payload.new && typeof payload.new.coins === 'number') {
+          setCoins(payload.new.coins);
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [conversation.user_id]);
+
+  const handleOpenWardrobe = async () => {
+    setShowWardrobeModal(true);
+    setLoadingWardrobe(true);
+    try {
+      const response = await fetch(`/api/outfit/history?avatar_id=${avatar.id}`);
+      const data = await response.json();
+      if (data.outfits) {
+        setWardrobeImages(data.outfits);
+      }
+    } catch (err) {
+      console.error('Error fetching wardrobe:', err);
+    } finally {
+      setLoadingWardrobe(false);
+    }
+  };
+
+  const handleOutfitChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!outfitPrompt.trim() || changingOutfit) return;
+    
+    if (coins < 10) {
+      setOutfitError('No tienes suficientes monedas para cambiar el outfit.');
+      return;
+    }
+    
+    setChangingOutfit(true);
+    setOutfitError('');
+    
+    try {
+      const response = await fetch('/api/outfit/change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          avatar_id: avatar.id,
+          prompt: outfitPrompt.trim()
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cambiar de ropa.');
+      }
+      
+      // Actualizar imagen y saldo de monedas
+      setCurrentImage(data.new_image_url);
+      setCoins(data.new_coins_balance);
+      setOutfitPrompt('');
+      setShowOutfitModal(false);
+      
+      // La base de datos registrará el mensaje del sistema que actualizará los mensajes en tiempo real
+    } catch (err: any) {
+      setOutfitError(err.message || 'Error al conectar con el servidor.');
+    } finally {
+      setChangingOutfit(false);
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -460,12 +575,38 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           </div>
         </div>
         
-        <div className="flex items-center gap-1 md:gap-2">
+        <div className="flex items-center gap-1.5 md:gap-3">
+          {/* Monedas del usuario */}
+          <div className="flex items-center gap-1 bg-white/5 border border-white/10 px-2.5 md:px-3 py-1.5 rounded-xl text-xs md:text-sm text-white/90">
+            <span className="gold-gradient font-bold">{loadingCoins ? '...' : coins}</span>
+            <span className="text-amber-400 font-bold">🪙</span>
+          </div>
+
+          {/* Botón de cambio de outfit para móvil (oculto en lg) */}
+          <button
+            type="button"
+            onClick={() => setShowOutfitModal(true)}
+            title="Cambiar outfit (10 monedas)"
+            className="lg:hidden p-1.5 md:p-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg md:rounded-xl transition-all border border-primary/20 flex items-center justify-center cursor-pointer"
+          >
+            <Shirt className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </button>
+          
+          {/* Botón de Galería/Vestuario */}
+          <button
+            type="button"
+            onClick={handleOpenWardrobe}
+            title="Ver Galería de Outfits"
+            className="p-1.5 md:p-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg md:rounded-xl transition-all border border-amber-500/20 flex items-center justify-center cursor-pointer"
+          >
+            <ImageIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </button>
+
           <button
             type="button"
             onClick={() => setShowClearModal(true)}
             title="Limpiar chat y empezar de nuevo"
-            className="p-1.5 md:p-2.5 bg-white/5 hover:bg-white/10 hover:text-primary text-white/70 rounded-lg md:rounded-xl transition-all border border-white/5"
+            className="p-1.5 md:p-2.5 bg-white/5 hover:bg-white/10 hover:text-primary text-white/70 rounded-lg md:rounded-xl transition-all border border-white/5 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
@@ -473,7 +614,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             type="button"
             onClick={() => setShowDeleteModal(true)}
             title="Eliminar avatar permanentemente"
-            className="p-1.5 md:p-2.5 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg md:rounded-xl transition-all border border-destructive/20"
+            className="p-1.5 md:p-2.5 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg md:rounded-xl transition-all border border-destructive/20 cursor-pointer"
           >
             <Trash2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
@@ -493,17 +634,44 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             <h2 className="text-2xl font-bold gold-gradient">{avatar.name}</h2>
             <p className="text-sm text-white/60 line-clamp-2">{avatar.personality}</p>
           </div>
-          <div className="absolute top-4 right-4 bg-primary/20 backdrop-blur-md p-2 rounded-full border border-primary/30 animate-pulse">
-            <Shirt className="w-5 h-5 text-primary" />
+          {/* Botones de acciones para escritorio */}
+          <div className="absolute top-4 right-4 flex flex-col gap-3">
+            <button
+              type="button"
+              onClick={() => setShowOutfitModal(true)}
+              title="Cambiar outfit de forma manual (10 monedas)"
+              className="bg-primary/30 hover:bg-primary/50 text-primary backdrop-blur-md p-2.5 rounded-full border border-primary/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-primary/20 flex items-center justify-center cursor-pointer"
+            >
+              <Shirt className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleOpenWardrobe}
+              title="Ver Galería de Outfits"
+              className="bg-amber-500/30 hover:bg-amber-500/50 text-amber-500 backdrop-blur-md p-2.5 rounded-full border border-amber-500/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-amber-500/20 flex items-center justify-center cursor-pointer"
+            >
+              <ImageIcon className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
         {/* Columna del Chat */}
-        <div className="flex-1 flex flex-col glass-morphism rounded-none md:rounded-3xl overflow-hidden">
+        <div className="flex-1 flex flex-col glass-morphism rounded-none md:rounded-3xl overflow-hidden relative">
+          
+          {/* Imagen de fondo para dispositivos móviles */}
+          <div className="absolute inset-0 z-0 lg:hidden pointer-events-none">
+            <img 
+              src={currentImage} 
+              alt="Background Avatar" 
+              className="w-full h-full object-cover opacity-30 object-top"
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black" />
+          </div>
+
           {/* Lista de Mensajes */}
           <div 
             ref={scrollRef}
-            className="flex-1 p-0.5 md:p-6 overflow-y-auto space-y-1 md:space-y-1.5 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent"
+            className="flex-1 p-0.5 md:p-6 overflow-y-auto space-y-1 md:space-y-1.5 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent relative z-10"
           >
             {messages.map((msg, index) => {
               const isLast = index === messages.length - 1;
@@ -645,6 +813,248 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           </form>
         </div>
       </div>
+
+      {/* Modal de Cambio de Outfit Manual */}
+      {showOutfitModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-lg overflow-hidden glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+            {/* Adornos de fondo */}
+            <div className="absolute -top-10 -left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
+            
+            {/* Botón de cerrar */}
+            {!changingOutfit && (
+              <button 
+                onClick={() => { setShowOutfitModal(false); setOutfitPrompt(''); setOutfitError(''); }}
+                className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {changingOutfit ? (
+              <div className="py-8 flex flex-col items-center justify-center space-y-6">
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                  <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <Shirt className="w-8 h-8 text-primary animate-pulse" />
+                  <Sparkles className="w-4 h-4 text-amber-400 absolute top-0 right-0 animate-bounce" />
+                </div>
+                <div className="space-y-2">
+                  <h4 className="text-xl font-bold text-white tracking-wide">
+                    Diseñando nueva ropa...
+                  </h4>
+                  <p className="text-sm text-white/60 max-w-xs mx-auto animate-pulse">
+                    Nuestra modista de IA está confeccionando el look. Esto tomará unos segundos.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleOutfitChange} className="space-y-6">
+                {/* Icono de percha */}
+                <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto border border-primary/30">
+                  <Shirt className="w-8 h-8 text-primary" />
+                </div>
+
+                {/* Título */}
+                <div className="space-y-1">
+                  <h3 className="text-2xl font-bold text-white tracking-tight">
+                    Cambiar Look de {avatar.name}
+                  </h3>
+                  <p className="text-white/60 text-xs md:text-sm">
+                    Personaliza la ropa de tu avatar. Cada cambio cuesta <span className="text-amber-400 font-semibold">10 monedas</span>.
+                  </p>
+                </div>
+
+                {/* Saldo de monedas actual en el modal */}
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl text-xs md:text-sm">
+                  <span className="text-white/60">Tu saldo actual:</span>
+                  <div className="flex items-center gap-1 font-bold">
+                    <span className="gold-gradient">{coins}</span>
+                    <span className="text-amber-400">🪙</span>
+                  </div>
+                </div>
+
+                {coins < 10 ? (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 space-y-4 text-center">
+                    <p className="text-xs text-destructive-foreground font-semibold leading-relaxed">
+                      No tienes suficientes monedas para realizar esta acción (Costo: 10 🪙).
+                    </p>
+                    <a
+                      href="/dashboard/billing"
+                      className="premium-button inline-flex w-full py-3 rounded-xl font-bold text-xs justify-center items-center gap-2 shadow-lg"
+                    >
+                      Obtener monedas / Plan Pro <Zap className="w-4 h-4 text-black fill-current" />
+                    </a>
+                  </div>
+                ) : (
+                  <div className="space-y-4 text-left">
+                    <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
+                      ¿Qué ropa quieres que use?
+                    </label>
+                    <textarea
+                      value={outfitPrompt}
+                      onChange={(e) => setOutfitPrompt(e.target.value)}
+                      placeholder="Ej. Un vestido largo de gala rojo, un bikini deportivo en la playa, ropa casual con jeans y polera blanca..."
+                      required
+                      rows={3}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/40 text-sm text-white resize-none"
+                    />
+
+                    {/* Ejemplos de prompts rápidos */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] text-white/50 font-semibold uppercase tracking-wider ml-1">Sugerencias rápidas:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          'Un vestido elegante de noche negro',
+                          'Traje de baño de dos piezas en la piscina',
+                          'Ropa deportiva ajustada en el gimnasio',
+                          'Outfit casual de primavera con jeans y blusa'
+                        ].map((suggestion, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setOutfitPrompt(suggestion)}
+                            className="text-[11px] text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg px-2.5 py-1.5 transition-colors cursor-pointer"
+                          >
+                            {suggestion}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {outfitError && (
+                  <p className="text-xs text-destructive font-semibold text-center animate-pulse">
+                    {outfitError}
+                  </p>
+                )}
+
+                {/* Botones de acción */}
+                <div className="flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => { setShowOutfitModal(false); setOutfitPrompt(''); setOutfitError(''); }}
+                    className="flex-1 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-colors text-sm font-semibold cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  {coins >= 10 && (
+                    <button 
+                      type="submit"
+                      disabled={!outfitPrompt.trim() || changingOutfit}
+                      className="flex-1 premium-button py-3.5 rounded-xl text-primary-foreground font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:scale-100"
+                    >
+                      Cambiar Outfit (-10 🪙)
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal del Vestuario (Galería) */}
+      {showWardrobeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden glass-morphism rounded-3xl border border-primary/30 shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+            {/* Header del modal */}
+            <div className="flex-shrink-0 p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <ImageIcon className="w-6 h-6 text-primary" />
+                  Vestuario de {avatar.name}
+                </h3>
+                <p className="text-white/60 text-sm mt-1">
+                  Tu colección privada de outfits generados.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowWardrobeModal(false)}
+                className="p-2 text-muted-foreground hover:text-white transition-colors cursor-pointer bg-white/5 rounded-full hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido desplazable */}
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+              {loadingWardrobe ? (
+                <div className="flex flex-col items-center justify-center h-full space-y-4">
+                  <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+                  <p className="text-white/60 text-sm font-medium animate-pulse">Abriendo el armario...</p>
+                </div>
+              ) : wardrobeImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full space-y-4 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+                    <Shirt className="w-8 h-8 text-white/30" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold">El vestuario está vacío</h4>
+                    <p className="text-white/50 text-sm max-w-sm mt-1">Aún no has generado nuevos looks para este avatar. Usa el botón de la percha para crear uno nuevo.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {wardrobeImages.map((img) => (
+                    <div 
+                      key={img.id} 
+                      className="group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-white/10 hover:border-primary/50 transition-all duration-300"
+                      onClick={() => setFullScreenImage(img.image_url)}
+                    >
+                      <img 
+                        src={img.image_url} 
+                        alt="Outfit" 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
+                        <p className="text-xs text-white/90 line-clamp-3 font-medium">{img.prompt}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Imagen a Pantalla Completa */}
+      {fullScreenImage && (
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out"
+          onClick={() => setFullScreenImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70]"
+            onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          
+          <img 
+            src={fullScreenImage} 
+            alt="Outfit Full Screen" 
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+            onClick={(e) => e.stopPropagation()} // Prevent click from closing
+          />
+
+          <div className="absolute bottom-6 inset-x-0 flex justify-center z-[70]">
+            <a 
+              href={fullScreenImage} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              download
+              onClick={(e) => e.stopPropagation()}
+              className="premium-button py-3 px-6 rounded-xl font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-transform flex items-center gap-2"
+            >
+              Descargar Imagen
+            </a>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Confirmación de Limpieza de Chat */}
       {showClearModal && (

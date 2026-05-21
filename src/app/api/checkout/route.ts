@@ -62,8 +62,27 @@ export async function POST(req: Request) {
           plan_type: planType,
           expires_at: expiresAt.toISOString()
         });
-        
-        console.log(`[SIMULADOR] Suscripción actualizada a ${planType} para el usuario ${user.email}`);
+
+        // Determinar cantidad de monedas a otorgar
+        const planNameLower = planName.toLowerCase();
+        let coinsToAward = 10; // Diario por defecto
+        if (planNameLower.includes('semanal')) {
+          coinsToAward = 40;
+        } else if (planNameLower.includes('mensual') || planNameLower.includes('pro')) {
+          coinsToAward = 150;
+        }
+
+        // Acreditar las monedas usando la función atómica RPC add_coins
+        const { data: newCoins, error: rpcError } = await adminClient.rpc('add_coins', {
+          user_id_param: user.id,
+          amount: coinsToAward
+        });
+
+        if (rpcError) {
+          console.error(`[SIMULADOR] Error al acreditar ${coinsToAward} monedas al usuario ${user.id}:`, rpcError);
+        } else {
+          console.log(`[SIMULADOR] Suscripción actualizada a ${planType} para el usuario ${user.email}. Se acreditaron +${coinsToAward} monedas. Nuevo saldo: ${newCoins}`);
+        }
       }
 
       // Simulamos un retraso de red
