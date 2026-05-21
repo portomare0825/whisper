@@ -120,8 +120,19 @@ export async function POST(req: Request) {
     // Este código se ejecutará cuando pongas tus llaves reales en el .env
     const origin = req.headers.get('origin') || 'http://localhost:3000';
     
-    // Aquí deberías crear un Cliente en Stripe o buscarlo en tu Base de Datos
-    // const customerId = ...
+    // Obtenemos al usuario para asociarlo al pago
+    const cookieStore = await cookies();
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll() {},
+        },
+      }
+    );
+    const { data: { user } } = await supabase.auth.getUser();
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -131,10 +142,14 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      mode: 'subscription', // Cambiar a 'payment' si es pago único
+      mode: isCoinPackage ? 'payment' : 'subscription', 
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout/cancel`,
-      // customer: customerId, // (Opcional) Asocia el pago a un usuario
+      metadata: {
+        userId: user?.id || '',
+        planName,
+        isCoinPackage: isCoinPackage ? 'true' : 'false'
+      }
     });
 
     return NextResponse.json({ url: session.url, isSimulated: false });

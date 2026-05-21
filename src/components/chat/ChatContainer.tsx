@@ -1143,9 +1143,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
             <div className="space-y-3">
               {[
-                { coins: 10, price: '$1.99', name: 'Pack Básico', id: 'price_coin_10' },
-                { coins: 50, price: '$4.99', name: 'Pack Popular', id: 'price_coin_50', popular: true },
-                { coins: 200, price: '$14.99', name: 'Pack Premium', id: 'price_coin_200' },
+                { coins: 10, price: '$1.99', name: 'Pack Básico', id: 'price_1TZYg4PsyuC6LQ5cEvhUjN8g' },
+                { coins: 50, price: '$4.99', name: 'Pack Popular', id: 'price_1TZYghPsyuC6LQ5cwHb8S25N', popular: true },
+                { coins: 200, price: '$14.99', name: 'Pack Premium', id: 'price_1TZYhgPsyuC6LQ5c72PW9xhG' },
               ].map((pack) => (
                 <button
                   key={pack.coins}

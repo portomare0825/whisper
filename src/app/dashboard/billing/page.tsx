@@ -7,6 +7,7 @@ const plans = [
   {
     name: 'Gratuito',
     price: '0',
+    priceId: '',
     period: 'siempre',
     description: 'Para probar la experiencia básica.',
     features: [
@@ -22,6 +23,7 @@ const plans = [
   {
     name: 'Pase Diario',
     price: '3',
+    priceId: 'price_1TZYTdPsyuC6LQ5c8N6CEEUa',
     period: 'día',
     description: 'Acceso total de prueba intensiva.',
     features: [
@@ -37,6 +39,7 @@ const plans = [
   {
     name: 'Pase Semanal',
     price: '8',
+    priceId: 'price_1TZYYBPsyuC6LQ5ceuvzhvCp',
     period: 'semana',
     description: 'La opción flexible favorita.',
     features: [
@@ -54,6 +57,7 @@ const plans = [
   {
     name: 'Mensual Pro',
     price: '25',
+    priceId: 'price_1TZYanPsyuC6LQ5cLuX82gqT',
     period: 'mes',
     description: 'El compañero perfecto a largo plazo.',
     features: [
@@ -71,12 +75,14 @@ const plans = [
 ];
 
 export default function BillingPage() {
-  const handleCheckout = async (planName: string) => {
+  const handleCheckout = async (planName: string, priceId: string) => {
+    if (!priceId) return; // Plan gratuito
+
     try {
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId: 'fake_price_id', planName }),
+        body: JSON.stringify({ priceId, planName }),
       });
 
       const { url, error, isSimulated } = await response.json();
@@ -146,7 +152,7 @@ export default function BillingPage() {
             </div>
 
             <button
-              onClick={() => handleCheckout(plan.name)}
+              onClick={() => handleCheckout(plan.name, plan.priceId)}
               className={cn(
                 "w-full py-4 rounded-xl font-bold transition-all",
                 plan.premium 
