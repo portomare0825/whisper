@@ -75,9 +75,9 @@ Deno.serve(async (req: Request) => {
       const outfitDescription = outfitMatch[1].trim();
       assistantContent = assistantContent.replace(/<outfit_change>.*?<\/outfit_change>/s, '').trim();
 
-      // Llamada a PixelAPI (Leffa)
+      // Llamada a PixelAPI (FireRed-Edit) con polling
       try {
-        const pixelResponse = await fetch("https://api.pixelapi.dev/v1/leffa", {
+        const submitResponse = await fetch("https://api.pixelapi.dev/v1/image/edit", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${PIXELAPI_KEY}`,
@@ -86,14 +86,47 @@ Deno.serve(async (req: Request) => {
           body: JSON.stringify({
             "image": avatar.base_image_url,
             "prompt": outfitDescription,
-            "negative_prompt": "nude, naked, explicit, blur, low quality",
+            "negative_prompt": "nude, naked, explicit, blur, low quality, distorted",
           })
         });
 
-        if (pixelResponse.ok) {
-          const pixelResult = await pixelResponse.json();
-          newImageUrl = pixelResult.image_url;
-          
+        if (submitResponse.ok) {
+          const submitResult = await submitResponse.json();
+          const generationId = submitResult.id;
+
+          if (generationId) {
+            let status = submitResult.status;
+            let attempts = 0;
+            const maxAttempts = 30; // 60 segundos máx. (30 * 2s)
+
+            while ((status === 'queued' || status === 'processing') && attempts < maxAttempts) {
+              await new Promise((resolve) => setTimeout(resolve, 2000));
+              attempts++;
+
+              const pollResponse = await fetch(`https://api.pixelapi.dev/v1/image/${generationId}`, {
+                headers: {
+                  "Authorization": `Bearer ${PIXELAPI_KEY}`,
+                }
+              });
+
+              if (pollResponse.ok) {
+                const pollResult = await pollResponse.json();
+                status = pollResult.status;
+                if (status === 'completed') {
+                  newImageUrl = pollResult.output_url;
+                  break;
+                } else if (status === 'failed') {
+                  console.error('La generación de PixelAPI falló:', pollResult.error_message);
+                  break;
+                }
+              } else {
+                console.error(`Error al consultar estado de PixelAPI (status ${pollResponse.status})`);
+              }
+            }
+          }
+        }
+
+        if (newImageUrl) {
           // Actualizar imagen en la conversación
           await supabase
             .from('conversations')

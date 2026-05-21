@@ -89,10 +89,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'PixelAPI no configurada en el servidor' }, { status: 500 });
     }
 
-    // 7. Llamar a PixelAPI (Leffa)
+    // 7. Llamar a PixelAPI (FireRed-Edit) con polling
     let newImageUrl = null;
     try {
-      const pixelResponse = await fetch("https://api.pixelapi.dev/v1/leffa", {
+      const submitResponse = await fetch("https://api.pixelapi.dev/v1/image/edit", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${PIXELAPI_KEY}`,
@@ -105,16 +105,49 @@ export async function POST(req: Request) {
         })
       });
 
-      if (!pixelResponse.ok) {
-        const errText = await pixelResponse.text();
-        throw new Error(`PixelAPI respondió con status ${pixelResponse.status}: ${errText}`);
+      if (!submitResponse.ok) {
+        const errText = await submitResponse.text();
+        throw new Error(`PixelAPI respondió con status ${submitResponse.status}: ${errText}`);
       }
 
-      const pixelResult = await pixelResponse.json();
-      newImageUrl = pixelResult.image_url;
+      const submitResult = await submitResponse.json();
+      const generationId = submitResult.id;
 
-      if (!newImageUrl) {
-        throw new Error('PixelAPI no devolvió una URL de imagen válida');
+      if (!generationId) {
+        throw new Error('PixelAPI no devolvió un ID de generación válido');
+      }
+
+      // Polling para esperar la finalización del trabajo
+      let status = submitResult.status;
+      let attempts = 0;
+      const maxAttempts = 30; // 60 segundos máx. (30 * 2s)
+
+      while ((status === 'queued' || status === 'processing') && attempts < maxAttempts) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        attempts++;
+
+        const pollResponse = await fetch(`https://api.pixelapi.dev/v1/image/${generationId}`, {
+          headers: {
+            "Authorization": `Bearer ${PIXELAPI_KEY}`,
+          }
+        });
+
+        if (pollResponse.ok) {
+          const pollResult = await pollResponse.json();
+          status = pollResult.status;
+          if (status === 'completed') {
+            newImageUrl = pollResult.output_url;
+            break;
+          } else if (status === 'failed') {
+            throw new Error(`La generación de PixelAPI falló: ${pollResult.error_message || 'Error desconocido'}`);
+          }
+        } else {
+          console.error(`Error al consultar estado de PixelAPI (status ${pollResponse.status})`);
+        }
+      }
+
+      if (status !== 'completed' || !newImageUrl) {
+        throw new Error(`La generación de la imagen expiró o falló (estado final: ${status})`);
       }
     } catch (err: any) {
       console.error('PixelAPI Error:', err);
