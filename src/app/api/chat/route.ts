@@ -308,14 +308,28 @@ Si el contexto sugiere un cambio de apariencia, incluye al final de tu respuesta
 
     // 4. Procesar cambio de vestimenta (si existe)
     let newImageUrl = null;
+    let outfitDescription = null;
 
-    // Buscamos coincidencia bien formateada
-    const outfitMatch = assistantContent.match(/<outfit_change>([\s\S]*?)<\/outfit_change>/i);
+    // Regex flexible para tags HTML que incluye separadores opcionales antes de clothing
+    const tagRegex = /<\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>([\s\S]*?)<\s*\/\s*\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>/i;
+    const tagMatch = assistantContent.match(tagRegex);
+
+    if (tagMatch) {
+      outfitDescription = tagMatch[1].trim();
+    } else {
+      // Buscar formatos alternativos
+      const altMatch1 = assistantContent.match(/\((?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\)/i);
+      const altMatch2 = assistantContent.match(/\[(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\]/i);
+      const altMatch3 = assistantContent.match(/=(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)(?:>|\))/i);
+      
+      if (altMatch1) outfitDescription = altMatch1[1].trim();
+      else if (altMatch2) outfitDescription = altMatch2[1].trim();
+      else if (altMatch3) outfitDescription = altMatch3[1].trim();
+    }
+
     const PIXELAPI_KEY = process.env.PIXELAPI_KEY;
 
-    if (outfitMatch && PIXELAPI_KEY && PIXELAPI_KEY !== 'your_pixelapi_key_here') {
-      const outfitDescription = outfitMatch[1].trim();
-
+    if (outfitDescription && PIXELAPI_KEY && PIXELAPI_KEY !== 'your_pixelapi_key_here') {
       // Llamada a PixelAPI (Leffa)
       try {
         const pixelResponse = await fetch("https://api.pixelapi.dev/v1/leffa", {
@@ -346,13 +360,20 @@ Si el contexto sugiere un cambio de apariencia, incluye al final de tu respuesta
       }
     }
 
-    // Limpieza robusta del contenido del asistente para eliminar etiquetas <outfit_change>
-    // 1. Removemos la versión completa bien cerrada
-    assistantContent = assistantContent.replace(/<outfit_change>([\s\S]*?)<\/outfit_change>/gi, '');
-    // 2. Por si el LLM dejó una etiqueta sin cerrar al final del mensaje (por ejemplo: <outfit_change> descripción...)
-    assistantContent = assistantContent.replace(/<outfit_change>[\s\S]*/gi, '');
-    // 3. Removemos cualquier etiqueta huérfana residual
-    assistantContent = assistantContent.replace(/<\/?outfit_change>/gi, '');
+    // Limpieza robusta del contenido del asistente para eliminar etiquetas de cambio de look
+    // 1. Removemos la versión completa bien cerrada con cualquier variación
+    assistantContent = assistantContent.replace(/<\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>([\s\S]*?)<\s*\/\s*\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>/gi, '');
+    
+    // 2. Removemos los formatos alternativos
+    assistantContent = assistantContent.replace(/\((?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\)/gi, '');
+    assistantContent = assistantContent.replace(/\[(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\]/gi, '');
+    assistantContent = assistantContent.replace(/=(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)(?:>|\))/gi, '');
+    
+    // 3. Por si el LLM dejó una etiqueta sin cerrar al final del mensaje (por ejemplo: <outfit-change> descripción...)
+    assistantContent = assistantContent.replace(/<\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?[\s\S]*/gi, '');
+    
+    // 4. Removemos cualquier etiqueta huérfana residual (apertura o cierre)
+    assistantContent = assistantContent.replace(/<\s*\/?\s*\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>/gi, '');
     assistantContent = assistantContent.trim();
 
     // 5. Guardar mensaje del AI
