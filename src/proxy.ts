@@ -53,6 +53,10 @@ export async function proxy(request: NextRequest) {
   // Si el usuario no está autenticado
   if (!user) {
     // 1. Rutas de API internas: Retornar error JSON 401 Unauthorized
+    // EXCEPCIÓN: El webhook de Stripe se llama desde un servidor externo sin sesión
+    if (pathname.startsWith('/api/webhook')) {
+      return NextResponse.next()
+    }
     if (pathname.startsWith('/api')) {
       return NextResponse.json(
         { error: 'No autorizado. Por favor inicia sesión.' },
