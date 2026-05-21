@@ -42,6 +42,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
   const [loadingWardrobe, setLoadingWardrobe] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+  
+  // Estado para la compra de monedas
+  const [showBuyCoinsModal, setShowBuyCoinsModal] = useState(false);
+  const [processingCoinPurchase, setProcessingCoinPurchase] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -188,6 +192,30 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
     return () => { supabase.removeChannel(channel); };
   }, [conversation.user_id]);
+
+  const handleBuyCoins = async (planName: string, priceId: string) => {
+    setProcessingCoinPurchase(true);
+    try {
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          priceId, 
+          planName,
+          isCoinPackage: true
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    } catch (err: any) {
+      alert(`Error iniciando pago: ${err.message}`);
+    } finally {
+      setProcessingCoinPurchase(false);
+    }
+  };
 
   const handleOpenWardrobe = async () => {
     setShowWardrobeModal(true);
@@ -577,10 +605,15 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         
         <div className="flex items-center gap-1.5 md:gap-3">
           {/* Monedas del usuario */}
-          <div className="flex items-center gap-1 bg-white/5 border border-white/10 px-2.5 md:px-3 py-1.5 rounded-xl text-xs md:text-sm text-white/90">
+          <button 
+            type="button"
+            onClick={() => setShowBuyCoinsModal(true)}
+            title="Comprar más monedas"
+            className="flex items-center gap-1 bg-white/5 hover:bg-white/10 transition-colors border border-white/10 px-2.5 md:px-3 py-1.5 rounded-xl text-xs md:text-sm text-white/90 cursor-pointer"
+          >
             <span className="gold-gradient font-bold">{loadingCoins ? '...' : coins}</span>
             <span className="text-amber-400 font-bold">🪙</span>
-          </div>
+          </button>
 
           {/* Botón de cambio de outfit para móvil (oculto en lg) */}
           <button
@@ -663,9 +696,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             <img 
               src={currentImage} 
               alt="Background Avatar" 
-              className="w-full h-full object-cover opacity-30 object-top"
+              className="w-full h-full object-cover opacity-60 object-top"
             />
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/80 to-black" />
+            {/* Gradiente más suave para que el avatar se vea pero los textos sigan siendo legibles */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/90" />
           </div>
 
           {/* Lista de Mensajes */}
@@ -957,8 +991,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
       {/* Modal del Vestuario (Galería) */}
       {showWardrobeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden glass-morphism rounded-3xl border border-primary/30 shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-300">
+          <div className="relative w-full h-[100dvh] md:h-[85vh] max-w-4xl flex flex-col overflow-hidden glass-morphism rounded-none md:rounded-3xl border-0 md:border border-primary/30 shadow-none md:shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
             {/* Header del modal */}
             <div className="flex-shrink-0 p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-between">
               <div>
@@ -1059,41 +1093,96 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       {/* Modal de Confirmación de Limpieza de Chat */}
       {showClearModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-md overflow-hidden glass-morphism rounded-3xl border border-white/10 p-8 text-center shadow-2xl animate-in scale-in duration-300">
+          <div className="bg-popover border border-white/10 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative">
             <button 
               onClick={() => setShowClearModal(false)}
-              className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors"
+              className="absolute top-4 right-4 text-white/50 hover:text-white"
             >
               <X className="w-5 h-5" />
             </button>
-
-            <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-white/10">
-              <RotateCcw className="w-8 h-8 text-primary animate-spin-slow" />
+            <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/10">
+              <RotateCcw className="w-8 h-8 text-white" />
             </div>
-
-            <h3 className="text-2xl font-bold text-white tracking-tight mb-3">
-              ¿Limpiar chat completo?
-            </h3>
-            
-            <p className="text-white/70 text-sm leading-relaxed mb-8">
-              Esto borrará de forma permanente **todos los mensajes** del historial y restablecerá la apariencia base original del avatar. Esta acción no se puede deshacer.
+            <h3 className="text-2xl font-bold text-center text-white mb-2">¿Limpiar Chat?</h3>
+            <p className="text-white/60 text-center mb-6">
+              Esta acción eliminará todos los mensajes de esta conversación y restaurará el outfit original de {avatar.name}. No podrás deshacerlo.
             </p>
-
             <div className="flex gap-3">
-              <button 
+              <button
                 onClick={() => setShowClearModal(false)}
-                className="flex-1 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-colors text-sm font-semibold"
+                className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium transition-colors"
               >
                 Cancelar
               </button>
-              <button 
+              <button
                 onClick={handleClearChat}
                 disabled={sending}
-                className="flex-1 premium-button py-3.5 rounded-xl text-primary-foreground font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-3 bg-white text-black hover:bg-white/90 rounded-xl font-bold transition-colors disabled:opacity-50"
               >
-                {sending ? 'Limpiando...' : 'Confirmar'}
+                {sending ? 'Limpiando...' : 'Sí, limpiar todo'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Compra de Monedas */}
+      {showBuyCoinsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="bg-popover border border-white/10 rounded-3xl p-6 max-w-md w-full shadow-2xl relative">
+            <button 
+              onClick={() => setShowBuyCoinsModal(false)}
+              className="absolute top-4 right-4 text-white/50 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <h3 className="text-2xl font-bold text-white mb-2 text-center">Tienda de Monedas</h3>
+            <p className="text-white/60 text-sm text-center mb-6">
+              Compra monedas para cambiar el outfit de tus avatares en cualquier momento.
+            </p>
+
+            <div className="space-y-3">
+              {[
+                { coins: 10, price: '$1.99', name: 'Pack Básico', id: 'price_coin_10' },
+                { coins: 50, price: '$4.99', name: 'Pack Popular', id: 'price_coin_50', popular: true },
+                { coins: 200, price: '$14.99', name: 'Pack Premium', id: 'price_coin_200' },
+              ].map((pack) => (
+                <button
+                  key={pack.coins}
+                  onClick={() => handleBuyCoins(pack.name, pack.id)}
+                  disabled={processingCoinPurchase}
+                  className={`w-full flex items-center justify-between p-4 rounded-2xl border transition-all cursor-pointer ${
+                    pack.popular 
+                      ? 'border-primary bg-primary/10 hover:bg-primary/20 shadow-[0_0_15px_rgba(212,175,55,0.15)]' 
+                      : 'border-white/10 bg-white/5 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-black/40 flex items-center justify-center text-xl">
+                      🪙
+                    </div>
+                    <div className="text-left">
+                      <div className="font-bold text-white flex items-center gap-2">
+                        {pack.coins} Monedas
+                        {pack.popular && (
+                          <span className="text-[10px] uppercase bg-primary text-black px-2 py-0.5 rounded-full font-bold">
+                            Popular
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-white/50">{pack.name}</div>
+                    </div>
+                  </div>
+                  <div className="font-bold text-lg">{pack.price}</div>
+                </button>
+              ))}
+            </div>
+            
+            {processingCoinPurchase && (
+              <p className="text-center text-primary text-sm mt-4 animate-pulse">
+                Procesando pago...
+              </p>
+            )}
           </div>
         </div>
       )}

@@ -13,11 +13,11 @@ const stripe = new Stripe(stripeSecretKey, {
 
 export async function POST(req: Request) {
   try {
-    const { priceId, planName } = await req.json();
+    const { priceId, planName, isCoinPackage } = await req.json();
 
     // Si no tienes configurada la llave real (o si usa la falsa del simulador), activamos el modo simulador
     if (!process.env.STRIPE_SECRET_KEY || stripeSecretKey.includes('FakeKey')) {
-      console.log(`[SIMULADOR] Petición de pago interceptada para plan: ${planName}`);
+      console.log(`[SIMULADOR] Petición de pago interceptada para: ${planName}`);
       
       // Obtenemos al usuario para actualizar su suscripción
       const cookieStore = await cookies();
@@ -41,47 +41,67 @@ export async function POST(req: Request) {
           process.env.SUPABASE_SERVICE_ROLE_KEY!
         );
         
-        await adminClient.from('subscriptions').delete().eq('user_id', user.id);
-        
-        // Asignamos Pro o Pay per use (los pases temporales)
-        const planType = planName.toLowerCase().includes('pase') ? 'pay_per_use' : 'pro';
-        
-        // Expiración: Si es diario, +1 día. Si es semanal, +7 días. Si es Mensual, +30 días
-        const expiresAt = new Date();
-        if (planName.toLowerCase().includes('diario')) {
-          expiresAt.setDate(expiresAt.getDate() + 1);
-        } else if (planName.toLowerCase().includes('semanal')) {
-          expiresAt.setDate(expiresAt.getDate() + 7);
+        if (isCoinPackage) {
+          // Lógica exclusiva para paquetes de monedas (sin tocar suscripción)
+          let coinsToAward = 10;
+          if (planName.includes('Básico')) coinsToAward = 10;
+          else if (planName.includes('Popular')) coinsToAward = 50;
+          else if (planName.includes('Premium')) coinsToAward = 200;
+
+          const { data: newCoins, error: rpcError } = await adminClient.rpc('add_coins', {
+            user_id_param: user.id,
+            amount: coinsToAward
+          });
+
+          if (rpcError) {
+            console.error(`[SIMULADOR] Error al acreditar ${coinsToAward} monedas al usuario ${user.id}:`, rpcError);
+          } else {
+            console.log(`[SIMULADOR] Compra de monedas exitosa. Se acreditaron +${coinsToAward} monedas al usuario ${user.email}. Nuevo saldo: ${newCoins}`);
+          }
         } else {
-          expiresAt.setDate(expiresAt.getDate() + 30);
-        }
+          // Lógica para compra/actualización de suscripción de planes
+          await adminClient.from('subscriptions').delete().eq('user_id', user.id);
+          
+          // Asignamos Pro o Pay per use (los pases temporales)
+          const planType = planName.toLowerCase().includes('pase') ? 'pay_per_use' : 'pro';
+          
+          // Expiración: Si es diario, +1 día. Si es semanal, +7 días. Si es Mensual, +30 días
+          const expiresAt = new Date();
+          if (planName.toLowerCase().includes('diario')) {
+            expiresAt.setDate(expiresAt.getDate() + 1);
+          } else if (planName.toLowerCase().includes('semanal')) {
+            expiresAt.setDate(expiresAt.getDate() + 7);
+          } else {
+            expiresAt.setDate(expiresAt.getDate() + 30);
+          }
 
-        await adminClient.from('subscriptions').insert({
-          user_id: user.id,
-          status: 'active',
-          plan_type: planType,
-          expires_at: expiresAt.toISOString()
-        });
+          await adminClient.from('subscriptions').insert({
+            user_id: user.id,
+            status: 'active',
+            plan_type: planType,
+            expires_at: expiresAt.toISOString()
+          });
 
-        // Determinar cantidad de monedas a otorgar
-        const planNameLower = planName.toLowerCase();
-        let coinsToAward = 10; // Diario por defecto
-        if (planNameLower.includes('semanal')) {
-          coinsToAward = 40;
-        } else if (planNameLower.includes('mensual') || planNameLower.includes('pro')) {
-          coinsToAward = 150;
-        }
+          // Determinar cantidad de monedas a otorgar por comprar el plan
+          const planNameLower = planName.toLowerCase();
+          let coinsToAward = 10; // Diario por defecto
+          if (planNameLower.includes('semanal')) {
+            coinsToAward = 40;
+          } else if (planNameLower.includes('mensual') || planNameLower.includes('pro')) {
+            coinsToAward = 150;
+          }
 
-        // Acreditar las monedas usando la función atómica RPC add_coins
-        const { data: newCoins, error: rpcError } = await adminClient.rpc('add_coins', {
-          user_id_param: user.id,
-          amount: coinsToAward
-        });
+          // Acreditar las monedas usando la función atómica RPC add_coins
+          const { data: newCoins, error: rpcError } = await adminClient.rpc('add_coins', {
+            user_id_param: user.id,
+            amount: coinsToAward
+          });
 
-        if (rpcError) {
-          console.error(`[SIMULADOR] Error al acreditar ${coinsToAward} monedas al usuario ${user.id}:`, rpcError);
-        } else {
-          console.log(`[SIMULADOR] Suscripción actualizada a ${planType} para el usuario ${user.email}. Se acreditaron +${coinsToAward} monedas. Nuevo saldo: ${newCoins}`);
+          if (rpcError) {
+            console.error(`[SIMULADOR] Error al acreditar ${coinsToAward} monedas al usuario ${user.id}:`, rpcError);
+          } else {
+            console.log(`[SIMULADOR] Suscripción actualizada a ${planType} para el usuario ${user.email}. Se acreditaron +${coinsToAward} monedas. Nuevo saldo: ${newCoins}`);
+          }
         }
       }
 
