@@ -2,15 +2,16 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
 
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY!;
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
-
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2026-04-22.dahlia' as any,
-});
-
 export async function POST(req: Request) {
   try {
+    // Inicializamos Stripe DENTRO del handler para evitar crashes en el build de Vercel
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY || 'sk_test_51FakeKeyForSimulationOnly123456789';
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || '';
+
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: '2026-04-22.dahlia' as any,
+    });
+
     const body = await req.text();
     const signature = req.headers.get('stripe-signature');
 
