@@ -45,7 +45,20 @@ export default async function SettingsPage() {
     isPremium,
     planType,
     expiresAt,
+    coins: 0,
   };
+
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('coins')
+      .eq('id', user.id)
+      .maybeSingle();
+      
+    if (profile) {
+      userData.coins = profile.coins;
+    }
+  }
 
   return (
     <div className="space-y-8">

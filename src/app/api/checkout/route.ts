@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     const { priceId, planName, isCoinPackage } = await req.json();
 
     // Si no tienes configurada la llave real (o si usa la falsa del simulador), activamos el modo simulador
-    if (!process.env.STRIPE_SECRET_KEY || stripeSecretKey.includes('FakeKey')) {
+    if (!process.env.STRIPE_SECRET_KEY || stripeSecretKey.includes('FakeKey') || stripeSecretKey.includes('simulador')) {
       console.log(`[SIMULADOR] Petición de pago interceptada para: ${planName}`);
       
       // Obtenemos al usuario para actualizar su suscripción

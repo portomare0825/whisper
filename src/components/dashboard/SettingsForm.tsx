@@ -14,6 +14,7 @@ interface SettingsFormProps {
     isPremium: boolean;
     planType?: string;
     expiresAt?: string | null;
+    coins?: number;
   };
 }
 
@@ -145,6 +146,16 @@ export default function SettingsForm({ initialUser }: SettingsFormProps) {
                   day: 'numeric'
                 }) : ''}
               </p>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold block mb-1">
+                Monedas Disponibles
+              </label>
+              <div className="flex items-center gap-2 px-1">
+                <span className="text-xl font-bold gold-gradient">{initialUser.coins || 0}</span>
+                <span className="text-xl">🪙</span>
+              </div>
             </div>
           </div>
         </div>
