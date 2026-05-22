@@ -154,13 +154,15 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     try {
       setSending(true);
 
-      // 1. Eliminar de Supabase (tabla outfit_history)
-      const { error } = await supabase
-        .from('outfit_history')
-        .delete()
-        .eq('id', imageId);
-        
-      if (error) throw error;
+      // 1. Eliminar de Supabase llamando al API route (para saltar RLS si es necesario)
+      const response = await fetch('/api/outfit/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageId }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error al eliminar');
       
       // 2. Si la imagen borrada era la que estaba de fondo/avatar en el chat, restaurar a la imagen base
       if (currentImage === imageUrl) {
