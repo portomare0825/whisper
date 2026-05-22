@@ -1132,7 +1132,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           </div>
         </div>
         
-        <div className="flex items-center gap-1.5 md:gap-3">
+        <div className="flex items-center gap-1.5 md:gap-3 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
           {/* Monedas del usuario */}
           <button 
             type="button"
