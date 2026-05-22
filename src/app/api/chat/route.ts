@@ -343,6 +343,11 @@ function parsePixelAPIError(status: number, errText: string): string {
     if (parsed.error_message) return parsed.error_message;
     if (parsed.message) return parsed.message;
   } catch (e) {}
+
+  if (status === 502 || status === 503) {
+    return `El proveedor de generación de imágenes está temporalmente saturado o en mantenimiento (Error ${status}). Por favor, intenta de nuevo en unos minutos. No se han descontado tus monedas.`;
+  }
+
   return `PixelAPI respondió con status ${status}: ${errText}`;
 }
 

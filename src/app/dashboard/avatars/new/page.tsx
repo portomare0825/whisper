@@ -19,6 +19,10 @@ export default function NewAvatarPage() {
     system_prompt: '',
     gender: 'female', // default to female
     physical_description: '',
+    face_box_x: 198,
+    face_box_y: 120,
+    face_box_width: 180,
+    face_box_height: 240,
   });
   const [file, setFile] = useState<File | null>(null);
   const [checkingLimit, setCheckingLimit] = useState(true);
@@ -104,7 +108,11 @@ export default function NewAvatarPage() {
             name: data.name || prev.name,
             personality: data.personality || prev.personality,
             physical_description: data.physical_description || data.description || prev.physical_description,
-            system_prompt: data.system_prompt || prev.system_prompt
+            system_prompt: data.system_prompt || prev.system_prompt,
+            face_box_x: data.face_box_x !== undefined ? data.face_box_x : prev.face_box_x,
+            face_box_y: data.face_box_y !== undefined ? data.face_box_y : prev.face_box_y,
+            face_box_width: data.face_box_width !== undefined ? data.face_box_width : prev.face_box_width,
+            face_box_height: data.face_box_height !== undefined ? data.face_box_height : prev.face_box_height,
           }));
         } else {
           console.warn('Fallo en el endpoint de análisis de imagen');
@@ -176,7 +184,11 @@ export default function NewAvatarPage() {
         physical_description: formData.physical_description,
         base_image_url: publicUrl,
         current_image_url: publicUrl,
-        voice_settings: { gender: formData.gender }
+        voice_settings: { gender: formData.gender },
+        face_box_x: formData.face_box_x,
+        face_box_y: formData.face_box_y,
+        face_box_width: formData.face_box_width,
+        face_box_height: formData.face_box_height,
       });
 
       if (dbError) throw dbError;

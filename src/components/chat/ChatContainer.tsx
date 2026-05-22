@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { createClient } from '@/lib/supabase';
@@ -20,6 +20,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [currentImage, setCurrentImage] = useState(conversation.current_avatar_image_url || avatar.current_image_url || avatar.base_image_url);
+  // true solo cuando la imagen actual proviene de Fal.ai (relación 3:4) y necesita corrección de aspecto
+  const [isFalImage, setIsFalImage] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -40,6 +42,15 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   // Estado para la generación asíncrona de outfits
   const [pendingOutfitJob, setPendingOutfitJob] = useState<{ generation_id: string; prompt: string; is_free: boolean } | null>(null);
   
+  // Estados para el cambio de Pose y Expresión
+  const [showPoseModal, setShowPoseModal] = useState(false);
+  const [poseEmotion, setPoseEmotion] = useState<'smiling' | 'angry' | 'sad' | 'winking' | 'neutral'>('smiling');
+  const [poseLayout, setPoseLayout] = useState<'portrait' | 'medium' | 'full'>('medium');
+  const [changingPose, setChangingPose] = useState(false);
+  const [poseError, setPoseError] = useState('');
+  const [poseOutfitHint, setPoseOutfitHint] = useState('');
+  const [pendingPoseJob, setPendingPoseJob] = useState<{ generation_id: string; emotion: string; pose: string; is_free: boolean } | null>(null);
+  
   // Estados para el Vestuario (Galería)
   const [showWardrobeModal, setShowWardrobeModal] = useState(false);
   const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
@@ -49,6 +60,143 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   // Estado para la compra de monedas
   const [showBuyCoinsModal, setShowBuyCoinsModal] = useState(false);
   const [processingCoinPurchase, setProcessingCoinPurchase] = useState(false);
+
+  // Estados para ocultar/mostrar avatar y restauración de imagen
+  const [showAvatarInChat, setShowAvatarInChat] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`show-avatar-${conversation.id}`);
+      return saved !== null ? saved === 'true' : true;
+    }
+    return true;
+  });
+  const [resettingImage, setResettingImage] = useState(false);
+
+  const toggleShowAvatar = () => {
+    setShowAvatarInChat(prev => {
+      const next = !prev;
+      localStorage.setItem(`show-avatar-${conversation.id}`, String(next));
+      return next;
+    });
+  };
+
+  const handleResetAvatarImage = async () => {
+    if (resettingImage || sending) return;
+    try {
+      setSending(true);
+      setResettingImage(true);
+
+      // 1. Restaurar imagen del avatar y conversación en Supabase
+      const { error: avatarError } = await supabase
+        .from('avatars')
+        .update({ current_image_url: avatar.base_image_url })
+        .eq('id', avatar.id);
+        
+      if (avatarError) throw avatarError;
+      
+      const { error: convoError } = await supabase
+        .from('conversations')
+        .update({ current_avatar_image_url: avatar.base_image_url })
+        .eq('id', conversation.id);
+        
+      if (convoError) throw convoError;
+      
+      // 2. Actualizar estados locales
+      setCurrentImage(avatar.base_image_url);
+      setIsFalImage(false);
+    } catch (err: any) {
+      console.error('Error al restaurar la imagen del avatar:', err);
+      alert(`No se pudo restaurar la imagen: ${err.message}`);
+    } finally {
+      setSending(false);
+      setResettingImage(false);
+    }
+  };
+
+  const handleSelectWardrobeImage = async (imageUrl: string) => {
+    if (sending) return;
+    try {
+      setSending(true);
+
+      // 1. Actualizar Supabase (avatar y conversación) con la nueva imagen del vestuario
+      const { error: avatarError } = await supabase
+        .from('avatars')
+        .update({ current_image_url: imageUrl })
+        .eq('id', avatar.id);
+        
+      if (avatarError) throw avatarError;
+      
+      const { error: convoError } = await supabase
+        .from('conversations')
+        .update({ current_avatar_image_url: imageUrl })
+        .eq('id', conversation.id);
+        
+      if (convoError) throw convoError;
+      
+      // 2. Actualizar estados locales para reflejar el cambio de inmediato
+      setCurrentImage(imageUrl);
+      setIsFalImage(true); // Las imágenes del vestuario provienen de Fal.ai y son 3:4
+      
+      // 3. Cerrar modales de manera limpia
+      setFullScreenImage(null);
+      setShowWardrobeModal(false);
+    } catch (err: any) {
+      console.error('Error al aplicar la imagen del vestuario:', err);
+      alert(`No se pudo aplicar la imagen: ${err.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDeleteWardrobeImage = async (imageId: string, imageUrl: string) => {
+    if (sending) return;
+    const confirmDelete = window.confirm('¿Estás seguro de que deseas eliminar este look definitivamente de tu vestuario?');
+    if (!confirmDelete) return;
+
+    try {
+      setSending(true);
+
+      // 1. Eliminar de Supabase (tabla outfit_history)
+      const { error } = await supabase
+        .from('outfit_history')
+        .delete()
+        .eq('id', imageId);
+        
+      if (error) throw error;
+      
+      // 2. Si la imagen borrada era la que estaba de fondo/avatar en el chat, restaurar a la imagen base
+      if (currentImage === imageUrl) {
+        const { error: avatarError } = await supabase
+          .from('avatars')
+          .update({ current_image_url: avatar.base_image_url })
+          .eq('id', avatar.id);
+          
+        if (avatarError) throw avatarError;
+        
+        const { error: convoError } = await supabase
+          .from('conversations')
+          .update({ current_avatar_image_url: avatar.base_image_url })
+          .eq('id', conversation.id);
+          
+        if (convoError) throw convoError;
+        
+        setCurrentImage(avatar.base_image_url);
+        setIsFalImage(false);
+      }
+      
+      // 3. Actualizar la lista local de la galería de vestuario
+      setWardrobeImages(prev => prev.filter(img => img.id !== imageId));
+      
+      // 4. Cerrar el zoom si la imagen que estaba abierta es la eliminada
+      if (fullScreenImage === imageUrl) {
+        setFullScreenImage(null);
+      }
+    } catch (err: any) {
+      console.error('Error al eliminar la imagen del vestuario:', err);
+      alert(`No se pudo eliminar la imagen: ${err.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
@@ -196,12 +344,13 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     return () => { supabase.removeChannel(channel); };
   }, [conversation.user_id]);
 
-  // Cargar job pendiente de localStorage al montar el componente
+  // Cargar jobs pendientes de localStorage al montar el componente
   useEffect(() => {
-    const savedJob = localStorage.getItem(`pending-outfit-${conversation.id}`);
-    if (savedJob) {
+    // 1. Cargar job de outfit
+    const savedOutfitJob = localStorage.getItem(`pending-outfit-${conversation.id}`);
+    if (savedOutfitJob) {
       try {
-        const parsed = JSON.parse(savedJob);
+        const parsed = JSON.parse(savedOutfitJob);
         setPendingOutfitJob(parsed);
         if (!parsed.is_free) {
           setChangingOutfit(true);
@@ -209,6 +358,21 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         }
       } catch (e) {
         console.error('Error al cargar job de outfit pendiente de localStorage:', e);
+      }
+    }
+
+    // 2. Cargar job de pose
+    const savedPoseJob = localStorage.getItem(`pending-pose-${conversation.id}`);
+    if (savedPoseJob) {
+      try {
+        const parsed = JSON.parse(savedPoseJob);
+        setPendingPoseJob(parsed);
+        if (!parsed.is_free) {
+          setChangingPose(true);
+          setShowPoseModal(true);
+        }
+      } catch (e) {
+        console.error('Error al cargar job de pose pendiente de localStorage:', e);
       }
     }
   }, [conversation.id]);
@@ -247,6 +411,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         if (data.status === 'completed' && data.new_image_url) {
           if (!isActive) return;
           setCurrentImage(data.new_image_url);
+          setIsFalImage(true); // La imagen viene de Fal.ai (3:4), activar corrección de aspecto
           if (data.new_coins_balance !== undefined && data.new_coins_balance !== null) {
             setCoins(data.new_coins_balance);
           }
@@ -295,6 +460,90 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       clearTimeout(timeoutId);
     };
   }, [pendingOutfitJob, conversation.id, avatar.id]);
+
+  // Polling para el job de pose pendiente
+  useEffect(() => {
+    if (!pendingPoseJob) return;
+
+    let isActive = true;
+    let attempts = 0;
+    const maxAttempts = 90; // Hasta 6 minutos (90 * 4s)
+    let timeoutId: any;
+
+    const checkStatus = async () => {
+      if (!isActive) return;
+      try {
+        const res = await fetch('/api/avatar/pose/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            generation_id: pendingPoseJob.generation_id,
+            conversation_id: conversation.id,
+            avatar_id: avatar.id,
+            emotion: pendingPoseJob.emotion,
+            pose: pendingPoseJob.pose,
+            is_free: pendingPoseJob.is_free
+          })
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          throw new Error(data.error || 'Error al verificar estado de la pose');
+        }
+
+        const data = await res.json();
+
+        if (data.status === 'completed' && data.new_image_url) {
+          if (!isActive) return;
+          setCurrentImage(data.new_image_url);
+          setIsFalImage(true); // La imagen viene de Fal.ai
+          if (data.new_coins_balance !== undefined && data.new_coins_balance !== null) {
+            setCoins(data.new_coins_balance);
+          }
+          
+          setPendingPoseJob(null);
+          localStorage.removeItem(`pending-pose-${conversation.id}`);
+          
+          setChangingPose(false);
+          setShowPoseModal(false);
+          setPoseError('');
+          return;
+        }
+
+        if (data.status === 'failed') {
+          throw new Error(data.error || 'La generación de pose falló en los servidores de IA.');
+        }
+
+        attempts++;
+        if (attempts >= maxAttempts) {
+          throw new Error('La generación de pose está tomando demasiado tiempo. Por favor, intenta de nuevo en unos momentos (no se han descontado monedas).');
+        }
+
+        timeoutId = setTimeout(checkStatus, 4000);
+      } catch (err: any) {
+        if (!isActive) return;
+        console.error('Error en polling de pose:', err);
+        
+        const isFatal = err.message.includes('insuficiente') || err.message.includes('falló') || err.message.includes('no encontrado') || err.message.includes('Parámetros');
+        
+        if (isFatal || attempts >= maxAttempts) {
+          setPoseError(err.message || 'Error al generar la pose.');
+          setPendingPoseJob(null);
+          localStorage.removeItem(`pending-pose-${conversation.id}`);
+          setChangingPose(false);
+        } else {
+          timeoutId = setTimeout(checkStatus, 5000);
+        }
+      }
+    };
+
+    timeoutId = setTimeout(checkStatus, 2000);
+
+    return () => {
+      isActive = false;
+      clearTimeout(timeoutId);
+    };
+  }, [pendingPoseJob, conversation.id, avatar.id]);
 
   const handleBuyCoins = async (planName: string, priceId: string) => {
     setProcessingCoinPurchase(true);
@@ -377,6 +626,152 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     } catch (err: any) {
       setOutfitError(err.message || 'Error al conectar con el servidor.');
       setChangingOutfit(false);
+    }
+  };
+
+  const handlePoseChange = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (changingPose) return;
+    
+    if (coins < 10) {
+      setPoseError('No tienes suficientes monedas para cambiar la pose.');
+      return;
+    }
+    
+    setChangingPose(true);
+    setPoseError('');
+    
+    try {
+      // ──────────────────────────────────────────────────────────────────────
+      // CORRECCIÓN CRÍTICA: Fal.ai requiere que la máscara tenga exactamente
+      // las mismas dimensiones que la imagen de entrada. Para garantizarlo,
+      // normalizamos AMBAS (imagen y máscara) a 576×1024 usando el canvas del
+      // navegador ANTES de enviar al servidor. Usamos canvases SEPARADOS.
+      // ──────────────────────────────────────────────────────────────────────
+      const TARGET_W = 576;
+      const TARGET_H = 1024;
+
+      // face_box en BD está definido en el espacio de referencia 576×1024
+      const faceX = (avatar as any).face_box_x ?? 198;
+      const faceY = (avatar as any).face_box_y ?? 120;
+      const faceW = (avatar as any).face_box_width ?? 180;
+      const faceH = (avatar as any).face_box_height ?? 240;
+
+      let maskBase64 = '';
+      let normalizedImageBase64 = '';
+
+      try {
+        // ── CANVAS 1: Normalizar la imagen base a 576×1024 (cover-fit) ──────
+        const imgElement = new window.Image();
+        imgElement.crossOrigin = 'anonymous';
+        await new Promise<void>((resolve, reject) => {
+          imgElement.onload = () => resolve();
+          // Si falla CORS, continuar sin imagen normalizada (usará URL original)
+          imgElement.onerror = () => resolve();
+          imgElement.src = avatar.base_image_url;
+        });
+
+        if (imgElement.naturalWidth > 0) {
+          const imgCanvas = document.createElement('canvas');
+          imgCanvas.width = TARGET_W;
+          imgCanvas.height = TARGET_H;
+          const imgCtx = imgCanvas.getContext('2d')!;
+
+          // Cover-fit: escala y recorta centrado para no distorsionar la imagen
+          const srcW = imgElement.naturalWidth;
+          const srcH = imgElement.naturalHeight;
+          const srcAspect = srcW / srcH;
+          const dstAspect = TARGET_W / TARGET_H;
+          let sx = 0, sy = 0, sw = srcW, sh = srcH;
+          if (srcAspect > dstAspect) {
+            // Imagen más ancha que el destino → recortar los lados
+            sw = Math.round(srcH * dstAspect);
+            sx = Math.round((srcW - sw) / 2);
+          } else {
+            // Imagen más alta que el destino → recortar arriba/abajo
+            sh = Math.round(srcW / dstAspect);
+            sy = Math.round((srcH - sh) / 2);
+          }
+          imgCtx.drawImage(imgElement, sx, sy, sw, sh, 0, 0, TARGET_W, TARGET_H);
+          normalizedImageBase64 = imgCanvas.toDataURL('image/jpeg', 0.92);
+        }
+
+        // ── CANVAS 2: Generar máscara en 576×1024 (independiente) ───────────
+        const maskCanvas = document.createElement('canvas');
+        maskCanvas.width = TARGET_W;
+        maskCanvas.height = TARGET_H;
+        const maskCtx = maskCanvas.getContext('2d')!;
+
+        // Fondo BLANCO → área que Fal.ai REDIBUJARÁ (cuerpo, ropa, fondo)
+        maskCtx.fillStyle = '#ffffff';
+        maskCtx.fillRect(0, 0, TARGET_W, TARGET_H);
+
+        // Óvalo NEGRO difuminado → ROSTRO que Fal.ai PRESERVARÁ pixel a pixel
+        maskCtx.filter = 'blur(18px)';
+        maskCtx.fillStyle = '#000000';
+        maskCtx.beginPath();
+        maskCtx.ellipse(
+          faceX + faceW / 2,
+          faceY + faceH / 2,
+          faceW / 2,
+          faceH / 2,
+          0, 0, 2 * Math.PI
+        );
+        maskCtx.fill();
+        maskBase64 = maskCanvas.toDataURL('image/png');
+
+      } catch (canvasErr: any) {
+        console.error('Error al generar mask/imagen en canvas:', canvasErr);
+        // Fallback mínimo: máscara básica sin imagen normalizada
+        try {
+          const fbCanvas = document.createElement('canvas');
+          fbCanvas.width = TARGET_W;
+          fbCanvas.height = TARGET_H;
+          const fbCtx = fbCanvas.getContext('2d')!;
+          fbCtx.fillStyle = '#ffffff';
+          fbCtx.fillRect(0, 0, TARGET_W, TARGET_H);
+          fbCtx.filter = 'blur(18px)';
+          fbCtx.fillStyle = '#000000';
+          fbCtx.beginPath();
+          fbCtx.ellipse(faceX + faceW / 2, faceY + faceH / 2, faceW / 2, faceH / 2, 0, 0, 2 * Math.PI);
+          fbCtx.fill();
+          maskBase64 = fbCanvas.toDataURL('image/png');
+        } catch {}
+      }
+
+      const response = await fetch('/api/avatar/pose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          avatar_id: avatar.id,
+          emotion: poseEmotion,
+          pose: poseLayout,
+          mask_image: maskBase64,
+          normalized_image: normalizedImageBase64 || undefined,
+          outfit_hint: poseOutfitHint.trim() || undefined
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al cambiar la pose.');
+      }
+      
+      // Encolado exitosamente — el polling tomará el resultado
+      const job = {
+        generation_id: data.generation_id,
+        emotion: poseEmotion,
+        pose: poseLayout,
+        is_free: false
+      };
+      
+      setPendingPoseJob(job);
+      localStorage.setItem(`pending-pose-${conversation.id}`, JSON.stringify(job));
+    } catch (err: any) {
+      setPoseError(err.message || 'Error al conectar con el servidor.');
+      setChangingPose(false);
     }
   };
 
@@ -692,6 +1087,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       
       setMessages([]);
       setCurrentImage(avatar.base_image_url);
+      setIsFalImage(false); // Volver a la foto original (9:16 nativa)
       
     } catch (err: any) {
       console.error('Error al limpiar chat:', err);
@@ -710,18 +1106,25 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           <Link href="/dashboard" className="p-1.5 md:p-2 hover:bg-white/10 rounded-lg md:rounded-xl transition-colors">
             <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 text-white/70" />
           </Link>
-          <div className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-primary/50 relative">
-            <img src={currentImage} alt={avatar.name} className={`w-full h-full object-cover ${pendingOutfitJob ? 'animate-pulse opacity-70 blur-[0.5px]' : ''}`} />
-            {pendingOutfitJob && (
+          <button 
+            type="button"
+            onClick={() => setFullScreenImage(currentImage)}
+            title="Ver foto a pantalla completa"
+            className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border border-primary/50 relative cursor-zoom-in hover:scale-105 active:scale-95 transition-transform flex-shrink-0"
+          >
+            <img src={currentImage} alt={avatar.name} className={`w-full h-full object-cover ${(pendingOutfitJob || pendingPoseJob) ? 'animate-pulse opacity-70 blur-[0.5px]' : ''}`} />
+            {(pendingOutfitJob || pendingPoseJob) && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
               </div>
             )}
-          </div>
+          </button>
           <div>
             <h3 className="font-bold text-white text-sm md:text-base leading-none">{avatar.name}</h3>
             {pendingOutfitJob ? (
               <p className="text-[9px] md:text-[10px] text-amber-400 mt-1 md:mt-1.5 uppercase tracking-widest font-semibold animate-pulse">✨ Diseñando look...</p>
+            ) : pendingPoseJob ? (
+              <p className="text-[9px] md:text-[10px] text-primary mt-1 md:mt-1.5 uppercase tracking-widest font-semibold animate-pulse">✨ Cambiando pose...</p>
             ) : (
               <p className="text-[9px] md:text-[10px] text-primary mt-1 md:mt-1.5 uppercase tracking-widest font-semibold">En línea</p>
             )}
@@ -749,8 +1152,18 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           >
             <Shirt className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
+
+          {/* Botón de cambio de pose para móvil (oculto en lg) */}
+          <button
+            type="button"
+            onClick={() => setShowPoseModal(true)}
+            title="Cambiar pose/expresión (10 monedas)"
+            className="lg:hidden p-1.5 md:p-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg md:rounded-xl transition-all border border-primary/20 flex items-center justify-center cursor-pointer"
+          >
+            <Smile className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </button>
           
-          {/* Botón de Galería/Vestuario */}
+           {/* Botón de Galería/Vestuario */}
           <button
             type="button"
             onClick={handleOpenWardrobe}
@@ -759,6 +1172,33 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           >
             <ImageIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
+
+          {/* Selector de visualización de avatar */}
+          <button
+            type="button"
+            onClick={toggleShowAvatar}
+            title={showAvatarInChat ? "Ocultar avatar en el chat" : "Mostrar avatar en el chat"}
+            className={`p-1.5 md:p-2.5 rounded-lg md:rounded-xl transition-all border cursor-pointer flex items-center justify-center ${
+              showAvatarInChat 
+                ? "bg-primary/10 border-primary/20 text-primary hover:bg-primary/20" 
+                : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            {showAvatarInChat ? <Eye className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <EyeOff className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+          </button>
+
+          {/* Botón para borrar/restaurar imagen personalizada */}
+          {currentImage !== avatar.base_image_url && (
+            <button
+              type="button"
+              onClick={handleResetAvatarImage}
+              disabled={sending || resettingImage}
+              title="Restaurar imagen base (borrar outfit/pose personalizado)"
+              className="p-1.5 md:p-2.5 bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg md:rounded-xl transition-all border border-destructive/20 flex items-center justify-center cursor-pointer disabled:opacity-50"
+            >
+              <ImageOff className="w-3.5 h-3.5 md:w-4 md:h-4" />
+            </button>
+          )}
 
           <button
             type="button"
@@ -782,64 +1222,92 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       {/* Contenido Principal */}
       <div className="flex-1 flex gap-4 md:gap-6 p-0 md:p-6 min-h-0">
         {/* Columna del Avatar (Imagen Dinámica) */}
-        <div className="hidden lg:flex flex-col w-1/3 glass-morphism rounded-3xl overflow-hidden relative group">
-          <img 
-            src={currentImage} 
-            alt={avatar.name} 
-            className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 ${pendingOutfitJob ? 'opacity-65 blur-[0.5px]' : ''}`}
-          />
-          {pendingOutfitJob && (
-            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4">
-              <div className="relative w-14 h-14 mb-3 flex items-center justify-center">
-                <div className="absolute inset-0 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
-                <Shirt className="w-5 h-5 text-amber-400 animate-pulse" />
+        {showAvatarInChat && (
+          <div className="hidden lg:flex flex-col w-1/3 glass-morphism rounded-3xl overflow-hidden relative group">
+            <img 
+              src={currentImage} 
+              alt={avatar.name} 
+              onClick={() => setFullScreenImage(currentImage)}
+              title="Haz clic para ver a pantalla completa"
+              className={`w-full h-full cursor-zoom-in transition-transform duration-700 group-hover:scale-105 ${isFalImage ? 'object-fill' : 'object-cover'} ${(pendingOutfitJob || pendingPoseJob) ? 'opacity-65 blur-[0.5px]' : ''}`}
+            />
+            {pendingOutfitJob && (
+              <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4 pointer-events-none">
+                <div className="relative w-14 h-14 mb-3 flex items-center justify-center">
+                  <div className="absolute inset-0 border-4 border-amber-400/20 border-t-amber-400 rounded-full animate-spin" />
+                  <Shirt className="w-5 h-5 text-amber-400 animate-pulse" />
+                </div>
+                <span className="text-xs font-bold text-amber-300 uppercase tracking-wider animate-pulse gold-gradient">
+                  ✨ Diseñando look
+                </span>
+                <p className="text-[10px] text-white/70 mt-1 max-w-[180px] line-clamp-2 italic">
+                  "{pendingOutfitJob.prompt}"
+                </p>
               </div>
-              <span className="text-xs font-bold text-amber-300 uppercase tracking-wider animate-pulse gold-gradient">
-                ✨ Diseñando look
-              </span>
-              <p className="text-[10px] text-white/70 mt-1 max-w-[180px] line-clamp-2 italic">
-                "{pendingOutfitJob.prompt}"
-              </p>
+            )}
+            {pendingPoseJob && (
+              <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4 pointer-events-none">
+                <div className="relative w-14 h-14 mb-3 flex items-center justify-center">
+                  <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <Smile className="w-5 h-5 text-primary animate-pulse" />
+                </div>
+                <span className="text-xs font-bold text-primary uppercase tracking-wider animate-pulse gold-gradient">
+                  ✨ Cambiando Pose
+                </span>
+                <p className="text-[10px] text-white/70 mt-1 max-w-[180px] line-clamp-2 italic">
+                  {pendingPoseJob.pose === 'full' ? 'Cuerpo entero' : pendingPoseJob.pose === 'medium' ? 'Medio cuerpo' : 'Retrato'}
+                </p>
+              </div>
+            )}
+            <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/80 to-transparent pointer-events-none">
+              <h2 className="text-2xl font-bold gold-gradient">{avatar.name}</h2>
+              <p className="text-sm text-white/60 line-clamp-2">{avatar.personality}</p>
             </div>
-          )}
-          <div className="absolute bottom-0 inset-x-0 p-6 bg-gradient-to-t from-black/80 to-transparent">
-            <h2 className="text-2xl font-bold gold-gradient">{avatar.name}</h2>
-            <p className="text-sm text-white/60 line-clamp-2">{avatar.personality}</p>
+            {/* Botones de acciones para escritorio */}
+            <div className="absolute top-4 right-4 flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => setShowOutfitModal(true)}
+                title="Cambiar outfit de forma manual (10 monedas)"
+                className="bg-primary/30 hover:bg-primary/50 text-primary backdrop-blur-md p-2.5 rounded-full border border-primary/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-primary/20 flex items-center justify-center cursor-pointer"
+              >
+                <Shirt className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPoseModal(true)}
+                title="Cambiar pose/expresión (10 monedas)"
+                className="bg-primary/30 hover:bg-primary/50 text-primary backdrop-blur-md p-2.5 rounded-full border border-primary/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-primary/20 flex items-center justify-center cursor-pointer"
+              >
+                <Smile className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenWardrobe}
+                title="Ver Galería de Outfits"
+                className="bg-amber-500/30 hover:bg-amber-500/50 text-amber-500 backdrop-blur-md p-2.5 rounded-full border border-amber-500/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-amber-500/20 flex items-center justify-center cursor-pointer"
+              >
+                <ImageIcon className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-          {/* Botones de acciones para escritorio */}
-          <div className="absolute top-4 right-4 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => setShowOutfitModal(true)}
-              title="Cambiar outfit de forma manual (10 monedas)"
-              className="bg-primary/30 hover:bg-primary/50 text-primary backdrop-blur-md p-2.5 rounded-full border border-primary/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-primary/20 flex items-center justify-center cursor-pointer"
-            >
-              <Shirt className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenWardrobe}
-              title="Ver Galería de Outfits"
-              className="bg-amber-500/30 hover:bg-amber-500/50 text-amber-500 backdrop-blur-md p-2.5 rounded-full border border-amber-500/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-amber-500/20 flex items-center justify-center cursor-pointer"
-            >
-              <ImageIcon className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
+        )}
 
         {/* Columna del Chat */}
         <div className="flex-1 flex flex-col glass-morphism rounded-none md:rounded-3xl overflow-hidden relative">
           
           {/* Imagen de fondo para dispositivos móviles */}
-          <div className="absolute inset-0 z-0 lg:hidden pointer-events-none">
-            <img 
-              src={currentImage} 
-              alt="Background Avatar" 
-              className="w-full h-full object-cover opacity-60 object-top"
-            />
-            {/* Gradiente más suave para que el avatar se vea pero los textos sigan siendo legibles */}
-            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/90" />
-          </div>
+          {showAvatarInChat && (
+            <div className="absolute inset-0 z-0 lg:hidden pointer-events-none">
+              <img 
+                src={currentImage} 
+                alt="Background Avatar" 
+                className={`w-full h-full opacity-60 object-top ${isFalImage ? 'object-fill' : 'object-cover'}`}
+              />
+              {/* Gradiente más suave para que el avatar se vea pero los textos sigan siendo legibles */}
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/90" />
+            </div>
+          )}
 
           {/* Lista de Mensajes */}
           <div 
@@ -1128,6 +1596,198 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         </div>
       )}
 
+      {/* Modal de Cambio de Pose y Expresión */}
+      {showPoseModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-lg overflow-hidden glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+            {/* Botón de cerrar */}
+            {!changingPose && (
+              <button 
+                onClick={() => { setShowPoseModal(false); setPoseError(''); setPoseOutfitHint(''); }}
+                className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+
+            {changingPose ? (
+              <div className="py-8 flex flex-col items-center justify-center space-y-6">
+                <div className="relative w-20 h-20 flex items-center justify-center">
+                  <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+                  <Smile className="w-8 h-8 text-primary animate-pulse" />
+                  <Sparkles className="w-4 h-4 text-amber-400 absolute top-0 right-0 animate-bounce" />
+                </div>
+                <div className="space-y-2">
+                  <h4 className="text-xl font-bold text-white tracking-wide">
+                    Cambiando pose del avatar...
+                  </h4>
+                  <p className="text-sm text-white/60 max-w-xs mx-auto animate-pulse">
+                    Fotografiando a tu avatar en su nuevo estado de ánimo. Esto tomará unos segundos.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handlePoseChange} className="space-y-6">
+                {/* Icono */}
+                <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto border border-primary/30">
+                  <Smile className="w-8 h-8 text-primary" />
+                </div>
+
+                {/* Título */}
+                <div className="space-y-1">
+                  <h3 className="text-2xl font-bold text-white tracking-tight">
+                    Expresión y Pose de {avatar.name}
+                  </h3>
+                  <p className="text-white/60 text-xs md:text-sm">
+                    Modifica la pose y emoción del avatar. Cada cambio cuesta <span className="text-amber-400 font-semibold">10 monedas</span>.
+                  </p>
+                </div>
+
+                {/* Saldo de monedas actual en el modal */}
+                <div className="flex items-center justify-between bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl text-xs md:text-sm">
+                  <span className="text-white/60">Tu saldo actual:</span>
+                  <div className="flex items-center gap-1 font-bold">
+                    <span className="gold-gradient">{coins}</span>
+                    <span className="text-amber-400">🪙</span>
+                  </div>
+                </div>
+
+                {coins < 10 ? (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 space-y-4 text-center">
+                    <p className="text-xs text-destructive-foreground font-semibold leading-relaxed">
+                      No tienes suficientes monedas para realizar esta acción (Costo: 10 🪙).
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPoseModal(false);
+                        setShowBuyCoinsModal(true);
+                      }}
+                      className="premium-button inline-flex w-full py-3 rounded-xl font-bold text-xs justify-center items-center gap-2 shadow-lg"
+                    >
+                      Obtener monedas / Plan Pro <Zap className="w-4 h-4 text-black fill-current" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-5 text-left">
+                    {/* 1. SELECCIONAR EMOCIÓN */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
+                        ¿Qué emoción quieres que muestre?
+                      </label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {[
+                          { id: 'smiling', label: 'Feliz / Riendo', icon: '😃' },
+                          { id: 'angry', label: 'Enojada / Molesta', icon: '😡' },
+                          { id: 'sad', label: 'Triste', icon: '😢' },
+                          { id: 'winking', label: 'Coqueta', icon: '😉' },
+                          { id: 'neutral', label: 'Seria / Pensativa', icon: '😐' }
+                        ].map((emo) => (
+                          <button
+                            key={emo.id}
+                            type="button"
+                            onClick={() => setPoseEmotion(emo.id as any)}
+                            className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                              poseEmotion === emo.id 
+                                ? 'border-primary bg-primary/10 shadow-[0_0_10px_rgba(212,175,55,0.15)] text-white' 
+                                : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                            }`}
+                          >
+                            <span className="text-2xl mb-1">{emo.icon}</span>
+                            <span className="text-xs font-bold leading-tight">{emo.label}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 2. SELECCIONAR POSE / ENCUADRE */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
+                        ¿Qué encuadre o pose prefieres?
+                      </label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: 'portrait', label: 'Retrato', desc: 'Cara y hombros', icon: '🧑' },
+                          { id: 'medium', label: 'Medio Cuerpo', desc: 'Cintura arriba', icon: '🧍' },
+                          { id: 'full', label: 'Cuerpo Entero', desc: 'Cuerpo completo', icon: '🚶' }
+                        ].map((layout) => (
+                          <button
+                            key={layout.id}
+                            type="button"
+                            onClick={() => setPoseLayout(layout.id as any)}
+                            className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                              poseLayout === layout.id 
+                                ? 'border-primary bg-primary/10 shadow-[0_0_10px_rgba(212,175,55,0.15)] text-white' 
+                                : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
+                            }`}
+                          >
+                            <span className="text-2xl mb-1">{layout.icon}</span>
+                            <span className="text-xs font-bold leading-tight">{layout.label}</span>
+                            <span className="text-[9px] text-white/40 mt-0.5 leading-none">{layout.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* 3. ROPA OPCIONAL */}
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
+                        Ropa personalizada <span className="text-white/40 font-normal normal-case">(opcional)</span>
+                      </label>
+                      <textarea
+                        value={poseOutfitHint}
+                        onChange={(e) => setPoseOutfitHint(e.target.value)}
+                        placeholder="Ej: vestido largo rojo, ropa deportiva, bikini azul en la playa... (si dejas vacío, la IA lo elige)"
+                        rows={2}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/40 text-sm text-white resize-none"
+                      />
+                      <div className="flex flex-wrap gap-1.5">
+                        {['Vestido elegante negro', 'Bikini en la playa', 'Outfit deportivo', 'Casual con jeans'].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => setPoseOutfitHint(s)}
+                            className="text-[11px] text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg px-2.5 py-1.5 transition-colors cursor-pointer"
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {poseError && (
+                  <p className="text-xs text-destructive font-semibold text-center animate-pulse">
+                    {poseError}
+                  </p>
+                )}
+
+                {/* Botones de acción */}
+                <div className="flex gap-3">
+                  <button 
+                    type="button"
+                    onClick={() => { setShowPoseModal(false); setPoseError(''); setPoseOutfitHint(''); }}
+                    className="flex-1 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-colors text-sm font-semibold cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  {coins >= 10 && (
+                    <button 
+                      type="submit"
+                      disabled={changingPose}
+                      className="flex-1 premium-button py-3.5 rounded-xl text-primary-foreground font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:scale-100"
+                    >
+                      Generar Pose (-10 🪙)
+                    </button>
+                  )}
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Modal del Vestuario (Galería) */}
       {showWardrobeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-300">
@@ -1173,7 +1833,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   {wardrobeImages.map((img) => (
                     <div 
                       key={img.id} 
-                      className="group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-white/10 hover:border-primary/50 transition-all duration-300"
+                      className="group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-white/10 hover:border-primary/50 transition-all duration-300 shadow-md"
                       onClick={() => setFullScreenImage(img.image_url)}
                     >
                       <img 
@@ -1182,8 +1842,27 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                         className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                         loading="lazy"
                       />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col justify-end p-3">
-                        <p className="text-xs text-white/90 line-clamp-3 font-medium">{img.prompt}</p>
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectWardrobeImage(img.image_url);
+                          }}
+                          title="Usar como fondo del chat"
+                          className="w-10 h-10 bg-primary text-black hover:bg-primary/95 hover:scale-110 active:scale-95 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
+                        >
+                          <Send className="w-5 h-5 pl-0.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteWardrobeImage(img.id, img.image_url);
+                          }}
+                          title="Eliminar permanentemente"
+                          className="w-10 h-10 bg-red-600 hover:bg-red-700 text-white hover:scale-110 active:scale-95 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1214,17 +1893,44 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             onClick={(e) => e.stopPropagation()} // Prevent click from closing
           />
 
-          <div className="absolute bottom-6 inset-x-0 flex justify-center z-[70]">
+          <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
             <a 
               href={fullScreenImage} 
               target="_blank" 
               rel="noopener noreferrer"
               download
               onClick={(e) => e.stopPropagation()}
-              className="premium-button py-3 px-6 rounded-xl font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-transform flex items-center gap-2"
+              title="Descargar Imagen"
+              className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white border border-white/15 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer backdrop-blur-md"
             >
-              Descargar Imagen
+              <Download className="w-5 h-5" />
             </a>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSelectWardrobeImage(fullScreenImage);
+              }}
+              title="Usar como Fondo de Chat"
+              className="w-12 h-12 bg-primary text-black hover:bg-primary/95 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+            >
+              <Send className="w-5 h-5 pl-0.5" />
+            </button>
+            {(() => {
+              const outfit = wardrobeImages.find(img => img.image_url === fullScreenImage);
+              if (!outfit) return null;
+              return (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteWardrobeImage(outfit.id, outfit.image_url);
+                  }}
+                  title="Eliminar permanentemente"
+                  className="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              );
+            })()}
           </div>
         </div>
       )}

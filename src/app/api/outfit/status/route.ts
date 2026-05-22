@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
+import { checkFalVTONStatus } from '@/lib/fal-vton';
 
 const OUTFIT_CHANGE_COST = 10;
 
@@ -23,6 +24,11 @@ function parsePixelAPIError(status: number, errText: string): string {
     if (parsed.error_message) return parsed.error_message;
     if (parsed.message) return parsed.message;
   } catch (e) {}
+
+  if (status === 502 || status === 503) {
+    return `El proveedor de generación de imágenes está temporalmente saturado o en mantenimiento (Error ${status}). Por favor, intenta de nuevo en unos minutos. No se han descontado tus monedas.`;
+  }
+
   return `PixelAPI respondió con status ${status}: ${errText}`;
 }
 
@@ -34,81 +40,84 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Parámetros insuficientes' }, { status: 400 });
     }
 
-    // 1. Obtener usuario de la sesión
-    const cookieStore = await cookies();
-    const clientSupabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll() },
-          setAll() {},
-        },
-      }
-    );
-
-    const { data: { user } } = await clientSupabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
-    }
-
-    // 2. Cliente de Supabase con rol de servicio (admin) para transacciones
+    // 1. Cliente de Supabase con rol de servicio (admin) para transacciones
     const adminSupabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
 
-    // 3. Verificar que la conversación le pertenezca al usuario autenticado
+    // 2. Obtener la conversación para verificar a qué usuario pertenece
     const { data: conversation, error: convoError } = await adminSupabase
       .from('conversations')
       .select('*')
       .eq('id', conversation_id)
-      .eq('user_id', user.id)
       .single();
 
     if (convoError || !conversation) {
-      return NextResponse.json({ error: 'Conversación no encontrada o acceso denegado' }, { status: 404 });
+      return NextResponse.json({ error: 'Conversación no encontrada' }, { status: 404 });
     }
 
-    // 4. Validar API Key de PixelAPI
-    const PIXELAPI_KEY = process.env.PIXELAPI_KEY;
-    if (!PIXELAPI_KEY || PIXELAPI_KEY === 'your_pixelapi_key_here') {
-      return NextResponse.json({ error: 'PixelAPI no configurada en el servidor' }, { status: 500 });
-    }
+    const userId = conversation.user_id;
 
-    // 5. Consultar a PixelAPI
-    const pollResponse = await fetch(`https://api.pixelapi.dev/v1/image/${generation_id}`, {
-      headers: {
-        "Authorization": `Bearer ${PIXELAPI_KEY}`,
+    let newImageUrl: string;
+
+    // 5. Consultar según el proveedor (detectado por el formato del ID)
+    if (generation_id.startsWith('fal_')) {
+      const falResult = checkFalVTONStatus({ generationId: generation_id, prompt });
+
+      if (falResult.status === 'failed') {
+        return NextResponse.json({
+          error: falResult.error || 'La generación de imagen falló en los servidores de Fal.ai'
+        }, { status: 422 });
       }
-    });
 
-    if (!pollResponse.ok) {
-      const errText = await pollResponse.text();
-      return NextResponse.json({ error: parsePixelAPIError(pollResponse.status, errText) }, { status: 502 });
+      if (!falResult.imageUrl) {
+        return NextResponse.json({
+          error: 'Fal.ai no devolvió una imagen válida'
+        }, { status: 500 });
+      }
+
+      newImageUrl = falResult.imageUrl;
+    } else {
+      // 4. Validar API Key de PixelAPI para flujo legacy/pixel
+      const PIXELAPI_KEY = process.env.PIXELAPI_KEY;
+      if (!PIXELAPI_KEY || PIXELAPI_KEY === 'your_pixelapi_key_here') {
+        return NextResponse.json({ error: 'PixelAPI no configurada en el servidor' }, { status: 500 });
+      }
+
+      // Consultar a PixelAPI
+      const pollResponse = await fetch(`https://api.pixelapi.dev/v1/image/${generation_id}`, {
+        headers: {
+          "Authorization": `Bearer ${PIXELAPI_KEY}`,
+        }
+      });
+
+      if (!pollResponse.ok) {
+        const errText = await pollResponse.text();
+        return NextResponse.json({ error: parsePixelAPIError(pollResponse.status, errText) }, { status: 502 });
+      }
+
+      const pollResult = await pollResponse.json();
+      const status = pollResult.status;
+
+      if (status === 'queued' || status === 'processing') {
+        return NextResponse.json({ status });
+      }
+
+      if (status === 'failed') {
+        return NextResponse.json({ 
+          error: `La generación de imagen falló en los servidores de PixelAPI: ${pollResult.error_message || 'Error desconocido'}` 
+        }, { status: 422 });
+      }
+
+      if (status !== 'completed' || !pollResult.output_url) {
+        return NextResponse.json({ 
+          error: `Estado de generación desconocido: ${status}` 
+        }, { status: 500 });
+      }
+
+      newImageUrl = pollResult.output_url;
     }
-
-    const pollResult = await pollResponse.json();
-    const status = pollResult.status;
-
-    if (status === 'queued' || status === 'processing') {
-      return NextResponse.json({ status });
-    }
-
-    if (status === 'failed') {
-      return NextResponse.json({ 
-        error: `La generación de imagen falló en los servidores de PixelAPI: ${pollResult.error_message || 'Error desconocido'}` 
-      }, { status: 422 });
-    }
-
-    if (status !== 'completed' || !pollResult.output_url) {
-      return NextResponse.json({ 
-        error: `Estado de generación desconocido: ${status}` 
-      }, { status: 500 });
-    }
-
-    const newImageUrl = pollResult.output_url;
 
     // 6. Si no es gratuito, validar monedas y cobrar
     let finalCoinsBalance = null;
@@ -116,7 +125,7 @@ export async function POST(req: Request) {
       const { data: profile, error: profileError } = await adminSupabase
         .from('profiles')
         .select('coins')
-        .eq('id', user.id)
+        .eq('id', userId)
         .maybeSingle();
 
       if (profileError || !profile) {
@@ -135,7 +144,7 @@ export async function POST(req: Request) {
 
       // Descontar monedas
       const { data: newCoins, error: rpcError } = await adminSupabase.rpc('add_coins', {
-        user_id_param: user.id,
+        user_id_param: userId,
         amount: -OUTFIT_CHANGE_COST
       });
 
@@ -150,7 +159,7 @@ export async function POST(req: Request) {
       const { data: profile } = await adminSupabase
         .from('profiles')
         .select('coins')
-        .eq('id', user.id)
+        .eq('id', userId)
         .maybeSingle();
       finalCoinsBalance = profile?.coins || 0;
     }
@@ -158,7 +167,7 @@ export async function POST(req: Request) {
     // 7. Guardar en outfit_history
     await adminSupabase.from('outfit_history').insert([
       {
-        user_id: user.id,
+        user_id: userId,
         avatar_id,
         conversation_id,
         image_url: newImageUrl,

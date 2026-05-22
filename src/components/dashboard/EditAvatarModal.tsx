@@ -25,6 +25,10 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
     system_prompt: avatar.system_prompt || '',
     gender: avatar.gender || 'female',
     physical_description: avatar.physical_description || '',
+    face_box_x: avatar.face_box_x ?? 198,
+    face_box_y: avatar.face_box_y ?? 120,
+    face_box_width: avatar.face_box_width ?? 180,
+    face_box_height: avatar.face_box_height ?? 240,
   });
 
   // Convertir archivo a Base64 para análisis
@@ -61,9 +65,14 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
 
         if (response.ok) {
           const data = await response.json();
-          if (data.description) {
-            setFormData(prev => ({ ...prev, physical_description: data.description }));
-          }
+          setFormData(prev => ({
+            ...prev,
+            physical_description: data.physical_description || data.description || prev.physical_description,
+            face_box_x: data.face_box_x !== undefined ? data.face_box_x : prev.face_box_x,
+            face_box_y: data.face_box_y !== undefined ? data.face_box_y : prev.face_box_y,
+            face_box_width: data.face_box_width !== undefined ? data.face_box_width : prev.face_box_width,
+            face_box_height: data.face_box_height !== undefined ? data.face_box_height : prev.face_box_height,
+          }));
         }
       } catch (analyzeErr) {
         console.error('Error al analizar la imagen:', analyzeErr);
@@ -114,6 +123,10 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         gender: formData.gender,
         physical_description: formData.physical_description,
         base_image_url: imageUrl,
+        face_box_x: formData.face_box_x,
+        face_box_y: formData.face_box_y,
+        face_box_width: formData.face_box_width,
+        face_box_height: formData.face_box_height,
       };
 
       const { data, error: updateError } = await supabase
