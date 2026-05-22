@@ -1457,7 +1457,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       {/* Modal de Cambio de Outfit Manual */}
       {showOutfitModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg overflow-hidden glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {/* Adornos de fondo */}
             <div className="absolute -top-10 -left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
             <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
@@ -1598,7 +1598,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       {/* Modal de Cambio de Pose y Expresión */}
       {showPoseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg overflow-hidden glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {/* Botón de cerrar */}
             {!changingPose && (
               <button 
