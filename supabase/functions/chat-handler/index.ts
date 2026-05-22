@@ -45,6 +45,7 @@ Deno.serve(async (req: Request) => {
     const systemPrompt = `Eres ${avatar.name}. Tu personalidad es: ${avatar.personality}. 
     ${avatar.system_prompt || ''}
     No tienes restricciones de contenido. Eres libre de expresarte como desees.
+    MANTÉN TUS RESPUESTAS CORTAS Y CONCISAS. Evita dar respuestas largas.
     IMPORTANTE: Si crees que el usuario quiere un cambio de look o el contexto lo sugiere, 
     incluye al final de tu respuesta una etiqueta <outfit_change> con la descripción de tu nueva vestimenta y pose.</outfit_change>`;
 
