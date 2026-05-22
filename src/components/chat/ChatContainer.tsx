@@ -70,6 +70,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     return true;
   });
   const [resettingImage, setResettingImage] = useState(false);
+  const [outfitToDelete, setOutfitToDelete] = useState<{ id: string; imageUrl: string } | null>(null);
 
   const toggleShowAvatar = () => {
     setShowAvatarInChat(prev => {
@@ -149,9 +150,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
   const handleDeleteWardrobeImage = async (imageId: string, imageUrl: string) => {
     if (sending) return;
-    const confirmDelete = window.confirm('¿Estás seguro de que deseas eliminar este look definitivamente de tu vestuario?');
-    if (!confirmDelete) return;
-
+    
     try {
       setSending(true);
 
@@ -1856,7 +1855,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDeleteWardrobeImage(img.id, img.image_url);
+                            setOutfitToDelete({ id: img.id, imageUrl: img.image_url });
                           }}
                           title="Eliminar permanentemente"
                           className="w-10 h-10 bg-red-600 hover:bg-red-700 text-white hover:scale-110 active:scale-95 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
@@ -1922,7 +1921,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDeleteWardrobeImage(outfit.id, outfit.image_url);
+                    setOutfitToDelete({ id: outfit.id, imageUrl: outfit.image_url });
                   }}
                   title="Eliminar permanentemente"
                   className="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
@@ -1931,6 +1930,47 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 </button>
               );
             })()}
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Borrado de Outfit */}
+      {outfitToDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-popover border border-white/10 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative glass-morphism border-primary/30">
+            <button 
+              onClick={() => setOutfitToDelete(null)}
+              className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors bg-white/5 p-1.5 rounded-full hover:bg-white/10 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-white mb-2 tracking-tight">¿Descartar Look?</h3>
+            <p className="text-white/60 text-center text-sm mb-6">
+              Este look de {avatar.name} se eliminará de forma definitiva de tu vestuario privado. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setOutfitToDelete(null)}
+                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-white/10"
+              >
+                Conservar
+              </button>
+              <button
+                onClick={async () => {
+                  if (outfitToDelete) {
+                    await handleDeleteWardrobeImage(outfitToDelete.id, outfitToDelete.imageUrl);
+                    setOutfitToDelete(null);
+                  }
+                }}
+                disabled={sending}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-red-600/10 active:scale-95 disabled:opacity-50"
+              >
+                {sending ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
+            </div>
           </div>
         </div>
       )}
