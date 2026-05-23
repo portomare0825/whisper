@@ -20,6 +20,11 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
   const [showWardrobeModal, setShowWardrobeModal] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
+  // Estados para el efecto de rasgado de papel ("Paper Tear") y Ultra Pantalla Completa
+  const [prevImage, setPrevImage] = useState<string | null>(null);
+  const [tearDirection, setTearDirection] = useState<'left' | 'right'>('right');
+  const [isUltraFullScreen, setIsUltraFullScreen] = useState(false);
+
   // Estados para el gesto táctil (Swipe)
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -70,15 +75,28 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
     if (isLeftSwipe) {
       // Siguiente imagen
       const nextIndex = (currentIndex + 1) % carouselUrls.length;
+      setPrevImage(fullScreenImage);
+      setTearDirection('right');
       setFullScreenImage(carouselUrls[nextIndex]);
     } else if (isRightSwipe) {
       // Imagen anterior
       const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+      setPrevImage(fullScreenImage);
+      setTearDirection('left');
       setFullScreenImage(carouselUrls[prevIndex]);
     }
     setTouchStart(null);
     setTouchEnd(null);
   };
+
+  // Limpiar imagen anterior después de la animación de rasgado
+  useEffect(() => {
+    if (!prevImage) return;
+    const timer = setTimeout(() => {
+      setPrevImage(null);
+    }, 450);
+    return () => clearTimeout(timer);
+  }, [prevImage]);
 
   // Navegación por teclado
   useEffect(() => {
@@ -97,12 +115,17 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
 
       if (e.key === 'ArrowLeft') {
         const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+        setPrevImage(fullScreenImage);
+        setTearDirection('left');
         setFullScreenImage(carouselUrls[prevIndex]);
       } else if (e.key === 'ArrowRight') {
         const nextIndex = (currentIndex + 1) % carouselUrls.length;
+        setPrevImage(fullScreenImage);
+        setTearDirection('right');
         setFullScreenImage(carouselUrls[nextIndex]);
       } else if (e.key === 'Escape') {
         setFullScreenImage(null);
+        setIsUltraFullScreen(false);
       }
     };
 
@@ -271,7 +294,7 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
         </div>
       )}
 
-      {/* Modal de Imagen a Pantalla Completa del Dashboard (con Carrusel, Swipe y Transición de Página) */}
+      {/* Modal de Imagen a Pantalla Completa del Dashboard (con Carrusel, Swipe, Ultra Fullscreen y Efecto de Rasgado de Papel) */}
       {fullScreenImage && (() => {
         const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
         if (wardrobeAvatar && !carouselUrls.includes(wardrobeAvatar.base_image_url)) {
@@ -280,84 +303,209 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
         const currentIndex = carouselUrls.indexOf(fullScreenImage);
         
         return (
-          <div 
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out select-none"
-            onClick={() => setFullScreenImage(null)}
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
-          >
-            {/* Botón Cerrar */}
-            <button 
-              className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70] border border-white/5 shadow-lg"
-              onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
+          <>
+            <div 
+              className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out select-none"
+              onClick={() => setFullScreenImage(null)}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
             >
-              <X className="w-6 h-6" />
-            </button>
-            
-            {/* Contador */}
-            {carouselUrls.length > 1 && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 text-white text-xs font-bold rounded-full backdrop-blur-md border border-white/5 tracking-wider z-[70] shadow-md">
-                {currentIndex + 1} / {carouselUrls.length}
+              {/* Inyectar estilos CSS para el efecto de rasgado de papel realista */}
+              <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes paperTearRight {
+                  0% {
+                    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+                    opacity: 1;
+                    transform: scale(1) rotate(0deg);
+                  }
+                  30% {
+                    clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 85%);
+                    transform: scale(0.98) rotate(1.5deg);
+                  }
+                  100% {
+                    clip-path: polygon(100% 0%, 100% 0%, 100% 100%, 100% 100%);
+                    opacity: 0;
+                    transform: scale(0.85) rotate(7deg) translateY(40px) translateX(20px);
+                  }
+                }
+
+                @keyframes paperTearLeft {
+                  0% {
+                    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
+                    opacity: 1;
+                    transform: scale(1) rotate(0deg);
+                  }
+                  30% {
+                    clip-path: polygon(0% 0%, 85% 0%, 100% 85%, 0% 100%);
+                    transform: scale(0.98) rotate(-1.5deg);
+                  }
+                  100% {
+                    clip-path: polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%);
+                    opacity: 0;
+                    transform: scale(0.85) rotate(-7deg) translateY(40px) translateX(-20px);
+                  }
+                }
+
+                @keyframes paperReveal {
+                  0% {
+                    opacity: 0;
+                    transform: scale(1.05);
+                    filter: blur(4px);
+                  }
+                  100% {
+                    opacity: 1;
+                    transform: scale(1);
+                    filter: blur(0);
+                  }
+                }
+              `}} />
+
+              {/* Botón Cerrar */}
+              <button 
+                className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70] border border-white/5 shadow-lg"
+                onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
+              >
+                <X className="w-6 h-6" />
+              </button>
+              
+              {/* Contador */}
+              {carouselUrls.length > 1 && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 text-white text-xs font-bold rounded-full backdrop-blur-md border border-white/5 tracking-wider z-[70] shadow-md">
+                  {currentIndex + 1} / {carouselUrls.length}
+                </div>
+              )}
+
+              {/* Flecha Izquierda */}
+              {carouselUrls.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+                    setPrevImage(fullScreenImage);
+                    setTearDirection('left');
+                    setFullScreenImage(carouselUrls[prevIndex]);
+                  }}
+                  className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
+                  title="Imagen Anterior"
+                >
+                  <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
+                </button>
+              )}
+
+              {/* Imagen Principal con animación de rasgado y puntero de zoom */}
+              <div 
+                className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none overflow-hidden cursor-zoom-in"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsUltraFullScreen(true);
+                }}
+              >
+                <img 
+                  src={fullScreenImage} 
+                  alt="Outfit Full Screen" 
+                  className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-auto transition-all"
+                  style={{
+                    animation: prevImage ? 'paperReveal 0.45s ease-out forwards' : 'none'
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsUltraFullScreen(true);
+                  }}
+                />
+
+                {/* Capa de la imagen anterior que se rasga encima */}
+                {prevImage && (
+                  <img 
+                    src={prevImage} 
+                    alt="Torn page" 
+                    className="absolute max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                    style={{
+                      animation: tearDirection === 'right' 
+                        ? 'paperTearRight 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' 
+                        : 'paperTearLeft 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+                      transformOrigin: tearDirection === 'right' ? 'top left' : 'top right'
+                    }}
+                  />
+                )}
+              </div>
+
+              {/* Flecha Derecha */}
+              {carouselUrls.length > 1 && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const nextIndex = (currentIndex + 1) % carouselUrls.length;
+                    setPrevImage(fullScreenImage);
+                    setTearDirection('right');
+                    setFullScreenImage(carouselUrls[nextIndex]);
+                  }}
+                  className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
+                  title="Siguiente Imagen"
+                >
+                  <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
+                </button>
+              )}
+
+              {/* Herramienta Descarga */}
+              <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
+                <a 
+                  href={fullScreenImage} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  download
+                  onClick={(e) => e.stopPropagation()}
+                  title="Descargar Imagen"
+                  className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white border border-white/15 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer backdrop-blur-md"
+                >
+                  <Download className="w-5 h-5" />
+                </a>
+              </div>
+            </div>
+
+            {/* Vista a Pantalla Completa Absoluta (Ultra Full Screen) con gestos táctiles y animación */}
+            {isUltraFullScreen && (
+              <div 
+                className="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-zoom-out select-none"
+                onClick={() => setIsUltraFullScreen(false)}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
+              >
+                <img 
+                  src={fullScreenImage} 
+                  alt="Ultra Full Screen" 
+                  className="w-full h-full object-contain md:object-cover animate-in fade-in duration-300"
+                  style={{
+                    animation: prevImage ? 'paperReveal 0.45s ease-out forwards' : 'none'
+                  }}
+                />
+
+                {/* Anterior imagen rasgándose arriba en pantalla completa */}
+                {prevImage && (
+                  <img 
+                    src={prevImage} 
+                    alt="Torn page" 
+                    className="absolute w-full h-full object-contain md:object-cover pointer-events-none"
+                    style={{
+                      animation: tearDirection === 'right' 
+                        ? 'paperTearRight 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' 
+                        : 'paperTearLeft 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+                      transformOrigin: tearDirection === 'right' ? 'top left' : 'top right'
+                    }}
+                  />
+                )}
+
+                {/* Botón flotante para cerrar la vista completa */}
+                <button 
+                  className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all cursor-pointer z-[110]"
+                  onClick={(e) => { e.stopPropagation(); setIsUltraFullScreen(false); }}
+                >
+                  <X className="w-6 h-6" />
+                </button>
               </div>
             )}
-
-            {/* Flecha Izquierda */}
-            {carouselUrls.length > 1 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
-                  setFullScreenImage(carouselUrls[prevIndex]);
-                }}
-                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
-                title="Imagen Anterior"
-              >
-                <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
-              </button>
-            )}
-
-            {/* Imagen Principal con animación de deslizamiento estilo página */}
-            <div className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none overflow-hidden">
-              <img 
-                key={fullScreenImage} // Fuerza re-render para disparar animación
-                src={fullScreenImage} 
-                alt="Outfit Full Screen" 
-                className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-right-5 fade-in duration-300 pointer-events-auto transition-all"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-
-            {/* Flecha Derecha */}
-            {carouselUrls.length > 1 && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const nextIndex = (currentIndex + 1) % carouselUrls.length;
-                  setFullScreenImage(carouselUrls[nextIndex]);
-                }}
-                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
-                title="Siguiente Imagen"
-              >
-                <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
-              </button>
-            )}
-
-            {/* Herramienta Descarga */}
-            <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
-              <a 
-                href={fullScreenImage} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                download
-                onClick={(e) => e.stopPropagation()}
-                title="Descargar Imagen"
-                className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white border border-white/15 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer backdrop-blur-md"
-              >
-                <Download className="w-5 h-5" />
-              </a>
-            </div>
-          </div>
+          </>
         );
       })()}
 
