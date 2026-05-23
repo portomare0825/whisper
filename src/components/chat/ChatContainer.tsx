@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download } from 'lucide-react';
+import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { createClient } from '@/lib/supabase';
@@ -455,8 +455,37 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       } catch (e) {
         console.error('Error al cargar job de pose pendiente de localStorage:', e);
       }
-    }
   }, [conversation.id]);
+
+  // Navegación por teclado en el carrusel de imágenes a pantalla completa
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!fullScreenImage) return;
+      
+      const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
+      if (!carouselUrls.includes(fullScreenImage)) {
+        carouselUrls.unshift(fullScreenImage);
+      }
+      
+      if (carouselUrls.length <= 1) return;
+      
+      const currentIndex = carouselUrls.indexOf(fullScreenImage);
+      if (currentIndex === -1) return;
+      
+      if (e.key === 'ArrowLeft') {
+        const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+        setFullScreenImage(carouselUrls[prevIndex]);
+      } else if (e.key === 'ArrowRight') {
+        const nextIndex = (currentIndex + 1) % carouselUrls.length;
+        setFullScreenImage(carouselUrls[nextIndex]);
+      } else if (e.key === 'Escape') {
+        setFullScreenImage(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullScreenImage, wardrobeImages]);
 
   // Polling para el job de outfit pendiente
   useEffect(() => {
@@ -1991,66 +2020,116 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       )}
 
       {/* Modal de Imagen a Pantalla Completa */}
-      {fullScreenImage && (
-        <div 
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out"
-          onClick={() => setFullScreenImage(null)}
-        >
-          <button 
-            className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70]"
-            onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
+      {fullScreenImage && (() => {
+        const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
+        if (!carouselUrls.includes(fullScreenImage)) {
+          carouselUrls.unshift(fullScreenImage);
+        }
+        const currentIndex = carouselUrls.indexOf(fullScreenImage);
+        
+        return (
+          <div 
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out"
+            onClick={() => setFullScreenImage(null)}
           >
-            <X className="w-6 h-6" />
-          </button>
-          
-          <img 
-            src={fullScreenImage} 
-            alt="Outfit Full Screen" 
-            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
-            onClick={(e) => e.stopPropagation()} // Prevent click from closing
-          />
-
-          <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
-            <a 
-              href={fullScreenImage} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              download
-              onClick={(e) => e.stopPropagation()}
-              title="Descargar Imagen"
-              className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white border border-white/15 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer backdrop-blur-md"
+            {/* Botón Cerrar */}
+            <button 
+              className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70] border border-white/5 shadow-lg"
+              onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
             >
-              <Download className="w-5 h-5" />
-            </a>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleSelectWardrobeImage(fullScreenImage);
-              }}
-              title="Usar como Fondo de Chat"
-              className="w-12 h-12 bg-primary text-black hover:bg-primary/95 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
-            >
-              <Send className="w-5 h-5 pl-0.5" />
+              <X className="w-6 h-6" />
             </button>
-            {(() => {
-              const outfit = wardrobeImages.find(img => img.image_url === fullScreenImage);
-              if (!outfit) return null;
-              return (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setOutfitToDelete({ id: outfit.id, imageUrl: outfit.image_url });
-                  }}
-                  title="Eliminar permanentemente"
-                  className="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              );
-            })()}
+            
+            {/* Contador de Imágenes */}
+            {carouselUrls.length > 1 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 text-white text-xs font-bold rounded-full backdrop-blur-md border border-white/5 tracking-wider z-[70] shadow-md">
+                {currentIndex + 1} / {carouselUrls.length}
+              </div>
+            )}
+
+            {/* Flecha Izquierda */}
+            {carouselUrls.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+                  setFullScreenImage(carouselUrls[prevIndex]);
+                }}
+                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
+                title="Imagen Anterior (Flecha Izquierda)"
+              >
+                <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
+              </button>
+            )}
+
+            {/* Imagen Principal */}
+            <div className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none">
+              <img 
+                src={fullScreenImage} 
+                alt="Outfit Full Screen" 
+                className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200 pointer-events-auto"
+                onClick={(e) => e.stopPropagation()} // Evita cerrar el modal al hacer clic en la imagen
+              />
+            </div>
+
+            {/* Flecha Derecha */}
+            {carouselUrls.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const nextIndex = (currentIndex + 1) % carouselUrls.length;
+                  setFullScreenImage(carouselUrls[nextIndex]);
+                }}
+                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
+                title="Siguiente Imagen (Flecha Derecha)"
+              >
+                <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
+              </button>
+            )}
+
+            {/* Barra de Herramientas de Acción */}
+            <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
+              <a 
+                href={fullScreenImage} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                download
+                onClick={(e) => e.stopPropagation()}
+                title="Descargar Imagen"
+                className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white border border-white/15 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer backdrop-blur-md"
+              >
+                <Download className="w-5 h-5" />
+              </a>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSelectWardrobeImage(fullScreenImage);
+                }}
+                title="Usar como Fondo de Chat"
+                className="w-12 h-12 bg-primary text-black hover:bg-primary/95 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+              >
+                <Send className="w-5 h-5 pl-0.5" />
+              </button>
+              {(() => {
+                const outfit = wardrobeImages.find(img => img.image_url === fullScreenImage);
+                if (!outfit) return null;
+                return (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setOutfitToDelete({ id: outfit.id, imageUrl: outfit.image_url });
+                    }}
+                    title="Eliminar permanentemente"
+                    className="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                );
+              })()}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal de Confirmación de Borrado de Outfit */}
       {outfitToDelete && (
