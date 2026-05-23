@@ -89,12 +89,12 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
     setTouchEnd(null);
   };
 
-  // Limpiar imagen anterior después de la animación de ondulación líquida
+  // Limpiar imagen anterior después de la animación de cortina de cristal
   useEffect(() => {
     if (!prevImage) return;
     const timer = setTimeout(() => {
       setPrevImage(null);
-    }, 1000);
+    }, 1200);
     return () => clearTimeout(timer);
   }, [prevImage]);
 
@@ -312,66 +312,66 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
               onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
             >
               {/* Inyectar estilos CSS para el efecto de rasgado de papel realista */}
-              {/* Inyectar estilos CSS para el efecto de ondulación líquida circular dorada */}
+              {/* Inyectar estilos CSS para el efecto de cortina de cristal glaseado en 3D */}
               <style dangerouslySetInnerHTML={{ __html: `
-                @keyframes liquidExpand {
+                @keyframes curtainLeft {
                   0% {
-                    clip-path: circle(0% at 50% 50%);
-                    transform: scale(0.92) rotate(-2deg);
-                    filter: brightness(0.6) blur(6px);
-                  }
-                  40% {
-                    clip-path: circle(35% at 50% 50%);
-                    transform: scale(0.95) rotate(-1deg);
-                    filter: brightness(0.8) blur(3px);
-                  }
-                  75% {
-                    clip-path: circle(75% at 50% 50%);
-                    transform: scale(0.98) rotate(-0.3deg);
-                    filter: brightness(0.9) blur(1px);
-                  }
-                  100% {
-                    clip-path: circle(135% at 50% 50%);
-                    transform: scale(1) rotate(0deg);
-                    filter: brightness(1) blur(0);
-                  }
-                }
-
-                @keyframes liquidFadeOut {
-                  0% {
+                    transform: translateX(0) scale(1) rotateY(0);
+                    filter: blur(0) brightness(1) contrast(1);
                     opacity: 1;
-                    transform: scale(1);
-                    filter: blur(0);
                   }
                   100% {
-                    opacity: 0.2;
-                    transform: scale(0.94);
-                    filter: blur(8px);
-                  }
-                }
-
-                @keyframes rippleWave {
-                  0% {
-                    width: 0%;
-                    height: 0%;
-                    opacity: 1;
-                    border: 4px solid rgba(212, 175, 55, 0.9);
-                    box-shadow: 0 0 15px rgba(212, 175, 55, 0.7), inset 0 0 15px rgba(212, 175, 55, 0.5);
-                    filter: blur(2px);
-                  }
-                  50% {
-                    opacity: 0.8;
-                    border: 6px solid rgba(212, 175, 55, 0.6);
-                    box-shadow: 0 0 35px rgba(212, 175, 55, 0.5), inset 0 0 35px rgba(212, 175, 55, 0.4);
-                    filter: blur(1px);
-                  }
-                  100% {
-                    width: 140%;
-                    height: 140%;
+                    transform: translateX(-100%) scale(0.92) rotateY(-25deg);
+                    filter: blur(15px) brightness(0.6) contrast(1.1);
                     opacity: 0;
-                    border: 1px solid rgba(212, 175, 55, 0);
-                    box-shadow: 0 0 60px rgba(212, 175, 55, 0), inset 0 0 60px rgba(212, 175, 55, 0);
-                    filter: blur(0);
+                  }
+                }
+
+                @keyframes curtainRight {
+                  0% {
+                    transform: translateX(0) scale(1) rotateY(0);
+                    filter: blur(0) brightness(1) contrast(1);
+                    opacity: 1;
+                  }
+                  100% {
+                    transform: translateX(100%) scale(0.92) rotateY(25deg);
+                    filter: blur(15px) brightness(0.6) contrast(1.1);
+                    opacity: 0;
+                  }
+                }
+
+                @keyframes contentReveal {
+                  0% {
+                    transform: scale(0.95);
+                    filter: brightness(0.8) blur(5px);
+                    opacity: 0.7;
+                  }
+                  100% {
+                    transform: scale(1);
+                    filter: brightness(1) blur(0);
+                    opacity: 1;
+                  }
+                }
+
+                @keyframes dividerLeft {
+                  0% {
+                    transform: translateX(0);
+                    opacity: 1;
+                  }
+                  100% {
+                    transform: translateX(-300px);
+                    opacity: 0;
+                  }
+                }
+
+                @keyframes dividerRight {
+                  0% {
+                    transform: translateX(0);
+                    opacity: 1;
+                  }
+                  100% {
+                    transform: translateX(300px);
+                    opacity: 0;
                   }
                 }
               `}} />
@@ -408,7 +408,7 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                 </button>
               )}
 
-              {/* Imagen Principal con animación de rasgado y puntero de zoom */}
+              {/* Imagen Principal con animación de cortina de cristal y puntero de zoom */}
               <div 
                 className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none overflow-hidden cursor-zoom-in"
                 onClick={(e) => {
@@ -416,26 +416,14 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                   setIsUltraFullScreen(true);
                 }}
               >
-                {/* Imagen anterior (Fondo que se disuelve) */}
-                {prevImage && (
-                  <img 
-                    src={prevImage} 
-                    alt="Previous look" 
-                    className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
-                    style={{
-                      animation: 'liquidFadeOut 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards'
-                    }}
-                  />
-                )}
-
-                {/* Imagen actual (Se expande en círculo líquido en el frente) */}
+                {/* Imagen nueva (Fondo que se revela) */}
                 <img 
                   key={fullScreenImage} // Fuerza re-render para disparar animación
                   src={fullScreenImage} 
                   alt="Outfit Full Screen" 
-                  className={`max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-auto transition-all ${prevImage ? 'absolute' : ''}`}
+                  className={`max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-auto transition-all`}
                   style={{
-                    animation: prevImage ? 'liquidExpand 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' : 'none'
+                    animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -443,14 +431,50 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                   }}
                 />
 
-                {/* Onda de choque líquida dorada */}
+                {/* Imagen anterior izquierda (Cortina izquierda) */}
                 {prevImage && (
-                  <div 
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-20 aspect-square"
+                  <img 
+                    src={prevImage} 
+                    alt="Left curtain" 
+                    className="absolute max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-none z-20"
                     style={{
-                      animation: 'rippleWave 1.0s cubic-bezier(0.1, 0.8, 0.3, 1) forwards'
+                      clipPath: 'polygon(0% 0%, 50% 0%, 50% 100%, 0% 100%)',
+                      animation: 'curtainLeft 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards',
+                      transformOrigin: 'left center'
                     }}
                   />
+                )}
+
+                {/* Imagen anterior derecha (Cortina derecha) */}
+                {prevImage && (
+                  <img 
+                    src={prevImage} 
+                    alt="Right curtain" 
+                    className="absolute max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-none z-20"
+                    style={{
+                      clipPath: 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)',
+                      animation: 'curtainRight 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards',
+                      transformOrigin: 'right center'
+                    }}
+                  />
+                )}
+
+                {/* Separadores dorados resplandecientes que se dividen */}
+                {prevImage && (
+                  <>
+                    <div 
+                      className="absolute top-0 bottom-0 left-1/2 w-[2px] bg-gradient-to-b from-amber-300 via-yellow-400 to-amber-500 shadow-[0_0_15px_rgba(251,191,36,0.8)] z-30 pointer-events-none"
+                      style={{
+                        animation: 'dividerLeft 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards'
+                      }}
+                    />
+                    <div 
+                      className="absolute top-0 bottom-0 left-1/2 w-[2px] bg-gradient-to-b from-amber-300 via-yellow-400 to-amber-500 shadow-[0_0_15px_rgba(251,191,36,0.8)] z-30 pointer-events-none"
+                      style={{
+                        animation: 'dividerRight 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards'
+                      }}
+                    />
+                  </>
                 )}
               </div>
 
@@ -490,42 +514,66 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
             {/* Vista a Pantalla Completa Absoluta (Ultra Full Screen) con gestos táctiles y animación */}
             {isUltraFullScreen && (
               <div 
-                className="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-zoom-out select-none"
+                className="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-zoom-out select-none animate-in fade-in duration-300"
                 onClick={() => setIsUltraFullScreen(false)}
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
               >
-                {/* Imagen anterior (Fondo) */}
+                {/* Imagen nueva (Fondo que se revela) */}
+                <img 
+                  src={fullScreenImage} 
+                  alt="Ultra Full Screen" 
+                  className={`w-full h-full object-contain md:object-cover animate-in fade-in duration-300`}
+                  style={{
+                    animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
+                  }}
+                />
+
+                {/* Cortina izquierda */}
                 {prevImage && (
                   <img 
                     src={prevImage} 
-                    alt="Previous look" 
-                    className="absolute w-full h-full object-contain md:object-cover pointer-events-none"
+                    alt="Left curtain" 
+                    className="absolute w-full h-full object-contain md:object-cover pointer-events-none z-20"
                     style={{
-                      animation: 'liquidFadeOut 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards'
+                      clipPath: 'polygon(0% 0%, 50% 0%, 50% 100%, 0% 100%)',
+                      animation: 'curtainLeft 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards',
+                      transformOrigin: 'left center'
                     }}
                   />
                 )}
 
-                {/* Imagen actual (Frente) */}
-                <img 
-                  src={fullScreenImage} 
-                  alt="Ultra Full Screen" 
-                  className={`w-full h-full object-contain md:object-cover animate-in fade-in duration-300 ${prevImage ? 'absolute' : ''}`}
-                  style={{
-                    animation: prevImage ? 'liquidExpand 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' : 'none'
-                  }}
-                />
-
-                {/* Onda de choque líquida dorada */}
+                {/* Cortina derecha */}
                 {prevImage && (
-                  <div 
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-20 aspect-square"
+                  <img 
+                    src={prevImage} 
+                    alt="Right curtain" 
+                    className="absolute w-full h-full object-contain md:object-cover pointer-events-none z-20"
                     style={{
-                      animation: 'rippleWave 1.0s cubic-bezier(0.1, 0.8, 0.3, 1) forwards'
+                      clipPath: 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)',
+                      animation: 'curtainRight 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards',
+                      transformOrigin: 'right center'
                     }}
                   />
+                )}
+
+                {/* Separadores dorados resplandecientes */}
+                {prevImage && (
+                  <>
+                    <div 
+                      className="absolute top-0 bottom-0 left-1/2 w-[2px] bg-gradient-to-b from-amber-300 via-yellow-400 to-amber-500 shadow-[0_0_20px_rgba(251,191,36,0.9)] z-30 pointer-events-none"
+                      style={{
+                        animation: 'dividerLeft 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards'
+                      }}
+                    />
+                    <div 
+                      className="absolute top-0 bottom-0 left-1/2 w-[2px] bg-gradient-to-b from-amber-300 via-yellow-400 to-amber-500 shadow-[0_0_20px_rgba(251,191,36,0.9)] z-30 pointer-events-none"
+                      style={{
+                        animation: 'dividerRight 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards'
+                      }}
+                    />
+                  </>
                 )}
 
                 {/* Botón flotante para cerrar la vista completa */}
