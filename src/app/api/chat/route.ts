@@ -194,27 +194,47 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaci�
       .replace(/infancia/gi, 'juventud')
       .replace(/menor de edad/gi, 'joven');
 
-    // Función auxiliar para llamar a OpenRouter controlando la temperatura y la repetición
-    async function fetchOpenRouter(modelName: string) {
-      return await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          "model": modelName,
-          "temperature": 0.9, // Ajustado para un roleplay más natural y fluido
-          "frequency_penalty": 0.0, // Eliminado/Reducido a 0 para que no arruine la gramática ni el español común (evita el tono robótico)
-          "presence_penalty": 0.0, // Eliminado/Reducido a 0 para mantener la coherencia temática
-          "repetition_penalty": 1.05, // Penalización muy leve para prevenir bucles infinitos sin degradar la calidad
-          "messages": [
-            { "role": "system", "content": systemPrompt },
-            ...formattedHistory,
-            { "role": "user", "content": message }
-          ]
-        })
-      });
+    // Función auxiliar para llamar a OpenRouter controlando la temperatura, la repetición y el tiempo de respuesta (timeout)
+    async function fetchOpenRouter(modelName: string, timeoutMs: number = 8000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            "model": modelName,
+            "temperature": 0.9, // Ajustado para un roleplay más natural y fluido
+            "frequency_penalty": 0.0, // Eliminado/Reducido a 0 para que no arruine la gramática ni el español común (evita el tono robótico)
+            "presence_penalty": 0.0, // Eliminado/Reducido a 0 para mantener la coherencia temática
+            "repetition_penalty": 1.05, // Penalización muy leve para prevenir bucles infinitos sin degradar la calidad
+            "messages": [
+              { "role": "system", "content": systemPrompt },
+              ...formattedHistory,
+              { "role": "user", "content": message }
+            ]
+          })
+        });
+        clearTimeout(timeoutId);
+        return response;
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          console.warn(`[TIMEOUT] La llamada al modelo ${modelName} excedió el límite de ${timeoutMs}ms. Saltando al siguiente modelo...`);
+          // Retornamos un objeto de respuesta simulado con ok: false y status 408 (Request Timeout) para continuar el bucle sin interrupciones
+          return {
+            ok: false,
+            status: 408,
+            text: async () => `Request timeout after ${timeoutMs}ms`
+          } as Response;
+        }
+        throw error;
+      }
     }
 
     let llmResponse = null;
