@@ -61,6 +61,12 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [showBuyCoinsModal, setShowBuyCoinsModal] = useState(false);
   const [processingCoinPurchase, setProcessingCoinPurchase] = useState(false);
 
+  // Estados para reconocimiento de apariencia física del usuario
+  const [isAnalyzingAppearance, setIsAnalyzingAppearance] = useState(false);
+  const [userHasAppearance, setUserHasAppearance] = useState(false);
+  const [showAppearanceSuccess, setShowAppearanceSuccess] = useState(false);
+
+
   // Estados para ocultar/mostrar avatar y restauración de imagen
   const [showAvatarInChat, setShowAvatarInChat] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -200,8 +206,74 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   };
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  const appearanceFileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
   const router = useRouter();
+
+  const handleAppearancePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Verificar formato
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Por favor, selecciona un archivo de imagen válido.');
+      setShowErrorModal(true);
+      return;
+    }
+
+    // Verificar tamaño (máx. 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setErrorMessage('La imagen es demasiado grande. Por favor, selecciona una foto de menos de 10MB.');
+      setShowErrorModal(true);
+      return;
+    }
+
+    setIsAnalyzingAppearance(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      await new Promise<void>((resolve, reject) => {
+        reader.onload = async () => {
+          try {
+            const base64Data = reader.result as string;
+            
+            const response = await fetch('/api/user/appearance', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                conversation_id: conversation.id,
+                image: base64Data,
+              }),
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+              throw new Error(data.error || 'Error al analizar la imagen');
+            }
+
+            setUserHasAppearance(true);
+            setShowAppearanceSuccess(true);
+            resolve();
+          } catch (err: any) {
+            reject(err);
+          }
+        };
+        reader.onerror = (err) => reject(new Error('Error al leer el archivo de imagen.'));
+      });
+    } catch (err: any) {
+      console.error('Error al subir foto de apariencia:', err);
+      setErrorMessage(err.message || 'No se pudo analizar tu apariencia. Intenta con otra foto.');
+      setShowErrorModal(true);
+    } finally {
+      setIsAnalyzingAppearance(false);
+      if (appearanceFileInputRef.current) {
+        appearanceFileInputRef.current.value = '';
+      }
+    }
+  };
+
 
   const formatCountdown = (ms: number) => {
     const totalSecs = Math.max(0, Math.floor(ms / 1000));
@@ -304,28 +376,30 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     return () => clearInterval(timer);
   }, [countdownTime]);
 
-  // Cargar saldo de monedas inicial y suscribirse en tiempo real
+  // Cargar saldo de monedas inicial y descripción física y suscribirse en tiempo real
   useEffect(() => {
-    const fetchCoins = async () => {
+    const fetchProfileData = async () => {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('coins')
+          .select('coins, user_physical_description')
           .eq('id', conversation.user_id)
           .maybeSingle();
         
         if (data) {
           setCoins(data.coins);
+          setUserHasAppearance(!!data.user_physical_description);
         }
       } catch (err) {
-        console.error('Error fetching user coins:', err);
+        console.error('Error fetching user profile:', err);
       } finally {
         setLoadingCoins(false);
       }
     };
     
-    fetchCoins();
+    fetchProfileData();
   }, [conversation.user_id]);
+
 
   useEffect(() => {
     const channel = supabase
@@ -336,14 +410,20 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         table: 'profiles',
         filter: `id=eq.${conversation.user_id}`
       }, (payload) => {
-        if (payload.new && typeof payload.new.coins === 'number') {
-          setCoins(payload.new.coins);
+        if (payload.new) {
+          if (typeof payload.new.coins === 'number') {
+            setCoins(payload.new.coins);
+          }
+          if ('user_physical_description' in payload.new) {
+            setUserHasAppearance(!!payload.new.user_physical_description);
+          }
         }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [conversation.user_id]);
+
 
   // Cargar jobs pendientes de localStorage al montar el componente
   useEffect(() => {
@@ -1428,12 +1508,48 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 style={{ height: 'auto' }}
               />
               <div className="absolute right-1 top-1 bottom-1 flex gap-0 items-center">
+                <input
+                  type="file"
+                  ref={appearanceFileInputRef}
+                  onChange={handleAppearancePhotoUpload}
+                  accept="image/*"
+                  className="hidden"
+                  disabled={isAnalyzingAppearance}
+                />
                 <button
                   type="button"
-                  className="p-1 md:p-2 text-muted-foreground hover:text-primary transition-colors"
+                  onClick={() => appearanceFileInputRef.current?.click()}
+                  disabled={isAnalyzingAppearance}
+                  title={
+                    isAnalyzingAppearance
+                      ? "Memorizando tu apariencia física..."
+                      : userHasAppearance
+                      ? "¡Apariencia física recordada! Haz clic para actualizar tu foto de perfil."
+                      : "Subir foto para que tu avatar conozca tu apariencia física y la recuerde siempre."
+                  }
+                  className={`p-1 md:p-2 transition-all duration-300 relative ${
+                    isAnalyzingAppearance
+                      ? "text-primary cursor-not-allowed"
+                      : userHasAppearance
+                      ? "text-primary hover:text-primary-hover scale-110 drop-shadow-[0_0_8px_rgba(var(--color-primary),0.5)]"
+                      : "text-muted-foreground hover:text-primary hover:scale-105"
+                  }`}
                 >
-                  <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
+                  {isAnalyzingAppearance ? (
+                    <div className="w-4 h-4 md:w-5 md:h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <ImageIcon className="w-4 h-4 md:w-5 md:h-5" />
+                      {userHasAppearance && (
+                        <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                      )}
+                    </>
+                  )}
                 </button>
+
                 <button
                   type="button"
                   onClick={handleGetSuggestions}
@@ -2229,6 +2345,49 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           </div>
         </div>
       )}
+
+      {/* Modal de Éxito en Reconocimiento de Apariencia Física */}
+      {showAppearanceSuccess && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-md overflow-hidden glass-morphism rounded-3xl border border-primary/30 p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.2)] animate-in scale-in duration-300">
+            {/* Adornos de fondo */}
+            <div className="absolute -top-10 -left-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
+            <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
+            
+            {/* Botón de cerrar */}
+            <button 
+              onClick={() => setShowAppearanceSuccess(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Icono */}
+            <div className="w-16 h-16 bg-gradient-to-tr from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg rotate-3">
+              <Sparkles className="w-8 h-8 text-black fill-current animate-pulse" />
+            </div>
+
+            {/* Título */}
+            <h3 className="text-2xl font-extrabold text-white tracking-tight mb-3">
+              ¡Apariencia Recordada!
+            </h3>
+            
+            {/* Descripción */}
+            <p className="text-white/80 text-sm leading-relaxed mb-6">
+              ¡Excelente! Hemos analizado tu foto con éxito. Tu avatar **{avatar.name}** ahora sabe cómo eres físicamente y tendrá presente ese recuerdo en todo momento durante el chat, de forma totalmente privada e invisible.
+            </p>
+
+            {/* Botones de acción */}
+            <button 
+              onClick={() => setShowAppearanceSuccess(false)}
+              className="premium-button w-full py-3.5 rounded-xl font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform cursor-pointer"
+            >
+              Comenzar a chatear ✨
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

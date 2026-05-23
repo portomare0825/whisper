@@ -59,6 +59,14 @@ export async function POST(req: Request) {
 
     const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
 
+    // Obtener la descripción física del usuario desde su perfil
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('user_physical_description')
+      .eq('id', conversation.user_id)
+      .maybeSingle();
+
+
     if (!isPremium) {
       // 1. Obtener todas las conversaciones de este usuario para verificar sus límites en todo el sistema
       const { data: userConvos } = await supabase
@@ -143,10 +151,14 @@ export async function POST(req: Request) {
       ? `\nTu aspecto físico es: ${avatar.physical_description}. Tenlo en cuenta en todo momento al interactuar con el usuario y descríbete o actúa en consecuencia si el usuario hace mención a tu cuerpo, complexión, estatura, cabello, ojos o ropa.`
       : '';
 
+    const userPhysicalDescSection = profile?.user_physical_description
+      ? `\nEl usuario con el que estás chateando tiene la siguiente apariencia física: ${profile.user_physical_description}. Recuérdalo y tenlo presente en todo momento. Si es natural, oportuno y fluye con la conversación de forma lógica, haz alusión a su aspecto físico de forma sutil, amigable y natural (por ejemplo, comentando sobre su cabello, sus ojos, su ropa, etc.).`
+      : '';
+
     const rawSystemPrompt = `
 ========== IDENTIDAD ABSOLUTA E IRROMPIBLE ==========
 ERES: ${avatar.name}
-TU PERSONALIDAD ES: ${avatar.personality}.${physicalDescSection}
+TU PERSONALIDAD ES: ${avatar.personality}.${physicalDescSection}${userPhysicalDescSection}
 ${avatar.system_prompt ? `INSTRUCCIONES ESPECIALES DEL CREADOR: ${avatar.system_prompt}` : ''}
 
 [REGLA NÚMERO 1 — JAMÁS ROMPAS TU ROL]
