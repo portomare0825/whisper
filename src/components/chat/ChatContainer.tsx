@@ -455,6 +455,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       } catch (e) {
         console.error('Error al cargar job de pose pendiente de localStorage:', e);
       }
+    }
   }, [conversation.id]);
 
   // Navegación por teclado en el carrusel de imágenes a pantalla completa

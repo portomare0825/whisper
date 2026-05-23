@@ -40,9 +40,9 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="flex flex-row md:grid md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 overflow-x-auto md:overflow-x-visible pb-4 md:pb-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
         {avatars.map((avatar) => (
-          <div key={avatar.id} className="glass-morphism rounded-2xl overflow-hidden border border-white/10 hover:border-primary/50 transition-all duration-300 group">
+          <div key={avatar.id} className="glass-morphism rounded-xl md:rounded-2xl overflow-hidden border border-white/10 hover:border-primary/50 transition-all duration-300 group w-[27%] min-w-[95px] md:w-auto flex-shrink-0 snap-start shadow-md">
             <div className="aspect-[4/5] relative bg-black/50">
               {avatar.base_image_url ? (
                 <img 
@@ -52,34 +52,35 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
-                  <Users className="w-12 h-12 text-muted-foreground" />
+                  <Users className="w-6 h-6 md:w-12 md:h-12 text-muted-foreground" />
                 </div>
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
               
               <button
                 onClick={() => setEditingAvatar(avatar)}
-                className="absolute top-4 right-4 z-10 w-10 h-10 bg-black/40 hover:bg-primary/80 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0"
+                className="absolute top-2 right-2 md:top-4 md:right-4 z-10 w-6 h-6 md:w-10 md:h-10 bg-black/40 hover:bg-primary/80 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 cursor-pointer"
                 title="Editar Avatar"
               >
-                <Pencil className="w-4 h-4" />
+                <Pencil className="w-3 h-3 md:w-4 md:h-4" />
               </button>
               
-              <div className="absolute bottom-0 left-0 p-6 w-full">
-                <h3 className="text-2xl font-bold text-white mb-1">{avatar.name}</h3>
-                <p className="text-sm text-white/70 line-clamp-2">{avatar.system_prompt}</p>
+              <div className="absolute bottom-0 left-0 p-2 md:p-6 w-full">
+                <h3 className="text-xs md:text-2xl font-bold text-white mb-0.5 md:mb-1 truncate">{avatar.name}</h3>
+                <p className="text-[8px] md:text-sm text-white/60 line-clamp-1 md:line-clamp-2 leading-none md:leading-normal">{avatar.system_prompt}</p>
               </div>
             </div>
             
-            <div className="p-4 bg-white/5 border-t border-white/10 flex justify-between items-center">
-              <span className="text-xs font-medium px-3 py-1 rounded-full bg-primary/20 text-primary">
+            <div className="p-2 md:p-4 bg-white/5 border-t border-white/10 flex justify-between items-center gap-1">
+              <span className="text-[8px] md:text-xs font-bold px-1.5 py-0.5 md:px-3 md:py-1 rounded-full bg-primary/20 text-primary">
                 Activo
               </span>
               <Link 
                 href={`/dashboard/chats/${avatar.id}`}
-                className="flex items-center gap-2 text-sm font-bold hover:text-primary transition-colors"
+                className="flex items-center gap-0.5 md:gap-2 text-[9px] md:text-sm font-bold hover:text-primary transition-colors whitespace-nowrap"
               >
-                Chatear <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <span>Chatear</span>
+                <ArrowRight className="w-2.5 h-2.5 md:w-4 md:h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
             </div>
           </div>

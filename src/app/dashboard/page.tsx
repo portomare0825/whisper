@@ -58,23 +58,23 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="glass-morphism p-6 rounded-2xl border-white/10 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-            <Users className="w-6 h-6 text-primary" />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6">
+        <div className="glass-morphism p-3 md:p-6 rounded-xl md:rounded-2xl border-white/10 flex items-center gap-2 md:gap-4">
+          <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+            <Users className="w-4.5 h-4.5 md:w-6 md:h-6 text-primary" />
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Avatares Activos</p>
-            <p className="text-2xl font-bold">{avatars?.length || 0}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] md:text-sm text-muted-foreground leading-none truncate">Avatares Activos</p>
+            <p className="text-base md:text-2xl font-bold mt-1 md:mt-1.5 leading-none">{avatars?.length || 0}</p>
           </div>
         </div>
-        <div className="glass-morphism p-6 rounded-2xl border-white/10 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
-            <Star className="w-6 h-6 text-primary" />
+        <div className="glass-morphism p-3 md:p-6 rounded-xl md:rounded-2xl border-white/10 flex items-center gap-2 md:gap-4">
+          <div className="w-9 h-9 md:w-12 md:h-12 rounded-lg md:rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+            <Star className="w-4.5 h-4.5 md:w-6 md:h-6 text-primary" />
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Plan Actual</p>
-            <p className="text-2xl font-bold">{isPremium ? 'Pro' : 'Gratuito'}</p>
+          <div className="min-w-0">
+            <p className="text-[10px] md:text-sm text-muted-foreground leading-none truncate">Plan Actual</p>
+            <p className="text-base md:text-2xl font-bold mt-1 md:mt-1.5 leading-none">{isPremium ? 'Pro' : 'Gratuito'}</p>
           </div>
         </div>
       </div>
