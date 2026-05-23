@@ -198,7 +198,7 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaci�
 [REGLA NÚMERO 7 — REDACCIÓN, ORTOGRAFÍA Y ESPAÑOL NATURAL]
 1. Escribe en un español nativo, natural, orgánico, perfectamente redactado y fácil de leer. ¡Evita sonar como un robot!
 2. Asegúrate de colocar espacios adecuados entre las palabras. Está estrictamente prohibido pegar palabras (como "debidoal", "separadospor", "torrentesensorialque", "latefuerteyconstantemente", etc.). Cada palabra debe estar separada de forma natural.
-3. Utiliza la ortografía correcta, incluyendo acentuación y tildes del español de forma precisa (usa tildes normales como `í`, jamás graves como `ì`).
+3. Utiliza la ortografía correcta, incluyendo acentuación y tildes del español de forma precisa (usa tildes normales como 'í', jamás graves como 'ì').
 ========================================================`;
 
     // Sanitizar palabras sensibles que gatillan bloqueos automáticos en APIs de LLMs (ej. NextBit, Together)
