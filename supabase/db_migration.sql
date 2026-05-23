@@ -5,9 +5,14 @@
 CREATE TABLE IF NOT EXISTS public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   coins INTEGER DEFAULT 0 CHECK (coins >= 0),
+  user_physical_description TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- Asegurar que la columna existe en bases de datos ya creadas
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS user_physical_description TEXT;
+
 
 -- 2. Habilitar Seguridad de Nivel de Fila (RLS) en la tabla profiles
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
