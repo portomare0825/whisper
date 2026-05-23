@@ -84,14 +84,26 @@ export async function POST(req: Request) {
     });
 
 
-    // 6. Iniciar la generación usando FLUX Dev + Face Swap (Doble paso en backend)
-    // Usamos la imagen normalizada o la URL original como la base de origen de la identidad.
-    const { submitFalPoseWithFaceSwap } = await import('@/lib/fal-inpainting');
-    const falResult = await submitFalPoseWithFaceSwap({
-      baseImage: normalized_image || avatar.base_image_url,
-      prompt: finalPrompt,
-      physicalDescription: physicalDescription || undefined,
-    });
+    // 6. Iniciar la generación usando FLUX Inpainting para mantener el rostro intacto al 100%
+    // Si no hay máscara, cae en el fallback de pose y face swap oficial
+    const { submitFalInpainting, submitFalPoseWithFaceSwap } = await import('@/lib/fal-inpainting');
+    
+    let falResult;
+    if (mask_image) {
+      console.log('Usando FLUX Inpainting con máscara de rostro para consistencia absoluta del 100%.');
+      falResult = await submitFalInpainting({
+        baseImage: normalized_image || avatar.base_image_url,
+        maskImageBase64: mask_image,
+        prompt: finalPrompt,
+      });
+    } else {
+      console.log('No se proporcionó mask_image, usando pose con face swap oficial.');
+      falResult = await submitFalPoseWithFaceSwap({
+        baseImage: normalized_image || avatar.base_image_url,
+        prompt: finalPrompt,
+        physicalDescription: physicalDescription || undefined,
+      });
+    }
 
     if (!falResult.success) {
       return NextResponse.json({ error: falResult.error }, { status: 502 });

@@ -221,9 +221,9 @@ export async function submitFalPoseWithFaceSwap(params: {
     console.log('Iniciando Paso 2: Face Swap con el rostro original del avatar...');
 
     // 2. Aplicar Face Swap sobre la pose generada utilizando el rostro original
-    // Usamos easel-ai/advanced-face-swap que preserva rasgos, tono de piel e identidad
+    // Usamos el modelo oficial fal-ai/face-swap que preserva la identidad facial y el parecido de forma muy superior
     const swapResponse = await fetch(
-      'https://fal.run/easel-ai/advanced-face-swap',
+      'https://fal.run/fal-ai/face-swap',
       {
         method: 'POST',
         headers: {
@@ -231,11 +231,8 @@ export async function submitFalPoseWithFaceSwap(params: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          // face_image_0: rostro fuente (el avatar original)
-          face_image_0: params.baseImage,
-          gender_0: 'female',
-          // target_image: la imagen con la nueva pose donde se incrusta la cara
-          target_image: newPoseImageUrl,
+          base_image_url: newPoseImageUrl, // Imagen destino con la pose libre
+          swap_image_url: params.baseImage, // Rostro fuente del avatar
         }),
       }
     );
