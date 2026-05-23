@@ -51,7 +51,7 @@ export async function enrichPosePrompt(params: {
     - Retorna ÚNICAMENTE una cadena de texto plana con el prompt final en inglés.
     - No agregues explicaciones, ni etiquetas como "Prompt:", ni comillas al inicio o final.
     - No uses palabras censuradas o explícitas.
-    - Los rasgos físicos del personaje (cabello, piel, ojos) deben aparecer SIEMPRE en el resultado final.
+    - DEBES utilizar EXACTAMENTE los rasgos físicos (color de cabello, color de ojos y tono de piel) proporcionados en la descripción física. Está estrictamente prohibido modificarlos, contradecirlos o inventar otros nuevos.
   `.trim();
 
   const promptInput = `
@@ -92,10 +92,13 @@ export async function enrichPosePrompt(params: {
     const enriched = data.choices?.[0]?.message?.content?.trim();
 
     if (enriched && enriched.length > 10) {
-      // Asegurar que la descripción física esté presente en el prompt final
-      // aunque Gemini la haya omitido por brevedad
-      if (params.physicalDescription && !enriched.toLowerCase().includes('hair') && !enriched.toLowerCase().includes('eyes')) {
-        return `${params.physicalDescription}, ${enriched}`;
+      // Asegurar que la descripción física del avatar esté firmemente al principio del prompt
+      // para que FLUX priorice la fidelidad de cabello y piel al 100%
+      if (params.physicalDescription) {
+        let cleanedPrompt = enriched;
+        // Limpiamos cualquier contradicción del prompt de Gemini removiendo especificaciones de cabello genéricas
+        cleanedPrompt = cleanedPrompt.replace(/with \w+ hair/gi, '').replace(/\b\w+ hair\b/gi, '');
+        return `${params.physicalDescription.trim()}, ${cleanedPrompt.trim()}`;
       }
       return enriched;
     }
