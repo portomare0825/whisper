@@ -8,7 +8,10 @@ export interface Avatar {
   system_prompt?: string;
   base_image_url: string;
   current_image_url?: string;
-  voice_settings?: Record<string, unknown>;
+  voice_settings?: {
+    gender?: string;
+    [key: string]: any;
+  };
   is_active: boolean;
   created_at: string;
   updated_at: string;
