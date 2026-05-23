@@ -502,12 +502,12 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [fullScreenImage, wardrobeImages, prevImage]);
 
-  // Limpiar imagen anterior después de la animación de rasgado
+  // Limpiar imagen anterior después de la animación de ondulación líquida
   useEffect(() => {
     if (!prevImage) return;
     const timer = setTimeout(() => {
       setPrevImage(null);
-    }, 1500);
+    }, 1000);
     return () => clearTimeout(timer);
   }, [prevImage]);
 
@@ -2097,73 +2097,66 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
             >
               {/* Inyectar estilos CSS para el efecto de rasgado de papel realista */}
+              {/* Inyectar estilos CSS para el efecto de ondulación líquida circular dorada */}
               <style dangerouslySetInnerHTML={{ __html: `
-                @keyframes paperTearRight {
+                @keyframes liquidExpand {
                   0% {
-                    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-                    opacity: 1;
-                    transform: scale(1) rotate(0deg) translateX(0) translateY(0);
-                    filter: drop-shadow(0 0 0 rgba(0,0,0,0));
+                    clip-path: circle(0% at 50% 50%);
+                    transform: scale(0.92) rotate(-2deg);
+                    filter: brightness(0.6) blur(6px);
                   }
-                  30% {
-                    /* Comienza el rasgado con una línea dentada/ondulada realista */
-                    clip-path: polygon(0% 0%, 80% 0%, 75% 15%, 82% 30%, 73% 45%, 78% 60%, 70% 75%, 76% 90%, 70% 100%, 0% 100%);
-                    transform: scale(0.99) rotate(2deg) translateX(8px) translateY(-8px);
+                  40% {
+                    clip-path: circle(35% at 50% 50%);
+                    transform: scale(0.95) rotate(-1deg);
+                    filter: brightness(0.8) blur(3px);
                   }
-                  60% {
-                    /* El papel se arquea y se dobla hacia afuera revelando el fondo */
-                    clip-path: polygon(0% 0%, 45% 0%, 40% 15%, 47% 30%, 38% 45%, 43% 60%, 35% 75%, 41% 90%, 35% 100%, 0% 100%);
-                    transform: scale(0.94) rotate(7deg) translateX(55px) translateY(-30px);
-                    filter: drop-shadow(-20px 20px 25px rgba(0,0,0,0.6));
+                  75% {
+                    clip-path: circle(75% at 50% 50%);
+                    transform: scale(0.98) rotate(-0.3deg);
+                    filter: brightness(0.9) blur(1px);
                   }
                   100% {
-                    /* Se desprende por completo volando fuera de la pantalla de forma curva */
-                    clip-path: polygon(0% 0%, 0% 0%, 0% 15%, 0% 30%, 0% 45%, 0% 60%, 0% 75%, 0% 90%, 0% 100%, 0% 100%);
-                    opacity: 0;
-                    transform: scale(0.65) rotate(32deg) translateX(360px) translateY(280px);
-                    filter: drop-shadow(-40px 40px 60px rgba(0,0,0,0.95));
-                  }
-                }
-
-                @keyframes paperTearLeft {
-                  0% {
-                    clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
-                    opacity: 1;
-                    transform: scale(1) rotate(0deg) translateX(0) translateY(0);
-                    filter: drop-shadow(0 0 0 rgba(0,0,0,0));
-                  }
-                  30% {
-                    clip-path: polygon(100% 0%, 20% 0%, 25% 15%, 18% 30%, 27% 45%, 22% 60%, 30% 75%, 24% 90%, 30% 100%, 100% 100%);
-                    transform: scale(0.99) rotate(-2deg) translateX(-8px) translateY(-8px);
-                  }
-                  60% {
-                    clip-path: polygon(100% 0%, 55% 0%, 60% 15%, 53% 30%, 62% 45%, 57% 60%, 65% 75%, 59% 90%, 65% 100%, 100% 100%);
-                    transform: scale(0.94) rotate(-7deg) translateX(-55px) translateY(-30px);
-                    filter: drop-shadow(15px 15px 20px rgba(0,0,0,0.6));
-                  }
-                  100% {
-                    clip-path: polygon(100% 0%, 100% 0%, 100% 15%, 100% 30%, 100% 45%, 100% 60%, 100% 75%, 100% 90%, 100% 100%, 100% 100%);
-                    opacity: 0;
-                    transform: scale(0.65) rotate(-32deg) translateX(-360px) translateY(280px);
-                    filter: drop-shadow(35px 35px 50px rgba(0,0,0,0.95));
-                  }
-                }
-
-                @keyframes paperReveal {
-                  0% {
-                    opacity: 0;
-                    transform: scale(0.93) rotate(-4deg);
-                    filter: blur(12px) brightness(0.45);
-                  }
-                  45% {
-                    opacity: 0.6;
-                    transform: scale(0.96) rotate(-2deg);
-                    filter: blur(6px) brightness(0.7);
-                  }
-                  100% {
-                    opacity: 1;
+                    clip-path: circle(135% at 50% 50%);
                     transform: scale(1) rotate(0deg);
-                    filter: blur(0) brightness(1);
+                    filter: brightness(1) blur(0);
+                  }
+                }
+
+                @keyframes liquidFadeOut {
+                  0% {
+                    opacity: 1;
+                    transform: scale(1);
+                    filter: blur(0);
+                  }
+                  100% {
+                    opacity: 0.2;
+                    transform: scale(0.94);
+                    filter: blur(8px);
+                  }
+                }
+
+                @keyframes rippleWave {
+                  0% {
+                    width: 0%;
+                    height: 0%;
+                    opacity: 1;
+                    border: 4px solid rgba(212, 175, 55, 0.9);
+                    box-shadow: 0 0 15px rgba(212, 175, 55, 0.7), inset 0 0 15px rgba(212, 175, 55, 0.5);
+                    filter: blur(2px);
+                  }
+                  50% {
+                    opacity: 0.8;
+                    border: 6px solid rgba(212, 175, 55, 0.6);
+                    box-shadow: 0 0 35px rgba(212, 175, 55, 0.5), inset 0 0 35px rgba(212, 175, 55, 0.4);
+                    filter: blur(1px);
+                  }
+                  100% {
+                    width: 140%;
+                    height: 140%;
+                    opacity: 0;
+                    border: 1px solid rgba(212, 175, 55, 0);
+                    box-shadow: 0 0 60px rgba(212, 175, 55, 0), inset 0 0 60px rgba(212, 175, 55, 0);
+                    filter: blur(0);
                   }
                 }
               `}} />
@@ -2208,12 +2201,26 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   setIsUltraFullScreen(true);
                 }}
               >
+                {/* Imagen anterior (Fondo que se disuelve) */}
+                {prevImage && (
+                  <img 
+                    src={prevImage} 
+                    alt="Previous look" 
+                    className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                    style={{
+                      animation: 'liquidFadeOut 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards'
+                    }}
+                  />
+                )}
+
+                {/* Imagen actual (Se expande en círculo líquido en el frente) */}
                 <img 
+                  key={fullScreenImage} // Fuerza re-render para disparar animación
                   src={fullScreenImage} 
                   alt="Outfit Full Screen" 
-                  className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-auto transition-all"
+                  className={`max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-auto transition-all ${prevImage ? 'absolute' : ''}`}
                   style={{
-                    animation: prevImage ? 'paperReveal 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : 'none'
+                    animation: prevImage ? 'liquidExpand 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' : 'none'
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2221,17 +2228,12 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   }}
                 />
 
-                {/* Capa de la anterior imagen que se rasga */}
+                {/* Onda de choque líquida dorada */}
                 {prevImage && (
-                  <img 
-                    src={prevImage} 
-                    alt="Torn page" 
-                    className="absolute max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
+                  <div 
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-20 aspect-square"
                     style={{
-                      animation: tearDirection === 'right' 
-                        ? 'paperTearRight 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' 
-                        : 'paperTearLeft 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                      transformOrigin: tearDirection === 'right' ? 'top left' : 'top right'
+                      animation: 'rippleWave 1.0s cubic-bezier(0.1, 0.8, 0.3, 1) forwards'
                     }}
                   />
                 )}
@@ -2305,26 +2307,34 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 onTouchMove={handleTouchMove}
                 onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
               >
-                <img 
-                  src={fullScreenImage} 
-                  alt="Ultra Full Screen" 
-                  className="w-full h-full object-contain md:object-cover animate-in fade-in duration-300"
-                  style={{
-                    animation: prevImage ? 'paperReveal 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' : 'none'
-                  }}
-                />
-
-                {/* Anterior imagen rasgándose arriba en pantalla completa */}
+                {/* Imagen anterior (Fondo) */}
                 {prevImage && (
                   <img 
                     src={prevImage} 
-                    alt="Torn page" 
+                    alt="Previous look" 
                     className="absolute w-full h-full object-contain md:object-cover pointer-events-none"
                     style={{
-                      animation: tearDirection === 'right' 
-                        ? 'paperTearRight 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards' 
-                        : 'paperTearLeft 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards',
-                      transformOrigin: tearDirection === 'right' ? 'top left' : 'top right'
+                      animation: 'liquidFadeOut 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards'
+                    }}
+                  />
+                )}
+
+                {/* Imagen actual (Frente) */}
+                <img 
+                  src={fullScreenImage} 
+                  alt="Ultra Full Screen" 
+                  className={`w-full h-full object-contain md:object-cover animate-in fade-in duration-300 ${prevImage ? 'absolute' : ''}`}
+                  style={{
+                    animation: prevImage ? 'liquidExpand 1.0s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' : 'none'
+                  }}
+                />
+
+                {/* Onda de choque líquida dorada */}
+                {prevImage && (
+                  <div 
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full pointer-events-none z-20 aspect-square"
+                    style={{
+                      animation: 'rippleWave 1.0s cubic-bezier(0.1, 0.8, 0.3, 1) forwards'
                     }}
                   />
                 )}
