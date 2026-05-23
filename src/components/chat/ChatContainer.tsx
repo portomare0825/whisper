@@ -57,6 +57,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [loadingWardrobe, setLoadingWardrobe] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   
+  // Estados para el gesto táctil (Swipe) en carrusel
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  
   // Estado para la compra de monedas
   const [showBuyCoinsModal, setShowBuyCoinsModal] = useState(false);
   const [processingCoinPurchase, setProcessingCoinPurchase] = useState(false);
@@ -678,6 +682,35 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     } finally {
       setProcessingCoinPurchase(false);
     }
+  };
+
+  // Manejadores de gestos táctiles para el Carrusel en móvil
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (carouselUrls: string[], currentIndex: number) => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const minSwipeDistance = 50;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      // Siguiente imagen
+      const nextIndex = (currentIndex + 1) % carouselUrls.length;
+      setFullScreenImage(carouselUrls[nextIndex]);
+    } else if (isRightSwipe) {
+      // Imagen anterior
+      const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+      setFullScreenImage(carouselUrls[prevIndex]);
+    }
+    setTouchStart(null);
+    setTouchEnd(null);
   };
 
   const handleOpenWardrobe = async () => {
@@ -2030,8 +2063,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         
         return (
           <div 
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out select-none"
             onClick={() => setFullScreenImage(null)}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
           >
             {/* Botón Cerrar */}
             <button 
@@ -2064,11 +2100,12 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             )}
 
             {/* Imagen Principal */}
-            <div className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none">
+            <div className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none overflow-hidden">
               <img 
+                key={fullScreenImage} // Fuerza re-render para disparar animación
                 src={fullScreenImage} 
                 alt="Outfit Full Screen" 
-                className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-in zoom-in-95 duration-200 pointer-events-auto"
+                className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-right-5 fade-in duration-300 pointer-events-auto transition-all"
                 onClick={(e) => e.stopPropagation()} // Evita cerrar el modal al hacer clic en la imagen
               />
             </div>

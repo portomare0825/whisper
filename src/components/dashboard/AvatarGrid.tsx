@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Users, ArrowRight, Pencil, Plus } from 'lucide-react';
+import { Users, ArrowRight, Pencil, Plus, X, ImageIcon, Download, ChevronLeft, ChevronRight, Sparkles, Shirt } from 'lucide-react';
 import EditAvatarModal from './EditAvatarModal';
 
 interface AvatarGridProps {
@@ -13,9 +13,102 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
   const [avatars, setAvatars] = useState(initialAvatars);
   const [editingAvatar, setEditingAvatar] = useState<any | null>(null);
 
+  // Estados del Armario / Vestuario
+  const [loadingWardrobeId, setLoadingWardrobeId] = useState<string | null>(null);
+  const [wardrobeAvatar, setWardrobeAvatar] = useState<any | null>(null);
+  const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
+  const [showWardrobeModal, setShowWardrobeModal] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
+
+  // Estados para el gesto táctil (Swipe)
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const minSwipeDistance = 50;
+
   const handleAvatarUpdate = (updatedAvatar: any) => {
     setAvatars(prev => prev.map(av => (av.id === updatedAvatar.id ? updatedAvatar : av)));
   };
+
+  // Al hacer clic en la tarjeta del avatar
+  const handleCardClick = async (avatar: any) => {
+    if (loadingWardrobeId) return;
+    setLoadingWardrobeId(avatar.id);
+    try {
+      const response = await fetch(`/api/outfit/history?avatar_id=${avatar.id}`);
+      const data = await response.json();
+      if (data.outfits && data.outfits.length > 0) {
+        setWardrobeAvatar(avatar);
+        setWardrobeImages(data.outfits);
+        setShowWardrobeModal(true);
+      } else {
+        // Redirigir al chat directo si no tiene imágenes en el armario
+        window.location.href = `/dashboard/chats/${avatar.id}`;
+      }
+    } catch (err) {
+      console.error('Error fetching wardrobe on click:', err);
+      window.location.href = `/dashboard/chats/${avatar.id}`;
+    } finally {
+      setLoadingWardrobeId(null);
+    }
+  };
+
+  // Manejadores de gestos táctiles para el Carrusel
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const handleTouchEnd = (carouselUrls: string[], currentIndex: number) => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      // Siguiente imagen
+      const nextIndex = (currentIndex + 1) % carouselUrls.length;
+      setFullScreenImage(carouselUrls[nextIndex]);
+    } else if (isRightSwipe) {
+      // Imagen anterior
+      const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+      setFullScreenImage(carouselUrls[prevIndex]);
+    }
+    setTouchStart(null);
+    setTouchEnd(null);
+  };
+
+  // Navegación por teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!fullScreenImage) return;
+
+      const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
+      if (wardrobeAvatar && !carouselUrls.includes(wardrobeAvatar.base_image_url)) {
+        carouselUrls.unshift(wardrobeAvatar.base_image_url);
+      }
+
+      if (carouselUrls.length <= 1) return;
+
+      const currentIndex = carouselUrls.indexOf(fullScreenImage);
+      if (currentIndex === -1) return;
+
+      if (e.key === 'ArrowLeft') {
+        const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+        setFullScreenImage(carouselUrls[prevIndex]);
+      } else if (e.key === 'ArrowRight') {
+        const nextIndex = (currentIndex + 1) % carouselUrls.length;
+        setFullScreenImage(carouselUrls[nextIndex]);
+      } else if (e.key === 'Escape') {
+        setFullScreenImage(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [fullScreenImage, wardrobeImages, wardrobeAvatar]);
 
   if (!avatars || avatars.length === 0) {
     return (
@@ -40,10 +133,15 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
 
   return (
     <>
-      <div className="flex flex-row md:grid md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6 overflow-x-auto md:overflow-x-visible pb-4 md:pb-0 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
+      {/* Grilla: 3 columnas fijas en móvil (se apilan hacia abajo), 2 en md, 3 en lg */}
+      <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6 pb-4 md:pb-0">
         {avatars.map((avatar) => (
-          <div key={avatar.id} className="glass-morphism rounded-xl md:rounded-2xl overflow-hidden border border-white/10 hover:border-primary/50 transition-all duration-300 group w-[27%] min-w-[95px] md:w-auto flex-shrink-0 snap-start shadow-md">
-            <div className="aspect-[4/5] relative bg-black/50">
+          <div key={avatar.id} className="glass-morphism rounded-xl md:rounded-2xl overflow-hidden border border-white/10 hover:border-primary/50 transition-all duration-300 group w-full shadow-md">
+            <div 
+              onClick={() => handleCardClick(avatar)}
+              className="aspect-[4/5] relative bg-black/50 cursor-pointer overflow-hidden group"
+              title="Haz clic para ver el vestuario o chatear"
+            >
               {avatar.base_image_url ? (
                 <img 
                   src={avatar.base_image_url} 
@@ -55,10 +153,22 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                   <Users className="w-6 h-6 md:w-12 md:h-12 text-muted-foreground" />
                 </div>
               )}
+              
+              {/* Spinner de Carga de Armario */}
+              {loadingWardrobeId === avatar.id && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center z-20">
+                  <div className="w-6 h-6 md:w-8 md:h-8 border-3 md:border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-1 md:mb-2" />
+                  <span className="text-[7px] md:text-[10px] text-white/80 font-bold uppercase tracking-wider animate-pulse">Abriendo...</span>
+                </div>
+              )}
+
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
               
               <button
-                onClick={() => setEditingAvatar(avatar)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setEditingAvatar(avatar);
+                }}
                 className="absolute top-2 right-2 md:top-4 md:right-4 z-10 w-6 h-6 md:w-10 md:h-10 bg-black/40 hover:bg-primary/80 backdrop-blur-md rounded-full flex items-center justify-center text-white border border-white/20 transition-all duration-300 opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 cursor-pointer"
                 title="Editar Avatar"
               >
@@ -86,6 +196,170 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
           </div>
         ))}
       </div>
+
+      {/* Modal de Vestuario del Dashboard */}
+      {showWardrobeModal && wardrobeAvatar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-300">
+          <div className="relative w-full h-[100dvh] md:h-[85vh] max-w-4xl flex flex-col overflow-hidden glass-morphism rounded-none md:rounded-3xl border-0 md:border border-primary/30 shadow-none md:shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+            {/* Header */}
+            <div className="flex-shrink-0 p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <ImageIcon className="w-6 h-6 text-primary" />
+                  Vestuario de {wardrobeAvatar.name}
+                </h3>
+                <p className="text-white/60 text-sm mt-1">
+                  Explora la colección privada de looks de tu avatar.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowWardrobeModal(false)}
+                className="p-2 text-muted-foreground hover:text-white transition-colors cursor-pointer bg-white/5 rounded-full hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Galería de imágenes */}
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {/* Imagen base */}
+                <div 
+                  className="group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-white/10 hover:border-primary/50 transition-all duration-300 shadow-md"
+                  onClick={() => setFullScreenImage(wardrobeAvatar.base_image_url)}
+                >
+                  <img 
+                    src={wardrobeAvatar.base_image_url} 
+                    alt="Original Look" 
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    loading="lazy"
+                  />
+                  <div className="absolute top-2 left-2 px-2 py-0.5 bg-black/60 rounded-md text-[9px] font-bold text-primary border border-primary/35">
+                    Original
+                  </div>
+                </div>
+
+                {/* Imágenes del Armario */}
+                {wardrobeImages.map((img) => (
+                  <div 
+                    key={img.id} 
+                    className="group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-white/10 hover:border-primary/50 transition-all duration-300 shadow-md"
+                    onClick={() => setFullScreenImage(img.image_url)}
+                  >
+                    <img 
+                      src={img.image_url} 
+                      alt="Outfit" 
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Footer de acción rápida para entrar al chat */}
+            <div className="flex-shrink-0 p-4 border-t border-white/10 bg-white/5 backdrop-blur-sm flex justify-end">
+              <Link
+                href={`/dashboard/chats/${wardrobeAvatar.id}`}
+                className="premium-button px-6 py-2.5 rounded-xl font-bold text-xs shadow-md flex items-center gap-1.5"
+              >
+                <span>Entrar a Chatear</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Imagen a Pantalla Completa del Dashboard (con Carrusel, Swipe y Transición de Página) */}
+      {fullScreenImage && (() => {
+        const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
+        if (wardrobeAvatar && !carouselUrls.includes(wardrobeAvatar.base_image_url)) {
+          carouselUrls.unshift(wardrobeAvatar.base_image_url);
+        }
+        const currentIndex = carouselUrls.indexOf(fullScreenImage);
+        
+        return (
+          <div 
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out select-none"
+            onClick={() => setFullScreenImage(null)}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
+          >
+            {/* Botón Cerrar */}
+            <button 
+              className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70] border border-white/5 shadow-lg"
+              onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); }}
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            {/* Contador */}
+            {carouselUrls.length > 1 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 text-white text-xs font-bold rounded-full backdrop-blur-md border border-white/5 tracking-wider z-[70] shadow-md">
+                {currentIndex + 1} / {carouselUrls.length}
+              </div>
+            )}
+
+            {/* Flecha Izquierda */}
+            {carouselUrls.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+                  setFullScreenImage(carouselUrls[prevIndex]);
+                }}
+                className="absolute left-4 md:left-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
+                title="Imagen Anterior"
+              >
+                <ChevronLeft className="w-6 h-6 md:w-8 md:h-8" />
+              </button>
+            )}
+
+            {/* Imagen Principal con animación de deslizamiento estilo página */}
+            <div className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none overflow-hidden">
+              <img 
+                key={fullScreenImage} // Fuerza re-render para disparar animación
+                src={fullScreenImage} 
+                alt="Outfit Full Screen" 
+                className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 animate-in slide-in-from-right-5 fade-in duration-300 pointer-events-auto transition-all"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            {/* Flecha Derecha */}
+            {carouselUrls.length > 1 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const nextIndex = (currentIndex + 1) % carouselUrls.length;
+                  setFullScreenImage(carouselUrls[nextIndex]);
+                }}
+                className="absolute right-4 md:right-8 top-1/2 -translate-y-1/2 p-3 md:p-4 bg-white/10 hover:bg-primary hover:text-black text-white rounded-full backdrop-blur-md transition-all cursor-pointer hover:scale-110 active:scale-95 z-[70] border border-white/10 shadow-[0_0_20px_rgba(0,0,0,0.4)]"
+                title="Siguiente Imagen"
+              >
+                <ChevronRight className="w-6 h-6 md:w-8 md:h-8" />
+              </button>
+            )}
+
+            {/* Herramienta Descarga */}
+            <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
+              <a 
+                href={fullScreenImage} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                download
+                onClick={(e) => e.stopPropagation()}
+                title="Descargar Imagen"
+                className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white border border-white/15 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer backdrop-blur-md"
+              >
+                <Download className="w-5 h-5" />
+              </a>
+            </div>
+          </div>
+        );
+      })()}
 
       {editingAvatar && (
         <EditAvatarModal 
