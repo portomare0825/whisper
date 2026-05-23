@@ -35,6 +35,13 @@ async function getGoogleTranslateTTS(text: string, gender?: string): Promise<Buf
     if (!res.ok) {
       throw new Error(`Failed to fetch TTS chunk: ${res.statusText}`);
     }
+    
+    // Verificar que la respuesta sea realmente un archivo de audio y no una página HTML de bloqueo/CAPTCHA
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('audio') && !contentType.includes('mpeg')) {
+      throw new Error(`Google Translate bloqueó la petición o requiere CAPTCHA (content-type no es audio: ${contentType})`);
+    }
+
     const arrayBuffer = await res.arrayBuffer();
     buffers.push(Buffer.from(arrayBuffer));
   }
