@@ -86,10 +86,10 @@ export async function POST(req: Request) {
 
     // 6. Iniciar la generación usando FLUX Inpainting para mantener el rostro intacto al 100%
     // Si no hay máscara, cae en el fallback de pose y face swap oficial
-    const { submitFalInpainting, submitFalPoseWithFaceSwap } = await import('@/lib/fal-inpainting');
+    const { submitFalPoseWithFaceSwap } = await import('@/lib/fal-inpainting');
     
     console.log(`Usando generación de pose libre con FLUX Dev + Face Swap oficial de Fal.ai para consistencia absoluta del rostro (${pose}).`);
-    falResult = await submitFalPoseWithFaceSwap({
+    const falResult = await submitFalPoseWithFaceSwap({
       baseImage: normalized_image || avatar.base_image_url,
       prompt: finalPrompt,
       physicalDescription: physicalDescription || undefined,
