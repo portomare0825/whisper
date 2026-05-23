@@ -88,22 +88,13 @@ export async function POST(req: Request) {
     // Si no hay máscara, cae en el fallback de pose y face swap oficial
     const { submitFalInpainting, submitFalPoseWithFaceSwap } = await import('@/lib/fal-inpainting');
     
-    let falResult;
-    if (mask_image && pose === 'portrait') {
-      console.log('Usando FLUX Inpainting con máscara de rostro para consistencia absoluta del 100% en Retrato.');
-      falResult = await submitFalInpainting({
-        baseImage: normalized_image || avatar.base_image_url,
-        maskImageBase64: mask_image,
-        prompt: finalPrompt,
-      });
-    } else {
-      console.log(`Usando pose libre de FLUX Dev + Face Swap oficial para encuadre alejado (${pose}).`);
-      falResult = await submitFalPoseWithFaceSwap({
-        baseImage: normalized_image || avatar.base_image_url,
-        prompt: finalPrompt,
-        physicalDescription: physicalDescription || undefined,
-      });
-    }
+    console.log(`Usando generación de pose libre con FLUX Dev + Face Swap oficial de Fal.ai para consistencia absoluta del rostro (${pose}).`);
+    falResult = await submitFalPoseWithFaceSwap({
+      baseImage: normalized_image || avatar.base_image_url,
+      prompt: finalPrompt,
+      physicalDescription: physicalDescription || undefined,
+    });
+
 
     if (!falResult.success) {
       return NextResponse.json({ error: falResult.error }, { status: 502 });
