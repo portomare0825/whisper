@@ -1,7 +1,9 @@
 'use client';
 
-import { Check, Zap, Sparkles, Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Check, Zap, Sparkles, Star, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { createClient } from '@/lib/supabase';
 
 const plans = [
   {
@@ -75,6 +77,59 @@ const plans = [
 ];
 
 export default function BillingPage() {
+  const [activePlan, setActivePlan] = useState<string>('Gratuito');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function checkSubscription() {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setActivePlan('Gratuito');
+          setLoading(false);
+          return;
+        }
+
+        const { data: subscription } = await supabase
+          .from('subscriptions')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .maybeSingle();
+
+        if (subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date())) {
+          if (subscription.plan_type === 'pro') {
+            setActivePlan('Mensual Pro');
+          } else if (subscription.plan_type === 'pay_per_use') {
+            if (!subscription.expires_at || !subscription.created_at) {
+              setActivePlan('Pase Diario'); // fallback seguro
+            } else {
+              const diffMs = new Date(subscription.expires_at).getTime() - new Date(subscription.created_at).getTime();
+              const diffDays = diffMs / (1000 * 60 * 60 * 24);
+              if (diffDays > 2) {
+                setActivePlan('Pase Semanal');
+              } else {
+                setActivePlan('Pase Diario');
+              }
+            }
+          } else {
+            setActivePlan('Gratuito');
+          }
+        } else {
+          setActivePlan('Gratuito');
+        }
+      } catch (error) {
+        console.error('Error fetching subscription:', error);
+        setActivePlan('Gratuito');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    checkSubscription();
+  }, []);
+
   const handleCheckout = async (planName: string, priceId: string) => {
     if (!priceId) return; // Plan gratuito
 
@@ -116,54 +171,73 @@ export default function BillingPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
-        {plans.map((plan) => (
-          <div 
-            key={plan.name}
-            className={cn(
-              "relative glass-morphism rounded-3xl p-6 flex flex-col h-full transition-all duration-300 hover:scale-[1.02]",
-              plan.premium ? "border-amber-400/30 shadow-[0_0_30px_rgba(251,191,36,0.08)] bg-gradient-to-b from-amber-400/5 via-transparent to-transparent" : "border-white/10"
-            )}
-          >
-            {plan.badge && (
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black px-4 py-1 rounded-full text-[10px] font-black tracking-wider uppercase flex items-center gap-1 shadow-lg shadow-amber-400/20 shrink-0 whitespace-nowrap">
-                <Star className="w-2.5 h-2.5 fill-current" />
-                {plan.badge}
-              </div>
-            )}
-
-            <div className="mb-6 mt-2">
-              <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-extrabold text-white">${plan.price}</span>
-                <span className="text-muted-foreground text-xs font-semibold">/{plan.period}</span>
-              </div>
-              <p className="text-muted-foreground text-xs mt-3 min-h-[32px]">{plan.description}</p>
-            </div>
-
-            <div className="flex-1 space-y-4 mb-8">
-              {plan.features.map((feature) => (
-                <div key={feature} className="flex items-start gap-3">
-                  <div className="mt-1 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                    <Check className="w-3 h-3 text-primary" />
-                  </div>
-                  <span className="text-sm text-white/80">{feature}</span>
-                </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => handleCheckout(plan.name, plan.priceId)}
+        {plans.map((plan) => {
+          const isCurrentPlan = activePlan === plan.name;
+          const buttonText = isCurrentPlan ? 'Plan Actual' : plan.buttonText;
+          return (
+            <div 
+              key={plan.name}
               className={cn(
-                "w-full py-4 rounded-xl font-bold transition-all",
-                plan.premium 
-                  ? "premium-button text-lg" 
-                  : "bg-white/5 hover:bg-white/10 border border-white/10"
+                "relative glass-morphism rounded-3xl p-6 flex flex-col h-full transition-all duration-300 hover:scale-[1.02]",
+                plan.premium ? "border-amber-400/30 shadow-[0_0_30px_rgba(251,191,36,0.08)] bg-gradient-to-b from-amber-400/5 via-transparent to-transparent" : "border-white/10",
+                isCurrentPlan && "border-amber-400 shadow-[0_0_30px_rgba(251,191,36,0.15)] bg-gradient-to-b from-amber-400/10 via-transparent to-transparent"
               )}
             >
-              {plan.buttonText}
-            </button>
-          </div>
-        ))}
+              {plan.badge && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-black px-4 py-1 rounded-full text-[10px] font-black tracking-wider uppercase flex items-center gap-1 shadow-lg shadow-amber-400/20 shrink-0 whitespace-nowrap">
+                  <Star className="w-2.5 h-2.5 fill-current" />
+                  {plan.badge}
+                </div>
+              )}
+
+              <div className="mb-6 mt-2">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xl font-bold">{plan.name}</h3>
+                  {isCurrentPlan && (
+                    <span className="text-[10px] font-bold bg-amber-400 text-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-[0_0_10px_rgba(251,191,36,0.4)]">
+                      Activo
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-3xl font-extrabold text-white">${plan.price}</span>
+                  <span className="text-muted-foreground text-xs font-semibold">/{plan.period}</span>
+                </div>
+                <p className="text-muted-foreground text-xs mt-3 min-h-[32px]">{plan.description}</p>
+              </div>
+
+              <div className="flex-1 space-y-4 mb-8">
+                {plan.features.map((feature) => (
+                  <div key={feature} className="flex items-start gap-3">
+                    <div className="mt-1 w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Check className="w-3 h-3 text-primary" />
+                    </div>
+                    <span className="text-sm text-white/80">{feature}</span>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                disabled={isCurrentPlan || loading}
+                onClick={() => handleCheckout(plan.name, plan.priceId)}
+                className={cn(
+                  "w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2",
+                  isCurrentPlan
+                    ? "bg-amber-400 text-black cursor-default shadow-[0_0_15px_rgba(251,191,36,0.3)]"
+                    : plan.premium 
+                      ? "premium-button text-lg cursor-pointer" 
+                      : "bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer"
+                )}
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  buttonText
+                )}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
       <div className="glass-morphism rounded-3xl p-8 flex flex-col md:flex-row items-center gap-8 justify-between border-primary/20">
@@ -176,13 +250,12 @@ export default function BillingPage() {
             <p className="text-muted-foreground">Ofrecemos planes corporativos y para creadores de contenido con grandes audiencias.</p>
           </div>
         </div>
-        <button className="px-8 py-3 rounded-xl border border-white/20 hover:bg-white/5 transition-colors font-bold shrink-0">
+        <button className="px-8 py-3 rounded-xl border border-white/20 hover:bg-white/5 transition-colors font-bold shrink-0 cursor-pointer">
           Contactar Ventas
         </button>
       </div>
 
       <div className="flex justify-center gap-8 grayscale opacity-50">
-        {/* Aquí irían logos de Mercado Pago, Visa, Mastercard, etc */}
         <span className="text-xs font-bold tracking-widest uppercase">Pagos seguros con Mercado Pago</span>
       </div>
     </div>

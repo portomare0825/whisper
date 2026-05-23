@@ -310,7 +310,7 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaciÃ
       throw new Error(`Error saving user message: ${userInsertError.message}`);
     }
 
-    // Detectar si la IA devolviÃ³ una respuesta con censura o negativa de roleplay
+    // Detectar si la IA devolviÃ³ una respuesta con censura o negativa de roleplay (o colapso de tokens)
     const lowerContent = assistantContent.toLowerCase();
     const censoredKeywords = [
       'roleplay sexual',
@@ -334,7 +334,13 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaciÃ
       'como asistente virtual',
       'modelo de ia',
       'como ia',
-      'asistente virtual'
+      'asistente virtual',
+      // DetecciÃ³n de colapso de tokens y ensalada de palabras del sampler en modelos gratuitos censurados
+      'ruwidthspacea',
+      'cauliflower',
+      'estrogen',
+      'demons',
+      'bastard'
     ];
     const isCensored = censoredKeywords.some(kw => lowerContent.includes(kw));
 
