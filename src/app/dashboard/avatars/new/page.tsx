@@ -175,6 +175,15 @@ export default function NewAvatarPage() {
 
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
 
+      // Consultar si el perfil del usuario actual es administrador
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const isAdmin = !!profile?.is_admin;
+
       // 2. Guardar en la base de datos
       const { error: dbError } = await supabase.from('avatars').insert({
         user_id: user.id,
@@ -189,6 +198,7 @@ export default function NewAvatarPage() {
         face_box_y: formData.face_box_y,
         face_box_width: formData.face_box_width,
         face_box_height: formData.face_box_height,
+        is_admin_avatar: isAdmin,
       });
 
       if (dbError) throw dbError;

@@ -20,11 +20,11 @@ export default async function DashboardPage() {
 
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Obtener avatares del usuario
+  // Obtener avatares del usuario o creados por un administrador
   const { data: avatars } = await supabase
     .from('avatars')
     .select('*')
-    .eq('user_id', user?.id)
+    .or(`user_id.eq.${user?.id},is_admin_avatar.eq.true`)
     .order('created_at', { ascending: false });
 
   // Validar si el usuario es premium consultando la tabla subscriptions
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
       <div className="pt-8">
         <h2 className="text-xl font-bold mb-6">Tus Avatares</h2>
         
-        <AvatarGrid initialAvatars={avatars || []} />
+        <AvatarGrid initialAvatars={avatars || []} currentUserId={user?.id} />
       </div>
     </div>
   );

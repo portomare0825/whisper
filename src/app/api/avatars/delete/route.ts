@@ -1,11 +1,31 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { cookies } from 'next/headers';
 
 export async function POST(req: Request) {
   try {
     const { avatar_id } = await req.json();
     if (!avatar_id) {
       return NextResponse.json({ error: 'Falta el ID del avatar' }, { status: 400 });
+    }
+
+    // Autenticar al usuario
+    const cookieStore = await cookies();
+    const clientSupabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() { return cookieStore.getAll() },
+          setAll() {},
+        },
+      }
+    );
+
+    const { data: { user } } = await clientSupabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
     }
 
     const supabase = createClient(
@@ -22,6 +42,11 @@ export async function POST(req: Request) {
 
     if (fetchError || !avatar) {
       return NextResponse.json({ error: 'Avatar no encontrado o ya eliminado' }, { status: 404 });
+    }
+
+    // Verificar que el usuario sea el dueño del avatar
+    if (avatar.user_id !== user.id) {
+      return NextResponse.json({ error: 'No tienes permiso para eliminar este avatar' }, { status: 403 });
     }
 
     // 2. Extraer las rutas de las imágenes en Supabase Storage
