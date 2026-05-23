@@ -247,7 +247,7 @@ export default function MessageBubble({
               {isLastUser && onEdit && !sending && (
                 <button
                   type="button"
-                  onClick={() => onEdit(message.content)}
+                  onClick={() => onEdit?.(message.content)}
                   className="px-1 py-0.2 md:px-1.5 md:py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] uppercase tracking-wider border border-white/10"
                   title="Editar esta pregunta"
                 >
@@ -258,7 +258,7 @@ export default function MessageBubble({
               {isLast && onRetry && !sending && (
                 <button
                   type="button"
-                  onClick={() => onRetry(message.content)}
+                  onClick={() => onRetry?.(message.content)}
                   className="px-1 py-0.2 md:px-1.5 md:py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] uppercase tracking-wider border border-white/10"
                   title="Reintentar respuesta de la IA"
                 >
