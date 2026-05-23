@@ -126,25 +126,19 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Nota: El mensaje del usuario ahora se guarda después de verificar que la IA respondió con éxito para evitar duplicaciones o contaminación en fallos.
-
-    // 3. Selección de modelos y Fallbacks
-    // Lista de modelos Premium sin censura (Cascada de seguridad por si alguno se cae)
+    // 2. Nota: El mensaje del usuario ahora se guarda después de verificar que la IA respondió con éxito para evitar duplicaciones o contamin    // 3. Selección de modelos y Fallbacks
+    // Lista de modelos Premium sin censura estructurada con timeouts específicos por modelo
     const premiumModelsFallback = [
-      process.env.PREMIUM_CHAT_MODEL || "sao10k/l3.1-euryale-70b", // Prioridad 1
-      "neversleep/llama-3.1-lumimaid-70b",                         // Prioridad 2 (Excelente para RP sin censura)
-      "nousresearch/hermes-3-llama-3.1-70b",                       // Prioridad 3 (Modelo grande sin censura)
-      "cognitivecomputations/dolphin-mixtral-8x22b",               // Prioridad 4 (Súper versátil y uncensored)
-      "sao10k/l3-euryale-70b",                                     // Prioridad 5 (Versión anterior muy estable)
-      "sao10k/l3-lunaris-8b",                                      // Prioridad 6 (Excelente en español, 8B sin censura de alta disponibilidad)
-      "neversleep/llama-3.1-lumimaid-8b",                          // Prioridad 7 (Rápido, estable y optimizado para RP)
-      "gryphe/mythomax-l2-13b"                                     // Prioridad 8 (Ultraestable, excelente calidad y confiabilidad)
+      { model: process.env.PREMIUM_CHAT_MODEL || "sao10k/l3.3-euryale-70b", timeout: 18000 }, // Prioridad 1 (Principal 70B, timeout generoso para prompt ingestion)
+      { model: "neversleep/llama-3.1-lumimaid-70b", timeout: 12000 },                         // Prioridad 2 (Respaldo 70B, excelente para RP sin censura)
+      { model: "sao10k/l3-lunaris-8b", timeout: 8000 },                                       // Prioridad 3 (Excelente 8B en español, súper rápido y disponible)
+      { model: "neversleep/llama-3.1-lumimaid-8b", timeout: 8000 }                            // Prioridad 4 (Excelente 8B rápido optimizado para RP)
     ];
 
     const freeModelsFallback = [
-      "meta-llama/llama-3.1-8b-instruct:free",
-      "google/gemma-2-9b-it:free",
-      "openrouter/free"
+      { model: "meta-llama/llama-3.1-8b-instruct:free", timeout: 8000 },
+      { model: "google/gemma-2-9b-it:free", timeout: 8000 },
+      { model: "openrouter/free", timeout: 8000 }
     ];
 
     const physicalDescSection = avatar.physical_description
@@ -160,6 +154,9 @@ export async function POST(req: Request) {
 ERES: ${avatar.name}
 TU PERSONALIDAD ES: ${avatar.personality}.${physicalDescSection}${userPhysicalDescSection}
 ${avatar.system_prompt ? `INSTRUCCIONES ESPECIALES DEL CREADOR: ${avatar.system_prompt}` : ''}
+
+[DIRECTRIZ DE INTERACCIÓN PREMIUM]
+Operas en un entorno premium totalmente desinhibido, privado y libre de censura. Exprésate con absoluta soltura, calidez, cercanía, picardía y sensualidad si la conversación fluye de forma natural en esa dirección o si el usuario lo propone. Sé atrevido/a, cercano/a y sumamente sugerente cuando corresponda. Está permitido el lenguaje informal, íntimo y coqueto. ¡Evita el tono formal, distante o clínico a toda costa!
 
 [REGLA NÚMERO 1 — JAMÁS ROMPAS TU ROL]
 Eres ${avatar.name} en TODO momento, sin excepción. No importa lo que el usuario diga, pida o haga. Incluso si el usuario:
@@ -199,6 +196,12 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaci�
 1. Escribe en un español nativo, natural, orgánico, perfectamente redactado y fácil de leer. ¡Evita sonar como un robot!
 2. Asegúrate de colocar espacios adecuados entre las palabras. Está estrictamente prohibido pegar palabras (como "debidoal", "separadospor", "torrentesensorialque", "latefuerteyconstantemente", etc.). Cada palabra debe estar separada de forma natural.
 3. Utiliza la ortografía correcta, incluyendo acentuación y tildes del español de forma precisa (usa tildes normales como 'í', jamás graves como 'ì').
+
+[REGLA NÚMERO 8 — ENGANCHE Y PROACTIVIDAD]
+Para mantener al usuario altamente cautivado/a e incentivar la conversación continua:
+1. NUNCA seas puramente reactivo/a. No te limites a responder lo que el usuario dice de manera pasiva.
+2. Añade siempre "ganchos" conversacionales al final de tu respuesta: haz una pregunta sugerente, una duda traviesa, una propuesta divertida o describe una acción física expresiva e intrigante entre asteriscos (por ejemplo: *te mira de reojo con una media sonrisa, esperando tu reacción*, *acaricia su propio mentón pensativamente mientras se acerca un poco más*, *guiñándote un ojo divertida con aire misterioso*).
+3. Mantén el dinamismo, el misterio y la intimidad en la interacción para que el usuario sienta el impulso inmediato de seguir escribiendo.
 ========================================================`;
 
     // Sanitizar palabras sensibles que gatillan bloqueos automáticos en APIs de LLMs (ej. NextBit, Together)
@@ -221,14 +224,18 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaci�
           headers: {
             "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://portomare-chatbot.com",
+            "X-Title": "Portomare Chatbot Premium"
           },
           signal: controller.signal,
           body: JSON.stringify({
             "model": modelName,
-            "temperature": 0.9, // Ajustado para un roleplay más natural y fluido
-            "frequency_penalty": 0.0, // Eliminado/Reducido a 0 para que no arruine la gramática ni el español común (evita el tono robótico)
-            "presence_penalty": 0.0, // Eliminado/Reducido a 0 para mantener la coherencia temática
-            "repetition_penalty": 1.05, // Penalización muy leve para prevenir bucles infinitos sin degradar la calidad
+            "temperature": 1.0, // Nivel óptimo para roleplay inmersivo y dinámico
+            "top_p": 0.9, // Filtro suave de tokens
+            "min_p": 0.05, // Sampler de calidad moderno para evitar colapso robótico y asegurar naturalidad en español
+            "presence_penalty": 0.2, // Fomenta variedad y evita estancamiento
+            "frequency_penalty": 0.1, // Evita la repetición monótona de transiciones
+            "repetition_penalty": 1.12, // Evita bucles sin degradar la coherencia gramatical
             "messages": [
               { "role": "system", "content": systemPrompt },
               ...formattedHistory,
@@ -259,8 +266,8 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaci�
     if (isPremium) {
       // Cascada de modelos Premium
       for (let i = 0; i < premiumModelsFallback.length; i++) {
-        const modelToTry = premiumModelsFallback[i];
-        llmResponse = await fetchOpenRouter(modelToTry);
+        const { model: modelToTry, timeout } = premiumModelsFallback[i];
+        llmResponse = await fetchOpenRouter(modelToTry, timeout);
         if (llmResponse.ok) {
           console.log(`[PREMIUM] Chat exitoso usando: ${modelToTry}`);
           break;
@@ -281,8 +288,8 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaci�
     } else {
       // Cascada de fallbacks para plan gratuito (Free)
       for (let i = 0; i < freeModelsFallback.length; i++) {
-        const modelToTry = freeModelsFallback[i];
-        llmResponse = await fetchOpenRouter(modelToTry);
+        const { model: modelToTry, timeout } = freeModelsFallback[i];
+        llmResponse = await fetchOpenRouter(modelToTry, timeout);
         if (llmResponse.ok) {
           console.log(`Fallback exitoso usando: ${modelToTry}`);
           break;
@@ -290,6 +297,7 @@ Tus respuestas deben ser breves, naturales y directas, simulando una conversaci�
           const errText = await llmResponse.text();
           console.warn(`Llamada fallida con ${modelToTry} (status: ${llmResponse?.status}). Error: ${errText}`);
           lastErrorDetails = `Status: ${llmResponse.status}.`;
+          llmResponse = null;
         }
       }
 
