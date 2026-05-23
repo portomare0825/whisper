@@ -7,6 +7,8 @@
  * Utiliza el mismo truco stateless de codificar el resultado en el generation_id.
  */
 
+import { translatePhysicalDescriptionToEnglish } from './prompt-enricher';
+
 interface FalInpaintingResult {
   success: boolean;
   imageUrl?: string;
@@ -157,11 +159,18 @@ export async function submitFalPoseWithFaceSwap(params: {
 
   try {
     // Construir prompt con rasgos físicos al inicio para máxima fidelidad en FLUX Dev
-    // Los modelos de difusión dan mayor peso a los tokens al principio del prompt
-    const physicalPrefix = params.physicalDescription
-      ? `${params.physicalDescription.trim()}, `
-      : '';
-    const finalFluxPrompt = `${physicalPrefix}${params.prompt}`;
+    // Los modelos de difusión dan mayor peso a los tokens al principio del prompt.
+    // Solo anteponemos si la descripción física en inglés no está ya presente al inicio del prompt.
+    let finalFluxPrompt = params.prompt;
+    if (params.physicalDescription) {
+      const physicalEng = translatePhysicalDescriptionToEnglish(params.physicalDescription);
+      if (physicalEng) {
+        const firstWord = physicalEng.split(' ')[0]?.toLowerCase();
+        if (firstWord && !params.prompt.toLowerCase().includes(firstWord)) {
+          finalFluxPrompt = `${physicalEng.trim()}, ${params.prompt}`;
+        }
+      }
+    }
 
     console.log('Iniciando Paso 1: Generación de pose libre con Fal.ai FLUX Dev. Prompt:', finalFluxPrompt);
 
