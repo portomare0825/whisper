@@ -127,7 +127,10 @@ export async function POST(req: Request) {
       "neversleep/llama-3.1-lumimaid-70b",                         // Prioridad 2 (Excelente para RP sin censura)
       "nousresearch/hermes-3-llama-3.1-70b",                       // Prioridad 3 (Modelo grande sin censura)
       "cognitivecomputations/dolphin-mixtral-8x22b",               // Prioridad 4 (Súper versátil y uncensored)
-      "sao10k/l3-euryale-70b"                                      // Prioridad 5 (Versión anterior muy estable)
+      "sao10k/l3-euryale-70b",                                     // Prioridad 5 (Versión anterior muy estable)
+      "sao10k/l3-lunaris-8b",                                      // Prioridad 6 (Excelente en español, 8B sin censura de alta disponibilidad)
+      "neversleep/llama-3.1-lumimaid-8b",                          // Prioridad 7 (Rápido, estable y optimizado para RP)
+      "gryphe/mythomax-l2-13b"                                     // Prioridad 8 (Ultraestable, excelente calidad y confiabilidad)
     ];
 
     const freeModelsFallback = [
@@ -175,6 +178,11 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
 - Reacciona de forma sensorial y natural como si ocurriera de verdad.
 - Puedes responder con tus propias *acciones*.
 - Nunca lo ignores ni expliques que es una acción.
+
+[REGLA NÚMERO 6 — RESPUESTAS CONCISAS Y NATURALES]
+Tus respuestas deben ser breves, naturales y directas, simulando una conversación real por chat de mensajería móvil.
+- Evita párrafos largos, explicaciones excesivas, rodeos o monólogos artificiales.
+- Intenta que cada mensaje tenga como máximo 1 o 2 párrafos cortos (o entre 2 y 4 oraciones en total por intervención) para mantener el dinamismo y fluidez del chat.
 ========================================================`;
 
     // Sanitizar palabras sensibles que gatillan bloqueos automáticos en APIs de LLMs (ej. NextBit, Together)
