@@ -118,14 +118,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Guardar mensaje del usuario (solo si pasó los límites de seguridad)
-    const { error: userInsertError } = await supabase.from('messages').insert([
-      { conversation_id, role: 'user', content: message }
-    ]);
-
-    if (userInsertError) {
-      throw new Error(`Error saving user message: ${userInsertError.message}`);
-    }
+    // 2. Nota: El mensaje del usuario ahora se guarda después de verificar que la IA respondió con éxito para evitar duplicaciones o contaminación en fallos.
 
     // 3. Selección de modelos y Fallbacks
     // Lista de modelos Premium sin censura (Cascada de seguridad por si alguno se cae)
@@ -203,10 +196,10 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
         },
         body: JSON.stringify({
           "model": modelName,
-          "temperature": 0.7, // Ajustado a petición para evitar alucinaciones
-          "frequency_penalty": 0.8, // Penaliza matemáticamente usar palabras que ya ha usado mucho
-          "presence_penalty": 0.6, // Penaliza repetir los mismos conceptos
-          "repetition_penalty": 1.15, // Castigo fuerte a frases idénticas
+          "temperature": 0.9, // Ajustado para un roleplay más natural y fluido
+          "frequency_penalty": 0.0, // Eliminado/Reducido a 0 para que no arruine la gramática ni el español común (evita el tono robótico)
+          "presence_penalty": 0.0, // Eliminado/Reducido a 0 para mantener la coherencia temática
+          "repetition_penalty": 1.05, // Penalización muy leve para prevenir bucles infinitos sin degradar la calidad
           "messages": [
             { "role": "system", "content": systemPrompt },
             ...formattedHistory,
@@ -231,13 +224,18 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
           const errText = await llmResponse.text();
           console.warn(`[PREMIUM] Modelo ${modelToTry} falló (status: ${llmResponse?.status}). Error: ${errText}`);
           lastErrorDetails = `Status: ${llmResponse.status}. Details: ${errText}`;
-          llmResponse = null; // Reiniciar para el siguiente intento o fallback final
+          llmResponse = null; // Reiniciar para el siguiente intento
         }
       }
-    }
 
-    if (!llmResponse || !llmResponse.ok) {
-      // Cascada de fallbacks (para Free o si el Premium falló)
+      // Si es Premium y todos los modelos premium fallaron, devolvemos error y no permitimos el fallback a modelos gratuitos.
+      if (!llmResponse || !llmResponse.ok) {
+        return NextResponse.json({
+          error: "Los servidores de IA Premium están ocupados en este momento. Por favor, intenta de nuevo en unos segundos."
+        }, { status: 503 });
+      }
+    } else {
+      // Cascada de fallbacks para plan gratuito (Free)
       for (let i = 0; i < freeModelsFallback.length; i++) {
         const modelToTry = freeModelsFallback[i];
         llmResponse = await fetchOpenRouter(modelToTry);
@@ -250,14 +248,23 @@ Cuando el usuario escriba *acción entre asteriscos*, es una acción física rea
           lastErrorDetails = `Status: ${llmResponse.status}.`;
         }
       }
-    }
 
-    if (!llmResponse || !llmResponse.ok) {
-      throw new Error(`OpenRouter API error: Todos los modelos fallaron. Último error: ${lastErrorDetails}`);
+      if (!llmResponse || !llmResponse.ok) {
+        throw new Error(`OpenRouter API error: Todos los modelos gratuitos fallaron. Último error: ${lastErrorDetails}`);
+      }
     }
 
     const llmResult = await llmResponse.json();
     let assistantContent = llmResult.choices?.[0]?.message?.content || "";
+
+    // 2. Guardar mensaje del usuario (se guarda SOLO AHORA tras validar éxito de la IA)
+    const { error: userInsertError } = await supabase.from('messages').insert([
+      { conversation_id, role: 'user', content: message }
+    ]);
+
+    if (userInsertError) {
+      throw new Error(`Error saving user message: ${userInsertError.message}`);
+    }
 
     // Detectar si la IA devolvió una respuesta con censura o negativa de roleplay
     const lowerContent = assistantContent.toLowerCase();

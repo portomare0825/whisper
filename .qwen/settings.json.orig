@@ -3,6 +3,5 @@
     "allow": [
       "Agent(Explore)"
     ]
-  },
-  "$version": 4
+  }
 }
