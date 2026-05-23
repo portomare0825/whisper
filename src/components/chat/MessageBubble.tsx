@@ -234,7 +234,7 @@ export default function MessageBubble({
           </div>
         )}
         
-        <p className="text-xs md:text-sm leading-normal md:leading-relaxed whitespace-pre-wrap">
+        <p className="text-xs md:text-sm leading-normal md:leading-relaxed whitespace-pre-wrap break-words [word-break:break-word] [overflow-wrap:anywhere]">
           {message.content}
         </p>
         
