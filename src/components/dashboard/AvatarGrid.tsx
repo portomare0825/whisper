@@ -94,7 +94,7 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
     if (!prevImage) return;
     const timer = setTimeout(() => {
       setPrevImage(null);
-    }, 450);
+    }, 800);
     return () => clearTimeout(timer);
   }, [prevImage]);
 
@@ -317,16 +317,26 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                   0% {
                     clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
                     opacity: 1;
-                    transform: scale(1) rotate(0deg);
+                    transform: scale(1) rotate(0deg) translateX(0) translateY(0);
+                    filter: drop-shadow(0 0 0 rgba(0,0,0,0));
                   }
-                  30% {
-                    clip-path: polygon(15% 0%, 100% 0%, 100% 100%, 0% 85%);
-                    transform: scale(0.98) rotate(1.5deg);
+                  20% {
+                    /* Comienza el rasgado con una línea dentada/ondulada realista */
+                    clip-path: polygon(0% 0%, 80% 0%, 75% 15%, 82% 30%, 73% 45%, 78% 60%, 70% 75%, 76% 90%, 70% 100%, 0% 100%);
+                    transform: scale(0.99) rotate(2deg) translateX(8px) translateY(-8px);
+                  }
+                  45% {
+                    /* El papel se arquea y se dobla hacia afuera revelando el fondo */
+                    clip-path: polygon(0% 0%, 45% 0%, 40% 15%, 47% 30%, 38% 45%, 43% 60%, 35% 75%, 41% 90%, 35% 100%, 0% 100%);
+                    transform: scale(0.95) rotate(6deg) translateX(45px) translateY(-25px);
+                    filter: drop-shadow(-15px 15px 20px rgba(0,0,0,0.6));
                   }
                   100% {
-                    clip-path: polygon(100% 0%, 100% 0%, 100% 100%, 100% 100%);
+                    /* Se desprende por completo volando fuera de la pantalla de forma curva */
+                    clip-path: polygon(0% 0%, 0% 0%, 0% 15%, 0% 30%, 0% 45%, 0% 60%, 0% 75%, 0% 90%, 0% 100%, 0% 100%);
                     opacity: 0;
-                    transform: scale(0.85) rotate(7deg) translateY(40px) translateX(20px);
+                    transform: scale(0.7) rotate(25deg) translateX(280px) translateY(220px);
+                    filter: drop-shadow(-35px 35px 50px rgba(0,0,0,0.95));
                   }
                 }
 
@@ -334,29 +344,41 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                   0% {
                     clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
                     opacity: 1;
-                    transform: scale(1) rotate(0deg);
+                    transform: scale(1) rotate(0deg) translateX(0) translateY(0);
+                    filter: drop-shadow(0 0 0 rgba(0,0,0,0));
                   }
-                  30% {
-                    clip-path: polygon(0% 0%, 85% 0%, 100% 85%, 0% 100%);
-                    transform: scale(0.98) rotate(-1.5deg);
+                  20% {
+                    clip-path: polygon(100% 0%, 20% 0%, 25% 15%, 18% 30%, 27% 45%, 22% 60%, 30% 75%, 24% 90%, 30% 100%, 100% 100%);
+                    transform: scale(0.99) rotate(-2deg) translateX(-8px) translateY(-8px);
+                  }
+                  45% {
+                    clip-path: polygon(100% 0%, 55% 0%, 60% 15%, 53% 30%, 62% 45%, 57% 60%, 65% 75%, 59% 90%, 65% 100%, 100% 100%);
+                    transform: scale(0.95) rotate(-6deg) translateX(-45px) translateY(-25px);
+                    filter: drop-shadow(15px 15px 20px rgba(0,0,0,0.6));
                   }
                   100% {
-                    clip-path: polygon(0% 0%, 0% 0%, 0% 100%, 0% 100%);
+                    clip-path: polygon(100% 0%, 100% 0%, 100% 15%, 100% 30%, 100% 45%, 100% 60%, 100% 75%, 100% 90%, 100% 100%, 100% 100%);
                     opacity: 0;
-                    transform: scale(0.85) rotate(-7deg) translateY(40px) translateX(-20px);
+                    transform: scale(0.7) rotate(-25deg) translateX(-280px) translateY(220px);
+                    filter: drop-shadow(35px 35px 50px rgba(0,0,0,0.95));
                   }
                 }
 
                 @keyframes paperReveal {
                   0% {
                     opacity: 0;
-                    transform: scale(1.05);
-                    filter: blur(4px);
+                    transform: scale(0.94) rotate(-3deg);
+                    filter: blur(10px) brightness(0.5);
+                  }
+                  40% {
+                    opacity: 0.6;
+                    transform: scale(0.97) rotate(-1.5deg);
+                    filter: blur(5px) brightness(0.75);
                   }
                   100% {
                     opacity: 1;
-                    transform: scale(1);
-                    filter: blur(0);
+                    transform: scale(1) rotate(0deg);
+                    filter: blur(0) brightness(1);
                   }
                 }
               `}} />
@@ -406,7 +428,7 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                   alt="Outfit Full Screen" 
                   className="max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-auto transition-all"
                   style={{
-                    animation: prevImage ? 'paperReveal 0.45s ease-out forwards' : 'none'
+                    animation: prevImage ? 'paperReveal 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' : 'none'
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -422,8 +444,8 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                     className="absolute max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-none"
                     style={{
                       animation: tearDirection === 'right' 
-                        ? 'paperTearRight 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' 
-                        : 'paperTearLeft 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+                        ? 'paperTearRight 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' 
+                        : 'paperTearLeft 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
                       transformOrigin: tearDirection === 'right' ? 'top left' : 'top right'
                     }}
                   />
@@ -477,7 +499,7 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                   alt="Ultra Full Screen" 
                   className="w-full h-full object-contain md:object-cover animate-in fade-in duration-300"
                   style={{
-                    animation: prevImage ? 'paperReveal 0.45s ease-out forwards' : 'none'
+                    animation: prevImage ? 'paperReveal 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' : 'none'
                   }}
                 />
 
@@ -489,8 +511,8 @@ export default function AvatarGrid({ initialAvatars }: AvatarGridProps) {
                     className="absolute w-full h-full object-contain md:object-cover pointer-events-none"
                     style={{
                       animation: tearDirection === 'right' 
-                        ? 'paperTearRight 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' 
-                        : 'paperTearLeft 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+                        ? 'paperTearRight 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards' 
+                        : 'paperTearLeft 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
                       transformOrigin: tearDirection === 'right' ? 'top left' : 'top right'
                     }}
                   />
