@@ -20,12 +20,35 @@ export default async function DashboardPage() {
 
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Obtener avatares del usuario o creados por un administrador
+  // Obtener avatares propios o públicos aprobados (con sus calificaciones)
   const { data: avatars } = await supabase
     .from('avatars')
-    .select('*')
-    .or(`user_id.eq.${user?.id},is_admin_avatar.eq.true`)
+    .select('*, avatar_ratings(rating)')
+    .or(`user_id.eq.${user?.id},and(visibility.eq.public,moderation_status.eq.approved)`)
     .order('created_at', { ascending: false });
+
+  // Formatear avatares para calcular el promedio de estrellas y número de valoraciones
+  const formattedAvatars = (avatars || []).map((avatar: any) => {
+    const ratings = avatar.avatar_ratings || [];
+    const count = ratings.length;
+    const avg = count > 0 ? ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / count : 0;
+    return {
+      ...avatar,
+      rating_count: count,
+      rating_avg: parseFloat(avg.toFixed(1)),
+    };
+  }).sort((a: any, b: any) => {
+    // 1. Por promedio de estrellas descendente (mayor puntaje primero)
+    if (b.rating_avg !== a.rating_avg) {
+      return b.rating_avg - a.rating_avg;
+    }
+    // 2. Desempate por cantidad de votos descendente (más popular primero)
+    if (b.rating_count !== a.rating_count) {
+      return b.rating_count - a.rating_count;
+    }
+    // 3. Desempate por fecha de creación descendente (más nuevo primero)
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 
   // Validar si el usuario es premium consultando la tabla subscriptions
   let isPremium = false;
@@ -83,7 +106,7 @@ export default async function DashboardPage() {
       <div className="pt-8">
         <h2 className="text-xl font-bold mb-6">Tus Avatares</h2>
         
-        <AvatarGrid initialAvatars={avatars || []} currentUserId={user?.id} />
+        <AvatarGrid initialAvatars={formattedAvatars} currentUserId={user?.id} />
       </div>
     </div>
   );

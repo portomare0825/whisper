@@ -19,10 +19,34 @@ export default function AvatarsListPage() {
         setCurrentUserId(user.id);
         const { data } = await supabase
           .from('avatars')
-          .select('*')
-          .or(`user_id.eq.${user.id},is_admin_avatar.eq.true`)
+          .select('*, avatar_ratings(rating)')
+          .or(`user_id.eq.${user.id},and(visibility.eq.public,moderation_status.eq.approved)`)
           .order('created_at', { ascending: false });
-        if (data) setAvatars(data);
+        
+        if (data) {
+          const formatted = data.map((avatar: any) => {
+            const ratings = avatar.avatar_ratings || [];
+            const count = ratings.length;
+            const avg = count > 0 ? ratings.reduce((sum: number, r: any) => sum + r.rating, 0) / count : 0;
+            return {
+              ...avatar,
+              rating_count: count,
+              rating_avg: parseFloat(avg.toFixed(1)),
+            };
+          }).sort((a: any, b: any) => {
+            // 1. Por promedio de estrellas descendente (mayor puntaje primero)
+            if (b.rating_avg !== a.rating_avg) {
+              return b.rating_avg - a.rating_avg;
+            }
+            // 2. Desempate por cantidad de votos descendente (más popular primero)
+            if (b.rating_count !== a.rating_count) {
+              return b.rating_count - a.rating_count;
+            }
+            // 3. Desempate por fecha de creación descendente (más nuevo primero)
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
+          setAvatars(formatted);
+        }
       }
       setLoading(false);
     };
@@ -86,9 +110,50 @@ export default function AvatarsListPage() {
                     </span>
                   )}
 
+                  {/* Insignias de Privacidad y Moderación para el Propietario */}
+                  {isOwner && (
+                    <>
+                      {/* @ts-ignore */}
+                      {avatar.visibility === 'private' && (
+                        <span className="absolute top-4 right-4 z-10 text-[9px] font-bold px-2 py-1 rounded-md bg-white/10 text-white/70 border border-white/20 backdrop-blur-md flex items-center gap-1 uppercase tracking-wider">
+                          Privado 🔒
+                        </span>
+                      )}
+                      {/* @ts-ignore */}
+                      {avatar.visibility === 'public' && avatar.moderation_status === 'pending' && (
+                        <span className="absolute top-4 right-4 z-10 text-[9px] font-bold px-2 py-1 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/35 backdrop-blur-md flex items-center gap-1 uppercase tracking-wider animate-pulse">
+                          En revisión ⏳
+                        </span>
+                      )}
+                      {/* @ts-ignore */}
+                      {avatar.visibility === 'public' && avatar.moderation_status === 'rejected' && (
+                        <span className="absolute top-4 right-4 z-10 text-[9px] font-bold px-2 py-1 rounded-md bg-destructive/20 text-destructive border border-destructive/35 backdrop-blur-md flex items-center gap-1 uppercase tracking-wider">
+                          Rechazado ❌
+                        </span>
+                      )}
+                    </>
+                  )}
+
                   <div className="absolute bottom-4 left-4 right-4">
                     <h3 className="text-xl font-bold text-white group-hover:text-primary transition-colors">{avatar.name}</h3>
                     <p className="text-xs text-white/60 line-clamp-1 italic">{avatar.personality}</p>
+                    
+                    {/* Calificación en estrellas */}
+                    {/* @ts-ignore */}
+                    {avatar.rating_count !== undefined && avatar.rating_count > 0 ? (
+                      <div className="flex items-center gap-1.5 mt-2 bg-black/40 backdrop-blur-md w-fit px-2 py-0.5 rounded-lg border border-white/5">
+                        <span className="text-yellow-400 text-xs">⭐</span>
+                        {/* @ts-ignore */}
+                        <span className="text-[10px] font-bold text-white">{avatar.rating_avg}</span>
+                        {/* @ts-ignore */}
+                        <span className="text-[9px] text-white/50">({avatar.rating_count})</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 mt-2 bg-black/40 backdrop-blur-md w-fit px-2 py-0.5 rounded-lg border border-white/5">
+                        <span className="text-white/40 text-xs">⭐</span>
+                        <span className="text-[9px] text-white/40">Sin valorar</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 

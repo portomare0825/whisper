@@ -25,6 +25,7 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
     system_prompt: avatar.system_prompt || '',
     gender: avatar.gender || 'female',
     physical_description: avatar.physical_description || '',
+    visibility: avatar.visibility || 'private',
     face_box_x: avatar.face_box_x ?? 198,
     face_box_y: avatar.face_box_y ?? 120,
     face_box_width: avatar.face_box_width ?? 180,
@@ -116,6 +117,18 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         imageUrl = publicUrl;
       }
 
+      // Consultar si el perfil del usuario actual es administrador
+      const { data: { user } } = await supabase.auth.getUser();
+      let isAdmin = false;
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .maybeSingle();
+        isAdmin = !!profile?.is_admin;
+      }
+
       const updatedData = {
         name: formData.name,
         personality: formData.personality,
@@ -127,6 +140,8 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         face_box_y: formData.face_box_y,
         face_box_width: formData.face_box_width,
         face_box_height: formData.face_box_height,
+        visibility: formData.visibility,
+        moderation_status: formData.visibility === 'private' ? 'none' : (isAdmin ? 'approved' : 'pending'),
       };
 
       const { data, error: updateError } = await supabase
@@ -237,6 +252,31 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
                     Masculino 👨‍💼
                   </button>
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-muted-foreground">Privacidad del Avatar</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, visibility: 'private'})}
+                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.visibility === 'private' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
+                  >
+                    Privado 🔒
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, visibility: 'public'})}
+                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.visibility === 'public' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
+                  >
+                    Público 🌐
+                  </button>
+                </div>
+                {formData.visibility === 'public' && (
+                  <p className="text-[10px] text-primary animate-pulse font-semibold mt-1">
+                    ✨ Nota: Al hacerlo público, pasará a revisión de un moderador antes de ser visible para toda la comunidad.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1.5">

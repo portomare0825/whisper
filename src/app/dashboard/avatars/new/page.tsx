@@ -19,6 +19,7 @@ export default function NewAvatarPage() {
     system_prompt: '',
     gender: 'female', // default to female
     physical_description: '',
+    visibility: 'private', // 'private' | 'public'
     face_box_x: 198,
     face_box_y: 120,
     face_box_width: 180,
@@ -199,6 +200,8 @@ export default function NewAvatarPage() {
         face_box_width: formData.face_box_width,
         face_box_height: formData.face_box_height,
         is_admin_avatar: isAdmin,
+        visibility: formData.visibility,
+        moderation_status: formData.visibility === 'private' ? 'none' : (isAdmin ? 'approved' : 'pending'),
       });
 
       if (dbError) throw dbError;
@@ -326,6 +329,31 @@ export default function NewAvatarPage() {
                   Masculino 👨‍💼
                 </button>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Privacidad del Avatar</label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, visibility: 'private'})}
+                  className={`py-3 rounded-xl font-medium border transition-all ${formData.visibility === 'private' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
+                >
+                  Privado 🔒
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({...formData, visibility: 'public'})}
+                  className={`py-3 rounded-xl font-medium border transition-all ${formData.visibility === 'public' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
+                >
+                  Público 🌐
+                </button>
+              </div>
+              {formData.visibility === 'public' && (
+                <p className="text-[10px] text-primary animate-pulse font-semibold mt-1">
+                  ✨ Nota: Al hacerlo público, pasará a revisión de un moderador antes de ser visible para toda la comunidad.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

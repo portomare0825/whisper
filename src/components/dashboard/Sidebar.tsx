@@ -1,21 +1,113 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquare, CreditCard, Settings, LogOut, PlusCircle, Menu, X } from 'lucide-react';
+import { Home, MessageSquare, CreditCard, Settings, LogOut, PlusCircle, Menu, X, ShieldCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const menuItems = [
-  { icon: Home, label: 'Dashboard', href: '/dashboard' },
-  { icon: MessageSquare, label: 'Chats', href: '/dashboard/chats' },
-  { icon: CreditCard, label: 'Suscripción', href: '/dashboard/billing' },
-  { icon: Settings, label: 'Ajustes', href: '/dashboard/settings' },
-];
+import { createClient } from '@/lib/supabase';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const knownPendingIdsRef = useRef<string[]>([]);
+  const supabase = createClient();
+
+  useEffect(() => {
+    let intervalId: any;
+
+    async function checkAdminAndNotifications() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          const userIsAdmin = !!profile?.is_admin;
+          setIsAdmin(userIsAdmin);
+
+          if (userIsAdmin) {
+            // Solicitar permisos de notificación nativa si no se han denegado
+            if ('Notification' in window && Notification.permission === 'default') {
+              await Notification.permission; // Resuelve de forma fluida
+              Notification.requestPermission();
+            }
+
+            const checkPending = async (isInitial = false) => {
+              try {
+                const res = await fetch('/api/avatars/pending');
+                if (!res.ok) return;
+                const data = await res.json();
+                
+                if (data && data.avatars) {
+                  const currentPending = data.avatars;
+                  setPendingCount(currentPending.length);
+                  
+                  const currentIds = currentPending.map((a: any) => a.id);
+
+                  if (!isInitial) {
+                    // Detectar nuevos avatares que no estaban en la referencia previa
+                    const newAvatars = currentPending.filter(
+                      (a: any) => !knownPendingIdsRef.current.includes(a.id)
+                    );
+
+                    if (newAvatars.length > 0) {
+                      newAvatars.forEach((avatar: any) => {
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                          const notification = new Notification('Avatar Pendiente de Aprobación ⚖️', {
+                            body: `El avatar "${avatar.name}" requiere revisión administrativa.`,
+                            icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
+                            tag: avatar.id
+                          });
+                          notification.onclick = () => {
+                            window.focus();
+                            window.location.href = '/dashboard/moderation';
+                          };
+                        }
+                      });
+                    }
+                  }
+                  
+                  knownPendingIdsRef.current = currentIds;
+                }
+              } catch (e) {
+                console.error('Error al consultar avatares pendientes en Sidebar:', e);
+              }
+            };
+
+            // Ejecución inicial silenciosa para registrar los IDs actuales
+            await checkPending(true);
+
+            // Sondeo periódico cada 15 segundos para detectar nuevos ingresos
+            intervalId = setInterval(() => {
+              checkPending(false);
+            }, 15000);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking admin status in Sidebar:', err);
+      }
+    }
+
+    checkAdminAndNotifications();
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, []);
+
+  const items = [
+    { icon: Home, label: 'Dashboard', href: '/dashboard' },
+    { icon: MessageSquare, label: 'Chats', href: '/dashboard/chats' },
+    ...(isAdmin ? [{ icon: ShieldCheck, label: 'Moderación', href: '/dashboard/moderation' }] : []),
+    { icon: CreditCard, label: 'Suscripción', href: '/dashboard/billing' },
+    { icon: Settings, label: 'Ajustes', href: '/dashboard/settings' },
+  ];
 
   // Cerrar el sidebar al cambiar de ruta
   useEffect(() => {
@@ -83,19 +175,26 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex-1 space-y-2">
-          {menuItems.map((item) => (
+          {items.map((item) => (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group",
+                "flex items-center justify-between px-4 py-3 rounded-xl transition-all duration-200 group border border-transparent",
                 pathname === item.href
-                  ? "bg-primary/10 text-primary border border-primary/20"
+                  ? "bg-primary/10 text-primary border border-primary/25"
                   : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
               )}
             >
-              <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-primary" : "group-hover:text-primary transition-colors")} />
-              <span className="font-medium">{item.label}</span>
+              <div className="flex items-center gap-3">
+                <item.icon className={cn("w-5 h-5", pathname === item.href ? "text-primary" : "group-hover:text-primary transition-colors")} />
+                <span className="font-medium">{item.label}</span>
+              </div>
+              {item.label === 'Moderación' && pendingCount > 0 && (
+                <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold bg-primary text-black shadow-[0_0_12px_rgba(212,175,55,0.6)] border border-primary/50 animate-pulse">
+                  {pendingCount}
+                </span>
+              )}
             </Link>
           ))}
         </nav>

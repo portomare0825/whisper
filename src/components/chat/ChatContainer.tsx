@@ -75,6 +75,56 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [userHasAppearance, setUserHasAppearance] = useState(false);
   const [showAppearanceSuccess, setShowAppearanceSuccess] = useState(false);
 
+  // Estados para el sistema de calificación por estrellas de avatares públicos
+  const [userRating, setUserRating] = useState<number>(0);
+  const [hoverRating, setHoverRating] = useState<number>(0);
+
+  // Cargar calificación previa del usuario al montar el componente
+  useEffect(() => {
+    async function fetchUserRating() {
+      // @ts-ignore
+      if (avatar.visibility === 'public' && avatar.moderation_status === 'approved' && avatar.user_id !== conversation.user_id) {
+        try {
+          const { data } = await supabase
+            .from('avatar_ratings')
+            .select('rating')
+            .eq('avatar_id', avatar.id)
+            .eq('user_id', conversation.user_id)
+            .maybeSingle();
+          if (data) {
+            setUserRating(data.rating);
+          }
+        } catch (err) {
+          console.error('Error fetching user rating:', err);
+        }
+      }
+    }
+    fetchUserRating();
+  }, [avatar.id, conversation.user_id]);
+
+  const handleRate = async (ratingValue: number) => {
+    try {
+      setUserRating(ratingValue);
+
+      // Upsert de la calificación en la base de datos (con conflicto por avatar_id y user_id)
+      const { error } = await supabase
+        .from('avatar_ratings')
+        .upsert({
+          avatar_id: avatar.id,
+          user_id: conversation.user_id,
+          rating: ratingValue,
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'avatar_id,user_id'
+        });
+
+      if (error) throw error;
+    } catch (err: any) {
+      console.error('Error submitting rating:', err);
+      alert(`No se pudo enviar la calificación: ${err.message}`);
+    }
+  };
+
 
   // Estados para ocultar/mostrar avatar y restauración de imagen
   const [showAvatarInChat, setShowAvatarInChat] = useState<boolean>(() => {
@@ -1294,6 +1344,35 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               <p className="text-[9px] md:text-[10px] text-primary mt-1 md:mt-1.5 uppercase tracking-widest font-semibold animate-pulse">✨ Cambiando pose...</p>
             ) : (
               <p className="text-[9px] md:text-[10px] text-primary mt-1 md:mt-1.5 uppercase tracking-widest font-semibold">En línea</p>
+            )}
+
+            {/* Calificación por Estrellas Interactiva */}
+            {/* @ts-ignore */}
+            {avatar.visibility === 'public' && avatar.moderation_status === 'approved' && avatar.user_id !== conversation.user_id && (
+              <div className="flex items-center gap-1.5 mt-1.5 animate-in fade-in slide-in-from-top-1 duration-200">
+                <span className="text-[9px] text-white/50 font-medium">Valora:</span>
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => handleRate(star)}
+                      onMouseEnter={() => setHoverRating(star)}
+                      onMouseLeave={() => setHoverRating(0)}
+                      className="focus:outline-none transition-transform duration-200 active:scale-125 cursor-pointer"
+                      title={`Calificar con ${star} estrella${star > 1 ? 's' : ''}`}
+                    >
+                      <Star 
+                        className={`w-3.5 h-3.5 ${
+                          star <= (hoverRating || userRating) 
+                            ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_4px_rgba(250,204,21,0.5)]' 
+                            : 'text-white/20'
+                        }`} 
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>

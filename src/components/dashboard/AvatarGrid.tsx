@@ -13,6 +13,7 @@ interface AvatarGridProps {
 export default function AvatarGrid({ initialAvatars, currentUserId }: AvatarGridProps) {
   const [avatars, setAvatars] = useState(initialAvatars);
   const [editingAvatar, setEditingAvatar] = useState<any | null>(null);
+  const [activeTab, setActiveTab] = useState<'all' | 'private' | 'public'>('all');
 
   // Estados del Armario / Vestuario
   const [loadingWardrobeId, setLoadingWardrobeId] = useState<string | null>(null);
@@ -155,11 +156,52 @@ export default function AvatarGrid({ initialAvatars, currentUserId }: AvatarGrid
     );
   }
 
+  const filteredAvatars = avatars.filter(avatar => {
+    if (activeTab === 'private') {
+      return avatar.visibility === 'private' && avatar.user_id === currentUserId;
+    }
+    if (activeTab === 'public') {
+      return avatar.visibility === 'public' && avatar.moderation_status === 'approved';
+    }
+    return true; // 'all'
+  });
+
   return (
     <>
-      {/* Grilla: 3 columnas fijas en móvil (se apilan hacia abajo), 2 en md, 3 en lg */}
-      <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-6 pb-4 md:pb-0">
-        {avatars.map((avatar) => {
+      {/* Tabs Selector de Visibilidad Premium */}
+      <div className="flex gap-2 p-1 bg-white/5 border border-white/10 rounded-2xl w-fit mb-8 backdrop-blur-md">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all duration-300 ${activeTab === 'all' ? 'premium-button text-primary-foreground shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+        >
+          Todos 👥
+        </button>
+        <button
+          onClick={() => setActiveTab('private')}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all duration-300 ${activeTab === 'private' ? 'premium-button text-primary-foreground shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+        >
+          Mis Privados 🔒
+        </button>
+        <button
+          onClick={() => setActiveTab('public')}
+          className={`px-5 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all duration-300 ${activeTab === 'public' ? 'premium-button text-primary-foreground shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+        >
+          Comunidad Pública 🌐
+        </button>
+      </div>
+
+      {filteredAvatars.length === 0 && (
+        <div className="text-center py-20 glass-morphism rounded-3xl border border-dashed border-white/10 animate-in fade-in duration-300 mb-8">
+          <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/5">
+            <Users className="w-8 h-8 text-muted-foreground/60" />
+          </div>
+          <p className="text-muted-foreground text-sm font-semibold">No se encontraron avatares en esta categoría.</p>
+        </div>
+      )}
+
+      {/* Grilla: 3 columnas fijas en móvil (se apilan hacia abajo), 4 en md, 5 en lg, 6 en xl */}
+      <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 md:gap-6 pb-4 md:pb-0">
+        {filteredAvatars.map((avatar) => {
           const isOwner = avatar.user_id === currentUserId;
           const isSystemAvatar = avatar.is_admin_avatar === true;
 
@@ -196,6 +238,27 @@ export default function AvatarGrid({ initialAvatars, currentUserId }: AvatarGrid
                   </span>
                 )}
 
+                {/* Insignias de Privacidad y Moderación para el Propietario (Esquina superior izquierda) */}
+                {isOwner && (
+                  <>
+                    {avatar.visibility === 'private' && (
+                      <span className="absolute top-2 left-2 md:top-4 md:left-4 z-10 text-[7px] md:text-[9px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md bg-white/10 text-white/70 border border-white/20 backdrop-blur-md flex items-center gap-0.5 md:gap-1 uppercase tracking-wider">
+                        Privado 🔒
+                      </span>
+                    )}
+                    {avatar.visibility === 'public' && avatar.moderation_status === 'pending' && (
+                      <span className="absolute top-2 left-2 md:top-4 md:left-4 z-10 text-[7px] md:text-[9px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md bg-amber-500/20 text-amber-400 border border-amber-500/35 backdrop-blur-md flex items-center gap-0.5 md:gap-1 uppercase tracking-wider animate-pulse">
+                        En revisión ⏳
+                      </span>
+                    )}
+                    {avatar.visibility === 'public' && avatar.moderation_status === 'rejected' && (
+                      <span className="absolute top-2 left-2 md:top-4 md:left-4 z-10 text-[7px] md:text-[9px] font-bold px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md bg-destructive/20 text-destructive border border-destructive/35 backdrop-blur-md flex items-center gap-0.5 md:gap-1 uppercase tracking-wider">
+                        Rechazado ❌
+                      </span>
+                    )}
+                  </>
+                )}
+
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/20 to-transparent" />
                 
                 {isOwner && (
@@ -211,9 +274,23 @@ export default function AvatarGrid({ initialAvatars, currentUserId }: AvatarGrid
                   </button>
                 )}
                 
-                <div className="absolute bottom-0 left-0 p-2 md:p-6 w-full">
+                <div className="absolute bottom-0 left-0 p-2 md:p-6 w-full animate-in fade-in duration-300">
                   <h3 className="text-xs md:text-2xl font-bold text-white mb-0.5 md:mb-1 truncate">{avatar.name}</h3>
-                  <p className="text-[8px] md:text-sm text-white/60 line-clamp-1 md:line-clamp-2 leading-none md:leading-normal">{avatar.system_prompt}</p>
+                  <p className="text-[8px] md:text-sm text-white/60 line-clamp-1 md:line-clamp-2 leading-none md:leading-normal mb-1">{avatar.system_prompt}</p>
+                  
+                  {/* Calificación en estrellas compacta */}
+                  {avatar.rating_count !== undefined && avatar.rating_count > 0 ? (
+                    <div className="flex items-center gap-1 mt-1 bg-black/40 backdrop-blur-md w-fit px-1.5 py-0.5 rounded-md border border-white/5">
+                      <span className="text-yellow-400 text-[8px] md:text-xs">⭐</span>
+                      <span className="text-[8px] md:text-[10px] font-bold text-white">{avatar.rating_avg}</span>
+                      <span className="text-[7px] md:text-[9px] text-white/50">({avatar.rating_count})</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1 mt-1 bg-black/40 backdrop-blur-md w-fit px-1.5 py-0.5 rounded-md border border-white/5">
+                      <span className="text-white/40 text-[8px] md:text-xs">⭐</span>
+                      <span className="text-[7px] md:text-[9px] text-white/40">Sin valorar</span>
+                    </div>
+                  )}
                 </div>
               </div>
             
@@ -230,8 +307,9 @@ export default function AvatarGrid({ initialAvatars, currentUserId }: AvatarGrid
               </Link>
             </div>
           </div>
-        ))}
-      </div>
+        );
+      })}
+    </div>
 
       {/* Modal de Vestuario del Dashboard */}
       {showWardrobeModal && wardrobeAvatar && (
