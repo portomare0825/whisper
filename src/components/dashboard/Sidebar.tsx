@@ -56,9 +56,27 @@ export default function Sidebar() {
                       (a: any) => !knownPendingIdsRef.current.includes(a.id)
                     );
 
-                    if (newAvatars.length > 0) {
-                      newAvatars.forEach((avatar: any) => {
+                     if (newAvatars.length > 0) {
+                      newAvatars.forEach(async (avatar: any) => {
                         if ('Notification' in window && Notification.permission === 'granted') {
+                          // Usar el Service Worker si está registrado y listo (requerido para móviles)
+                          if ('serviceWorker' in navigator) {
+                            try {
+                              const registration = await navigator.serviceWorker.ready;
+                              registration.showNotification('Avatar Pendiente de Aprobación ⚖️', {
+                                body: `El avatar "${avatar.name}" requiere revisión administrativa.`,
+                                icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
+                                badge: '/icon-192.png',
+                                tag: avatar.id,
+                                data: { url: '/dashboard/moderation' }
+                              });
+                              return;
+                            } catch (swErr) {
+                              console.error('Error enviando notificación mediante Service Worker:', swErr);
+                            }
+                          }
+
+                          // Fallback tradicional para navegadores de escritorio si no hay Service Worker activo
                           const notification = new Notification('Avatar Pendiente de Aprobación ⚖️', {
                             body: `El avatar "${avatar.name}" requiere revisión administrativa.`,
                             icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',

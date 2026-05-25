@@ -27,3 +27,29 @@ self.addEventListener('fetch', (event) => {
     })
   );
 });
+
+// Manejador para el clic en notificaciones (soporta escritorio y móviles PWA)
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  
+  // URL de redirección
+  const targetUrl = event.notification.data?.url || '/dashboard/moderation';
+  
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Buscar si ya hay una pestaña del dashboard abierta para enfocarla y navegarla
+      for (const client of clientList) {
+        if (client.url.includes('/dashboard') && 'focus' in client) {
+          if ('navigate' in client) {
+            client.navigate(targetUrl);
+          }
+          return client.focus();
+        }
+      }
+      // Si no hay pestañas abiertas, abrir una nueva ventana
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
