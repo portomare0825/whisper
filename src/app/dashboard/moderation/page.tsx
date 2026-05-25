@@ -208,7 +208,6 @@ export default function ModerationPage() {
           ))}
         </div>
       )}
-    </div>
 
       {/* Modal Interactivo para Causa de Rechazo */}
       {rejectingAvatar && (
