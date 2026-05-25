@@ -40,9 +40,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No autorizado: sesión ausente o firma de webhook inválida' }, { status: 401 });
     }
 
-    const { avatarId } = await req.json();
+    const body = await req.json();
+    const avatarId = body.avatarId || body.record?.id;
     if (!avatarId) {
-      return NextResponse.json({ error: 'Falta el ID del avatar' }, { status: 400 });
+      return NextResponse.json({ error: 'Falta el ID del avatar en la petición' }, { status: 400 });
     }
 
     // 2. Cliente de Supabase con privilegios administrativos

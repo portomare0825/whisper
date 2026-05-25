@@ -1,5 +1,5 @@
 -- 1. Habilitar la extensión pg_net (permite peticiones HTTP asíncronas desde PostgreSQL)
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- 2. Crear la función del Trigger que disparará el Webhook HTTP hacia Next.js
 CREATE OR REPLACE FUNCTION public.notify_admin_on_pending_avatar()
@@ -26,14 +26,16 @@ BEGIN
     -- Construir el cuerpo de la petición HTTP POST
     payload := jsonb_build_object('avatarId', NEW.id);
     
-    -- Realizar la llamada HTTP POST asíncrona (no bloquea la base de datos)
+    -- Realizar la llamada HTTP POST asíncrona de forma posicional con 5 argumentos (firma nativa de pg_net en Supabase)
     PERFORM net.http_post(
-      url := webhook_url,
-      headers := jsonb_build_object(
+      webhook_url,
+      payload::text,
+      '{}'::jsonb,
+      jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', auth_header
       ),
-      body := payload::text
+      2000 -- timeout_milliseconds (Requerido posicionalmente en esta firma)
     );
   END IF;
   
