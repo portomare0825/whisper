@@ -152,6 +152,15 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         .single();
 
       if (updateError) throw updateError;
+
+      // Disparar notificación push de moderación en segundo plano (si requiere revisión)
+      if (formData.visibility === 'public' && !isAdmin && data) {
+        fetch('/api/avatars/notify-pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatarId: data.id })
+        }).catch(err => console.error('Error disparando notificación push:', err));
+      }
       
       onUpdate(data);
       onClose();

@@ -186,25 +186,38 @@ export default function NewAvatarPage() {
       const isAdmin = !!profile?.is_admin;
 
       // 2. Guardar en la base de datos
-      const { error: dbError } = await supabase.from('avatars').insert({
-        user_id: user.id,
-        name: formData.name,
-        personality: formData.personality,
-        system_prompt: formData.system_prompt,
-        physical_description: formData.physical_description,
-        base_image_url: publicUrl,
-        current_image_url: publicUrl,
-        voice_settings: { gender: formData.gender },
-        face_box_x: formData.face_box_x,
-        face_box_y: formData.face_box_y,
-        face_box_width: formData.face_box_width,
-        face_box_height: formData.face_box_height,
-        is_admin_avatar: isAdmin,
-        visibility: formData.visibility,
-        moderation_status: formData.visibility === 'private' ? 'none' : (isAdmin ? 'approved' : 'pending'),
-      });
+      const { data: newAvatar, error: dbError } = await supabase
+        .from('avatars')
+        .insert({
+          user_id: user.id,
+          name: formData.name,
+          personality: formData.personality,
+          system_prompt: formData.system_prompt,
+          physical_description: formData.physical_description,
+          base_image_url: publicUrl,
+          current_image_url: publicUrl,
+          voice_settings: { gender: formData.gender },
+          face_box_x: formData.face_box_x,
+          face_box_y: formData.face_box_y,
+          face_box_width: formData.face_box_width,
+          face_box_height: formData.face_box_height,
+          is_admin_avatar: isAdmin,
+          visibility: formData.visibility,
+          moderation_status: formData.visibility === 'private' ? 'none' : (isAdmin ? 'approved' : 'pending'),
+        })
+        .select()
+        .single();
 
       if (dbError) throw dbError;
+
+      // 3. Disparar notificación push de moderación en segundo plano (si requiere revisión)
+      if (formData.visibility === 'public' && !isAdmin && newAvatar) {
+        fetch('/api/avatars/notify-pending', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatarId: newAvatar.id })
+        }).catch(err => console.error('Error disparando notificación push:', err));
+      }
 
       router.push('/dashboard');
       router.refresh();

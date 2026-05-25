@@ -7,11 +7,46 @@ import { Home, MessageSquare, CreditCard, Settings, LogOut, PlusCircle, Menu, X,
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase';
 
+function playSynthBell() {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    const osc1 = ctx.createOscillator();
+    const osc2 = ctx.createOscillator();
+    const gainNode = ctx.createGain();
+    
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc1.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+    
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(1174.66, ctx.currentTime); // D6
+    osc2.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.15);
+    
+    gainNode.gain.setValueAtTime(0.12, ctx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+    
+    osc1.connect(gainNode);
+    osc2.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    osc1.start();
+    osc2.start();
+    osc1.stop(ctx.currentTime + 0.8);
+    osc2.stop(ctx.currentTime + 0.8);
+  } catch (e) {
+    // Falla silenciosa si está bloqueado por políticas de autoplay
+  }
+}
+
 export default function Sidebar() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
+  const [activeToast, setActiveToast] = useState<{ id: string, name: string, image: string } | null>(null);
   const knownPendingIdsRef = useRef<string[]>([]);
   const supabase = createClient();
 
@@ -32,10 +67,54 @@ export default function Sidebar() {
           setIsAdmin(userIsAdmin);
 
           if (userIsAdmin) {
-            // Solicitar permisos de notificación nativa si no se han denegado
-            if ('Notification' in window && Notification.permission === 'default') {
-              await Notification.permission; // Resuelve de forma fluida
-              Notification.requestPermission();
+            // Solicitar permisos e inscribir suscripción push para alertas en segundo plano (app cerrada)
+            if ('Notification' in window) {
+              if (Notification.permission === 'default') {
+                await Notification.requestPermission();
+              }
+              
+              if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+                navigator.serviceWorker.ready.then(async (registration) => {
+                  try {
+                    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+                    if (!vapidPublicKey) {
+                      console.warn('NEXT_PUBLIC_VAPID_PUBLIC_KEY no encontrada en variables de entorno.');
+                      return;
+                    }
+
+                    // Función auxiliar para convertir VAPID Key a Uint8Array
+                    const urlBase64ToUint8Array = (base64String: string) => {
+                      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                      const base64 = (base64String + padding)
+                        .replace(/\-/g, '+')
+                        .replace(/_/g, '/');
+                      const rawData = window.atob(base64);
+                      const outputArray = new Uint8Array(rawData.length);
+                      for (let i = 0; i < rawData.length; ++i) {
+                        outputArray[i] = rawData.charCodeAt(i);
+                      }
+                      return outputArray;
+                    };
+
+                    const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
+
+                    // Registrar suscripción en el navegador
+                    const subscription = await registration.pushManager.subscribe({
+                      userVisibleOnly: true,
+                      applicationServerKey: convertedKey
+                    });
+
+                    // Guardar suscripción push en la base de datos de Supabase
+                    await fetch('/api/notifications/subscribe', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ subscription })
+                    });
+                  } catch (err) {
+                    console.warn('Suscripción Web Push omitida o no soportada en este entorno:', err);
+                  }
+                });
+              }
             }
 
             const checkPending = async (isInitial = false) => {
@@ -58,8 +137,26 @@ export default function Sidebar() {
 
                      if (newAvatars.length > 0) {
                       newAvatars.forEach(async (avatar: any) => {
+                        // 1. Activar Toast visual in-app de primer nivel en primer plano
+                        setActiveToast({
+                          id: avatar.id,
+                          name: avatar.name,
+                          image: avatar.current_image_url || avatar.base_image_url || '/icon-192.png'
+                        });
+
+                        // 2. Reproducir tono sintetizado y vibración táctil
+                        playSynthBell();
+                        if ('vibrate' in navigator) {
+                          navigator.vibrate([80, 50, 80]);
+                        }
+
+                        // 3. Programar ocultamiento automático del Toast tras 6 segundos
+                        setTimeout(() => {
+                          setActiveToast(null);
+                        }, 6000);
+
+                        // 4. Intentar enviar la notificación Push del sistema (Navegador/OS)
                         if ('Notification' in window && Notification.permission === 'granted') {
-                          // Usar el Service Worker si está registrado y listo (requerido para móviles)
                           if ('serviceWorker' in navigator) {
                             try {
                               const registration = await navigator.serviceWorker.ready;
@@ -76,7 +173,7 @@ export default function Sidebar() {
                             }
                           }
 
-                          // Fallback tradicional para navegadores de escritorio si no hay Service Worker activo
+                          // Fallback tradicional para navegadores de escritorio
                           const notification = new Notification('Avatar Pendiente de Aprobación ⚖️', {
                             body: `El avatar "${avatar.name}" requiere revisión administrativa.`,
                             icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
@@ -229,6 +326,29 @@ export default function Sidebar() {
           <LogoutButton />
         </div>
       </aside>
+
+      {/* Toast Flotante In-App Premium para Moderación */}
+      {activeToast && (
+        <div className="fixed bottom-6 right-6 z-[9999] max-w-sm w-[calc(100%-2rem)] sm:w-96 glass-morphism border border-primary/45 rounded-2xl p-4 shadow-[0_10px_45px_rgba(212,175,55,0.3)] animate-in fade-in slide-in-from-bottom-5 duration-300 flex gap-4 items-center backdrop-blur-md">
+          <div className="w-12 h-12 rounded-xl overflow-hidden border border-white/10 flex-shrink-0">
+            <img src={activeToast.image} alt={activeToast.name} className="w-full h-full object-cover" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[9px] text-primary font-bold uppercase tracking-widest leading-none">Moderación Requerida ⚖️</p>
+            <h4 className="text-sm font-bold text-white truncate mt-1 leading-none">{activeToast.name}</h4>
+            <p className="text-xs text-muted-foreground mt-1 leading-tight">Requiere aprobación para ser público.</p>
+          </div>
+          <button 
+            onClick={() => {
+              window.location.href = '/dashboard/moderation';
+              setActiveToast(null);
+            }}
+            className="px-3 py-2 bg-primary text-black font-bold text-xs rounded-xl hover:scale-105 active:scale-95 transition-all shadow-[0_0_12px_rgba(212,175,55,0.45)] cursor-pointer"
+          >
+            Revisar
+          </button>
+        </div>
+      )}
     </>
   );
 }

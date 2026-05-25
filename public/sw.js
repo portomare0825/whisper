@@ -53,3 +53,30 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
+
+// Manejador para recibir notificaciones Push nativas desde el servidor (incluso con la app cerrada)
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { body: event.data.text() };
+    }
+  }
+
+  const title = data.title || 'Whisper ⚖️';
+  const options = {
+    body: data.body || 'Tienes una nueva alerta de moderación.',
+    icon: data.icon || '/icon-192.png',
+    badge: data.badge || '/icon-192.png',
+    tag: data.tag || 'moderation-alert',
+    data: data.data || { url: '/dashboard/moderation' },
+    vibrate: [100, 50, 100],
+    requireInteraction: true
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
