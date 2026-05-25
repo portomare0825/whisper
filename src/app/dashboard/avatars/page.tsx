@@ -127,8 +127,17 @@ export default function AvatarsListPage() {
                       )}
                       {/* @ts-ignore */}
                       {avatar.visibility === 'public' && avatar.moderation_status === 'rejected' && (
-                        <span className="absolute top-4 right-4 z-10 text-[9px] font-bold px-2 py-1 rounded-md bg-destructive/20 text-destructive border border-destructive/35 backdrop-blur-md flex items-center gap-1 uppercase tracking-wider">
+                        <span 
+                          className="absolute top-4 right-4 z-10 text-[9px] font-bold px-2 py-1 rounded-md bg-destructive/20 text-destructive border border-destructive/35 backdrop-blur-md flex items-center gap-1 uppercase tracking-wider group/rejected cursor-help transition-all hover:bg-destructive/30"
+                          title={avatar.moderation_reason ? `Motivo del rechazo: "${avatar.moderation_reason}"` : 'Rechazado por moderación.'}
+                        >
                           Rechazado ❌
+                          {avatar.moderation_reason && (
+                            <span className="absolute bottom-full right-0 mb-2 w-52 bg-black/95 border border-white/10 text-white text-[10px] p-2 rounded-xl shadow-2xl opacity-0 group-hover/rejected:opacity-100 pointer-events-none transition-all scale-95 group-hover/rejected:scale-100 z-50 normal-case whitespace-normal leading-tight font-medium">
+                              <strong className="text-destructive block mb-0.5 font-bold uppercase tracking-wider text-[8px]">Razón del Rechazo:</strong> 
+                              "{avatar.moderation_reason}"
+                            </span>
+                          )}
                         </span>
                       )}
                     </>

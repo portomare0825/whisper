@@ -13,6 +13,8 @@ export default function ModerationPage() {
   const [pendingAvatars, setPendingAvatars] = useState<any[]>([]);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rejectingAvatar, setRejectingAvatar] = useState<{ id: string, name: string } | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     async function checkAdminAndFetch() {
@@ -57,7 +59,7 @@ export default function ModerationPage() {
     checkAdminAndFetch();
   }, []);
 
-  const handleModerate = async (avatarId: string, action: 'approve' | 'reject') => {
+  const handleModerate = async (avatarId: string, action: 'approve' | 'reject', reason?: string) => {
     setProcessingId(avatarId);
     setError(null);
     try {
@@ -69,6 +71,7 @@ export default function ModerationPage() {
         body: JSON.stringify({
           avatar_id: avatarId,
           action,
+          reason,
         }),
       });
 
@@ -193,7 +196,7 @@ export default function ModerationPage() {
                   </button>
                   <button
                     disabled={processingId !== null}
-                    onClick={() => handleModerate(avatar.id, 'reject')}
+                    onClick={() => setRejectingAvatar({ id: avatar.id, name: avatar.name })}
                     className="bg-destructive/15 hover:bg-destructive/30 text-destructive border border-destructive/20 px-5 py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
                     <X className="w-4 h-4" />
@@ -206,5 +209,55 @@ export default function ModerationPage() {
         </div>
       )}
     </div>
-  );
-}
+
+      {/* Modal Interactivo para Causa de Rechazo */}
+      {rejectingAvatar && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="glass-morphism max-w-md w-full border border-destructive/20 rounded-3xl p-6 shadow-[0_20px_50px_rgba(239,68,68,0.15)] space-y-6 animate-in zoom-in-95 duration-200">
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-destructive animate-pulse" />
+                Rechazar Avatar Público
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                Indica detalladamente al creador por qué el avatar <strong>{rejectingAvatar.name}</strong> no cumple las pautas para ser público.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider block">Razón del Rechazo</label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Ej. La imagen del avatar no cumple con las pautas de decoro de la comunidad, o la descripción es inadecuada..."
+                rows={4}
+                className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/30 focus:border-destructive/40 focus:ring-1 focus:ring-destructive/30 outline-none resize-none transition-all"
+              />
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <button
+                onClick={() => {
+                  setRejectingAvatar(null);
+                  setRejectionReason('');
+                }}
+                className="px-4 py-2.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 font-semibold text-xs transition-all cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={!rejectionReason.trim()}
+                onClick={() => {
+                  handleModerate(rejectingAvatar.id, 'reject', rejectionReason);
+                  setRejectingAvatar(null);
+                  setRejectionReason('');
+                }}
+                className="px-5 py-2.5 rounded-xl bg-destructive text-white font-bold text-xs hover:bg-destructive/80 active:scale-95 transition-all disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+              >
+                Confirmar Rechazo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
