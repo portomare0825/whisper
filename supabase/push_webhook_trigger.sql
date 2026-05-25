@@ -27,13 +27,13 @@ BEGIN
     payload := jsonb_build_object('avatarId', NEW.id);
     
     -- Realizar la llamada HTTP POST asíncrona (no bloquea la base de datos)
-    PERFORM extensions.net_http_post(
+    PERFORM net.http_post(
       url := webhook_url,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', auth_header
       ),
-      body := payload
+      body := payload::text
     );
   END IF;
   
