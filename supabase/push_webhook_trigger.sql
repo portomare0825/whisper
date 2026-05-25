@@ -27,15 +27,16 @@ BEGIN
     payload := jsonb_build_object('avatarId', NEW.id);
     
     -- Realizar la llamada HTTP POST asíncrona de forma posicional con 5 argumentos (firma nativa de pg_net en Supabase)
+    -- Realizar la llamada HTTP POST asíncrona usando parámetros nominales explícitos con casts (máxima compatibilidad en PostgreSQL)
     PERFORM net.http_post(
-      webhook_url,
-      payload::text,
-      '{}'::jsonb,
-      jsonb_build_object(
+      url := webhook_url::text,
+      body := payload::text,
+      params := '{}'::jsonb,
+      headers := jsonb_build_object(
         'Content-Type', 'application/json',
         'Authorization', auth_header
-      ),
-      2000 -- timeout_milliseconds (Requerido posicionalmente en esta firma)
+      )::jsonb,
+      timeout_milliseconds := 2000::integer
     );
   END IF;
   
