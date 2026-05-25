@@ -6,22 +6,38 @@ import webpush from 'web-push';
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const clientSupabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() { return cookieStore.getAll() },
-          setAll() {},
-        },
-      }
-    );
+    // 1. Validar autenticación de forma híbrida: cabecera Authorization (para Webhooks) o cookies de sesión (para clientes)
+    const authHeader = req.headers.get('Authorization');
+    let isAuthorized = false;
 
-    // 1. Validar que la petición venga de un usuario autenticado
-    const { data: { user } } = await clientSupabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.split(' ')[1];
+      const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
+      if (webhookSecret && token === webhookSecret) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      const cookieStore = await cookies();
+      const clientSupabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+          cookies: {
+            getAll() { return cookieStore.getAll() },
+            setAll() {},
+          },
+        }
+      );
+      const { data: { user } } = await clientSupabase.auth.getUser();
+      if (user) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return NextResponse.json({ error: 'No autorizado: sesión ausente o firma de webhook inválida' }, { status: 401 });
     }
 
     const { avatarId } = await req.json();
