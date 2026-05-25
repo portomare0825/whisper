@@ -57,6 +57,57 @@ export default function Sidebar() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
+          // 1. Solicitar permisos e inscribir suscripción push para alertas en segundo plano para TODOS los usuarios (requerido para creadores regulares)
+          if ('Notification' in window) {
+            if (Notification.permission === 'default') {
+              await Notification.requestPermission();
+            }
+            
+            if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then(async (registration) => {
+                try {
+                  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+                  if (!vapidPublicKey) {
+                    console.warn('NEXT_PUBLIC_VAPID_PUBLIC_KEY no encontrada en variables de entorno.');
+                    return;
+                  }
+
+                  // Función auxiliar para convertir VAPID Key a Uint8Array
+                  const urlBase64ToUint8Array = (base64String: string) => {
+                    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+                    const base64 = (base64String + padding)
+                      .replace(/\-/g, '+')
+                      .replace(/_/g, '/');
+                    const rawData = window.atob(base64);
+                    const outputArray = new Uint8Array(rawData.length);
+                    for (let i = 0; i < rawData.length; ++i) {
+                      outputArray[i] = rawData.charCodeAt(i);
+                    }
+                    return outputArray;
+                  };
+
+                  const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
+
+                  // Registrar suscripción en el navegador
+                  const subscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: convertedKey
+                  });
+
+                  // Guardar suscripción push en la base de datos de Supabase
+                  await fetch('/api/notifications/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ subscription })
+                  });
+                } catch (err) {
+                  console.warn('Suscripción Web Push omitida o no soportada en este entorno:', err);
+                }
+              });
+            }
+          }
+
+          // 2. Verificar privilegios del administrador para el panel y polling de moderación
           const { data: profile } = await supabase
             .from('profiles')
             .select('is_admin')
@@ -67,56 +118,6 @@ export default function Sidebar() {
           setIsAdmin(userIsAdmin);
 
           if (userIsAdmin) {
-            // Solicitar permisos e inscribir suscripción push para alertas en segundo plano (app cerrada)
-            if ('Notification' in window) {
-              if (Notification.permission === 'default') {
-                await Notification.requestPermission();
-              }
-              
-              if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
-                navigator.serviceWorker.ready.then(async (registration) => {
-                  try {
-                    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-                    if (!vapidPublicKey) {
-                      console.warn('NEXT_PUBLIC_VAPID_PUBLIC_KEY no encontrada en variables de entorno.');
-                      return;
-                    }
-
-                    // Función auxiliar para convertir VAPID Key a Uint8Array
-                    const urlBase64ToUint8Array = (base64String: string) => {
-                      const padding = '='.repeat((4 - base64String.length % 4) % 4);
-                      const base64 = (base64String + padding)
-                        .replace(/\-/g, '+')
-                        .replace(/_/g, '/');
-                      const rawData = window.atob(base64);
-                      const outputArray = new Uint8Array(rawData.length);
-                      for (let i = 0; i < rawData.length; ++i) {
-                        outputArray[i] = rawData.charCodeAt(i);
-                      }
-                      return outputArray;
-                    };
-
-                    const convertedKey = urlBase64ToUint8Array(vapidPublicKey);
-
-                    // Registrar suscripción en el navegador
-                    const subscription = await registration.pushManager.subscribe({
-                      userVisibleOnly: true,
-                      applicationServerKey: convertedKey
-                    });
-
-                    // Guardar suscripción push en la base de datos de Supabase
-                    await fetch('/api/notifications/subscribe', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ subscription })
-                    });
-                  } catch (err) {
-                    console.warn('Suscripción Web Push omitida o no soportada en este entorno:', err);
-                  }
-                });
-              }
-            }
-
             const checkPending = async (isInitial = false) => {
               try {
                 const res = await fetch('/api/avatars/pending');
