@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { createClient } from '@/lib/supabase';
@@ -125,6 +125,23 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }
   };
 
+
+  // Estado para el Modo Novela (narrativa literaria vs burbujas de chat)
+  const [novelMode, setNovelMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem(`novel-mode-${conversation.id}`);
+      return saved === 'true';
+    }
+    return false;
+  });
+
+  const toggleNovelMode = () => {
+    setNovelMode(prev => {
+      const next = !prev;
+      localStorage.setItem(`novel-mode-${conversation.id}`, String(next));
+      return next;
+    });
+  };
 
   // Estados para ocultar/mostrar avatar y restauración de imagen
   const [showAvatarInChat, setShowAvatarInChat] = useState<boolean>(() => {
@@ -1070,7 +1087,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         content: result.content,
         role: 'avatar',
         created_at: new Date().toISOString(),
-        conversation_id: conversation.id
+        conversation_id: conversation.id,
+        emotion_tag: result.emotion_tag || undefined,
+        hidden_thought: result.hidden_thought || undefined,
       } as Message;
       
       // Solo agregamos si el contenido no está vacío y no existe ya por realtime
@@ -1174,7 +1193,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         content: result.content,
         role: 'avatar',
         created_at: new Date().toISOString(),
-        conversation_id: conversation.id
+        conversation_id: conversation.id,
+        emotion_tag: result.emotion_tag || undefined,
+        hidden_thought: result.hidden_thought || undefined,
       } as Message;
       
       setMessages(prev => {
@@ -1295,11 +1316,15 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       
       const { error: convoError } = await supabase
         .from('conversations')
-        .update({ current_avatar_image_url: avatar.base_image_url })
+        .update({ 
+          current_avatar_image_url: avatar.base_image_url,
+          message_count: 0,
+          context_summary: null
+        })
         .eq('id', conversation.id);
         
       if (convoError) {
-        console.warn('Error al restaurar imagen de conversación:', convoError);
+        console.warn('Error al restaurar imagen de conversación y resetear contadores:', convoError);
       }
       
       setMessages([]);
@@ -1446,6 +1471,20 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             </button>
           )}
 
+          {/* Toggle Modo Novela */}
+          <button
+            type="button"
+            onClick={toggleNovelMode}
+            title={novelMode ? "Cambiar a Modo Chat (burbujas)" : "Cambiar a Modo Novela (narrativa literaria)"}
+            className={`p-1.5 md:p-2.5 rounded-lg md:rounded-xl transition-all border cursor-pointer flex items-center justify-center ${
+              novelMode
+                ? "bg-violet-500/20 border-violet-500/30 text-violet-400 hover:bg-violet-500/30"
+                : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            {novelMode ? <BookOpen className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <MessageSquare className="w-3.5 h-3.5 md:w-4 md:h-4" />}
+          </button>
+
           <button
             type="button"
             onClick={() => setShowClearModal(true)}
@@ -1576,6 +1615,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   onRegenerate={handleRegenerate}
                   onRetry={handleRetry}
                   sending={sending}
+                  isPremium={isPremium}
+                  novelMode={novelMode}
                 />
               );
             })}

@@ -34,6 +34,8 @@ export interface Message {
   content: string;
   audio_url?: string;
   tokens_used?: number;
+  emotion_tag?: string;
+  hidden_thought?: string;
   created_at: string;
 }
 

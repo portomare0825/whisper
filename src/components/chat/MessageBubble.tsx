@@ -1,10 +1,67 @@
 'use client';
 
-import { Play, Volume2, Square, RefreshCw, Edit3 } from 'lucide-react';
+import { Volume2, Square, RefreshCw, Edit3, Brain, EyeOff } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Message, Avatar } from '@/types';
 
+// ═══════════════════════════════════════════════════════════════════
+// CONSTANTES: Paleta de colores por emoción
+// ═══════════════════════════════════════════════════════════════════
+const EMOTION_STYLES: Record<string, { border: string; glow: string; label: string }> = {
+  'Feliz':        { border: 'border-amber-400/50',   glow: 'shadow-amber-400/20',   label: '😊' },
+  'Triste':       { border: 'border-blue-400/50',    glow: 'shadow-blue-400/20',    label: '💙' },
+  'Enojado':      { border: 'border-red-500/50',     glow: 'shadow-red-500/20',     label: '😠' },
+  'Sorprendido':  { border: 'border-yellow-300/50',  glow: 'shadow-yellow-300/20',  label: '😲' },
+  'Coqueto':      { border: 'border-pink-400/50',    glow: 'shadow-pink-400/25',    label: '😏' },
+  'Seductor':     { border: 'border-rose-500/50',    glow: 'shadow-rose-500/25',    label: '🌹' },
+  'Misterioso':   { border: 'border-violet-400/50',  glow: 'shadow-violet-400/20',  label: '🔮' },
+  'Neutral':      { border: 'border-white/10',       glow: '',                      label: '' },
+  'Asustado':     { border: 'border-slate-400/50',   glow: 'shadow-slate-400/20',   label: '😨' },
+  'Avergonzado':  { border: 'border-pink-300/50',    glow: 'shadow-pink-300/20',    label: '😳' },
+  'Orgulloso':    { border: 'border-emerald-400/50', glow: 'shadow-emerald-400/20', label: '✨' },
+  'Divertido':    { border: 'border-lime-400/50',    glow: 'shadow-lime-400/20',    label: '😄' },
+  'Melancólico':  { border: 'border-indigo-400/50',  glow: 'shadow-indigo-400/15',  label: '🌙' },
+  'Ansioso':      { border: 'border-orange-400/50',  glow: 'shadow-orange-400/20',  label: '😰' },
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// UTILIDAD: Renderizador de Modo Novela
+// Separa *acciones* de diálogos y aplica estilos diferentes
+// ═══════════════════════════════════════════════════════════════════
+function NovelRenderer({ text }: { text: string }) {
+  // Dividir el texto por segmentos: *acción* vs diálogo normal
+  const parts = text.split(/(\*[^*]+\*)/g);
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        const isAction = part.startsWith('*') && part.endsWith('*') && part.length > 2;
+        if (isAction) {
+          return (
+            <em
+              key={i}
+              className="not-italic"
+              style={{ 
+                fontStyle: 'italic', 
+                opacity: 0.75, 
+                fontSize: '0.92em',
+                letterSpacing: '0.01em'
+              }}
+            >
+              {part}
+            </em>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PROPS
+// ═══════════════════════════════════════════════════════════════════
 interface MessageBubbleProps {
   message: Message;
   avatar: Avatar;
@@ -14,8 +71,13 @@ interface MessageBubbleProps {
   onRegenerate?: () => void;
   onRetry?: (content: string) => void;
   sending?: boolean;
+  isPremium?: boolean;
+  novelMode?: boolean;
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// COMPONENTE PRINCIPAL
+// ═══════════════════════════════════════════════════════════════════
 export default function MessageBubble({ 
   message, 
   avatar,
@@ -24,12 +86,20 @@ export default function MessageBubble({
   onEdit,
   onRegenerate,
   onRetry,
-  sending = false
+  sending = false,
+  isPremium = false,
+  novelMode = false,
 }: MessageBubbleProps) {
   const isAvatar = message.role === 'avatar';
   const [isPlaying, setIsPlaying] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showThought, setShowThought] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Resolver estilo de emoción
+  const emotionStyle = message.emotion_tag
+    ? (EMOTION_STYLES[message.emotion_tag] || EMOTION_STYLES['Neutral'])
+    : null;
 
   // Precargar las voces del navegador al montar el componente
   useEffect(() => {
@@ -38,7 +108,6 @@ export default function MessageBubble({
       window.speechSynthesis.getVoices();
     }
     
-    // Detener audio al desmontar el componente
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -51,30 +120,29 @@ export default function MessageBubble({
 
   const cleanTextForTTS = (text: string) => {
     const cleaned = text
-      .replace(/\*[^*]+\*/g, '') // Eliminar acciones entre asteriscos
-      .replace(/\*/g, '')        // Eliminar asteriscos sueltos
-      .replace(/\s+/g, ' ')      // Normalizar espacios
+      .replace(/\*[^*]+\*/g, '')
+      .replace(/\*/g, '')
+      .replace(/\s+/g, ' ')
       .trim();
-    return cleaned || text; // Si queda vacío, reproducir el original como fallback
+    return cleaned || text;
   };
 
   const runLocalSynthesis = () => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel(); // Cancelar audios previos
+      window.speechSynthesis.cancel();
       
       const cleanedText = cleanTextForTTS(message.content);
       const utterance = new SpeechSynthesisUtterance(cleanedText);
-      utterance.lang = 'es-ES'; // Español
-      utterance.rate = 1.0;     // Velocidad normal
+      utterance.lang = 'es-ES';
+      utterance.rate = 1.0;
       
       const gender = avatar.voice_settings?.gender || 'female';
       if (gender === 'male') {
-        utterance.pitch = 0.9;  // Tono más bajo para voz masculina
+        utterance.pitch = 0.9;
       } else {
-        utterance.pitch = 1.1;  // Tono más agudo para voz femenina
+        utterance.pitch = 1.1;
       }
       
-      // Obtener voces disponibles y filtrar por español
       const voices = window.speechSynthesis.getVoices();
       const spanishVoices = voices.filter(v => v.lang.includes('es'));
       
@@ -139,7 +207,6 @@ export default function MessageBubble({
       setIsPlaying(true);
       
       try {
-        // Enviamos el texto original (con asteriscos) para que el servidor diferencie la narración del diálogo mediante SSML
         const response = await fetch('/api/tts', {
           method: 'POST',
           headers: {
@@ -157,7 +224,6 @@ export default function MessageBubble({
           throw new Error(data.error || 'Fallo en la API de TTS');
         }
 
-        // Log interactivo para saber el origen exacto del audio en tiempo real
         if (data.source === 'google-cloud-premium') {
           console.log(
             '%c[TTS Engine] 🟢 Reproduciendo voz PREMIUM de Google Cloud oficial (%s)', 
@@ -178,7 +244,6 @@ export default function MessageBubble({
           );
         }
 
-        // Reproducir audio premium en base64
         const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
         audioRef.current = audio;
         audio.onended = () => {
@@ -196,6 +261,83 @@ export default function MessageBubble({
     }
   };
 
+  // ── MODO NOVELA: contenedor de flujo continuo ──
+  if (novelMode && isAvatar) {
+    return (
+      <div className={cn(
+        "w-full mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300",
+        isLast && "mb-6"
+      )}>
+        {/* Nombre del avatar en modo novela */}
+        <div className="flex items-center gap-2 mb-1.5">
+          <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-primary opacity-80">
+            {avatar.name}
+          </span>
+          {emotionStyle && emotionStyle.label && (
+            <span className="text-[11px] opacity-70" title={message.emotion_tag || ''}>
+              {emotionStyle.label}
+            </span>
+          )}
+          {/* Botones de acción en modo novela */}
+          <div className="flex items-center gap-1 ml-auto">
+            {isLast && onRegenerate && !sending && (
+              <button
+                onClick={onRegenerate}
+                className="p-1 rounded-full hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                title="Regenerar respuesta"
+              >
+                <RefreshCw className="w-3 h-3" />
+              </button>
+            )}
+            <button 
+              onClick={playAudio}
+              className={cn(
+                "p-1 rounded-full transition-colors",
+                isPlaying ? "bg-primary/20 text-primary" : "hover:bg-white/10 text-white/70 hover:text-white"
+              )}
+              title={isPlaying ? "Detener audio" : "Escuchar mensaje"}
+            >
+              {isPlaying ? <Square className="w-3 h-3 fill-current" /> : <Volume2 className="w-3 h-3" />}
+            </button>
+            {isPremium && message.hidden_thought && (
+              <button
+                onClick={() => setShowThought(prev => !prev)}
+                className={cn(
+                  "p-1 rounded-full transition-colors text-violet-400 hover:bg-violet-400/10",
+                  showThought && "bg-violet-400/20"
+                )}
+                title="Ver pensamiento oculto"
+              >
+                <Brain className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Pensamiento oculto (blur efecto) */}
+        {isPremium && message.hidden_thought && (
+          <div className={cn(
+            "mb-2 px-3 py-1.5 rounded-lg border border-violet-400/20 bg-violet-950/20 text-violet-200/80 text-[11px] italic leading-relaxed transition-all duration-500",
+            showThought ? "blur-none opacity-100" : "blur-sm opacity-50 select-none pointer-events-none"
+          )}>
+            <span className="text-violet-400 not-italic font-semibold text-[9px] uppercase tracking-wider mr-2">Piensa:</span>
+            {message.hidden_thought}
+          </div>
+        )}
+
+        {/* Texto en modo novela: flujo continuo */}
+        <p className="text-sm md:text-base leading-relaxed md:leading-loose font-serif text-white/90 whitespace-pre-wrap break-words [word-break:break-word] [overflow-wrap:anywhere]">
+          <NovelRenderer text={message.content} />
+        </p>
+
+        <span className="block mt-1 text-[9px] opacity-40">
+          {mounted ? new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+        </span>
+      </div>
+    );
+  }
+
+  // ── MODO BURBUJA (por defecto) ──
   return (
     <div className={cn(
       "flex w-full mb-1.5 md:mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300",
@@ -204,12 +346,25 @@ export default function MessageBubble({
       <div className={cn(
         "max-w-[97%] md:max-w-[80%] rounded-xl md:rounded-2xl px-2.5 py-1.5 md:px-6 md:py-4 shadow-lg transition-all",
         isAvatar 
-          ? "bg-white/5 border border-white/10 rounded-tl-none" 
+          ? cn(
+              "bg-white/5 border rounded-tl-none",
+              // Color de borde dinámico según emoción
+              emotionStyle ? emotionStyle.border : "border-white/10",
+              emotionStyle?.glow ? `shadow-md ${emotionStyle.glow}` : ""
+            )
           : "premium-button text-primary-foreground rounded-tr-none"
       )}>
         {isAvatar && (
           <div className="flex items-center justify-between mb-1 md:mb-2 gap-2 md:gap-4">
-            <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-primary">{avatar.name}</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-primary">{avatar.name}</span>
+              {/* Indicador de emoción */}
+              {emotionStyle && emotionStyle.label && (
+                <span className="text-[11px] opacity-80" title={message.emotion_tag || ''}>
+                  {emotionStyle.label}
+                </span>
+              )}
+            </div>
             <div className="flex items-center gap-1 md:gap-1.5">
               {isLast && onRegenerate && !sending && (
                 <button
@@ -218,6 +373,30 @@ export default function MessageBubble({
                   title="Regenerar respuesta"
                 >
                   <RefreshCw className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                </button>
+              )}
+              {/* Botón de pensamiento oculto: siempre visible para Premium en mensajes del avatar */}
+              {isPremium && isAvatar && (
+                <button
+                  onClick={() => message.hidden_thought && setShowThought(prev => !prev)}
+                  className={cn(
+                    "p-1 md:p-1.5 rounded-full transition-all duration-300",
+                    message.hidden_thought
+                      ? showThought
+                        ? "text-violet-400 bg-violet-400/20 shadow-sm shadow-violet-400/30"
+                        : "text-violet-400 hover:bg-violet-400/10"
+                      : "text-white/20 cursor-default" // dimmed si no hay thought aún
+                  )}
+                  title={
+                    message.hidden_thought
+                      ? showThought ? "Ocultar pensamiento" : "Revelar pensamiento interno"
+                      : "Pensamiento interno no disponible en este mensaje"
+                  }
+                >
+                  {showThought && message.hidden_thought
+                    ? <EyeOff className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                    : <Brain className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                  }
                 </button>
               )}
               <button 
@@ -233,9 +412,28 @@ export default function MessageBubble({
             </div>
           </div>
         )}
+
+        {/* Panel de pensamiento oculto con blur animado */}
+        {isAvatar && isPremium && message.hidden_thought && (
+          <div className={cn(
+            "mb-2 md:mb-3 px-2.5 py-2 rounded-lg border border-violet-400/25 bg-violet-950/20 text-violet-200/80 text-[10px] md:text-[11px] italic leading-relaxed transition-all duration-500 overflow-y-auto max-h-56 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']",
+            showThought 
+              ? "blur-none opacity-100" 
+              : "blur-sm opacity-40 select-none pointer-events-none"
+          )}>
+            <span className="text-violet-400 not-italic font-semibold text-[8px] md:text-[9px] uppercase tracking-wider mr-1.5 block mb-0.5">
+              💭 Piensa internamente:
+            </span>
+            {message.hidden_thought}
+          </div>
+        )}
         
-        <p className="text-xs md:text-sm leading-normal md:leading-relaxed whitespace-pre-wrap break-words [word-break:break-word] [overflow-wrap:anywhere]">
-          {message.content}
+        <p className={cn(
+          "text-xs md:text-sm leading-normal md:leading-relaxed whitespace-pre-wrap break-words [word-break:break-word] [overflow-wrap:anywhere]",
+          isLast && isAvatar && "animate-in fade-in duration-700"
+        )}>
+          {/* Renderizar *acciones* en cursiva SIEMPRE en mensajes del avatar */}
+          {isAvatar ? <NovelRenderer text={message.content} /> : message.content}
         </p>
         
         <div className={cn(
