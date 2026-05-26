@@ -232,6 +232,12 @@ El usuario con el que estabas chateando se ha quedado en silencio por un tiempo.
             continue;
           }
 
+          // Actualizar la fecha de la conversación para que suba al tope de la lista
+          await adminSupabase
+            .from('conversations')
+            .update({ updated_at: new Date().toISOString() })
+            .eq('id', convo.id);
+
           // 7. Si Web Push está configurado, recuperar las suscripciones del usuario y enviar la notificación
           let pushSent = false;
           if (pushEnabled) {

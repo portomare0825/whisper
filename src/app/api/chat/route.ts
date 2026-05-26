@@ -924,7 +924,10 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     const newMessageCount = (conversation.message_count || 0) + 2; // user + avatar
     await supabase
       .from('conversations')
-      .update({ message_count: newMessageCount })
+      .update({ 
+        message_count: newMessageCount,
+        updated_at: new Date().toISOString()
+      })
       .eq('id', conversation_id);
 
     // Cada 30 mensajes o si supera 30 mensajes y no se ha generado el resumen aún
