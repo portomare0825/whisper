@@ -23,14 +23,21 @@ async function handleReengage(req: Request) {
       return NextResponse.json({ error: 'Parámetro "minutes" inválido.' }, { status: 400 });
     }
 
-    // 1. Validar autorización de seguridad (webhook secret)
+    // 1. Validar autorización de seguridad
+    // Acepta dos tipos de tokens:
+    // - WEBHOOK_SECRET_KEY: para invocaciones manuales o desde servicios externos (EasyCron, GitHub Actions, etc.)
+    // - CRON_SECRET: token estándar que Vercel inyecta automáticamente en cada petición de Vercel Cron Jobs
     const authHeader = req.headers.get('Authorization');
     let isAuthorized = false;
 
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.split(' ')[1];
       const webhookSecret = process.env.WEBHOOK_SECRET_KEY;
+      const cronSecret = process.env.CRON_SECRET;
+
       if (webhookSecret && token === webhookSecret) {
+        isAuthorized = true;
+      } else if (cronSecret && token === cronSecret) {
         isAuthorized = true;
       }
     }
