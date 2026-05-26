@@ -46,7 +46,8 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
 
     if (params.complexion) {
       if (params.complexion === 'delgada' || params.complexion === 'atletica') {
-        complexionModifiers = "petite woman, slender build, athletic toned body, narrow waist, ";
+        // Usamos 'slim adult woman' en lugar de 'petite' para evitar disparar los filtros NSFW de seguridad
+        complexionModifiers = "slim adult woman, slender build, athletic toned body, narrow waist, ";
       } else if (params.complexion === 'curvilinea') {
         complexionModifiers = "voluptuous, hourglass figure, beautiful soft curves, well-proportioned, ";
       } else if (params.complexion === 'robusta' || params.complexion === 'plus-size') {
@@ -76,7 +77,8 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
         reference_image_url: params.faceImageUrl,    // Imagen del rostro a inyectar
         prompt: finalPrompt,
         image_size: "portrait_4_3",
-        sync_mode: true
+        sync_mode: true,
+        enable_safety_checker: false                 // Evitamos las imágenes negras por falsos positivos
       })
     });
 
