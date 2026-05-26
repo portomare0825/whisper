@@ -69,7 +69,7 @@ interface MessageBubbleProps {
   isLastUser?: boolean;
   onEdit?: (content: string) => void;
   onRegenerate?: () => void;
-  onRetry?: (content: string) => void;
+  onRetry?: (content: string, isAlreadyInDb?: boolean) => void;
   sending?: boolean;
   isPremium?: boolean;
   novelMode?: boolean;
@@ -453,10 +453,13 @@ export default function MessageBubble({
                   <span>Editar</span>
                 </button>
               )}
-              {isLast && onRetry && !sending && (
+               {isLast && onRetry && !sending && (
                 <button
                   type="button"
-                  onClick={() => onRetry?.(message.content)}
+                  onClick={() => {
+                    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(message.id);
+                    onRetry?.(message.content, isUuid);
+                  }}
                   className="px-1 py-0.2 md:px-1.5 md:py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] uppercase tracking-wider border border-white/10"
                   title="Reintentar respuesta de la IA"
                 >

@@ -1113,10 +1113,12 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const handleEditMessage = async (content: string) => {
     setInput(content);
     
-    // Si el último mensaje es el del usuario y no tiene respuesta del avatar,
-    // lo borramos de la base de datos para no duplicarlo al volver a enviarlo
+    if (messages.length === 0) return;
+    
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.role === 'user' && lastMessage.content === content) {
+    
+    if (lastMessage.role === 'user') {
+      // Caso A: Solo borrar el último mensaje del usuario
       try {
         const { error } = await supabase
           .from('messages')
@@ -1130,6 +1132,29 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         console.warn('Error limpiando el mensaje editado:', err);
       }
       setMessages(prev => prev.slice(0, -1));
+    } else if (lastMessage.role === 'avatar') {
+      // Caso B: Borrar la respuesta del avatar y el mensaje del usuario anterior
+      const secondLastMessage = messages[messages.length - 2];
+      if (secondLastMessage && secondLastMessage.role === 'user') {
+        try {
+          // Borrar mensaje del avatar
+          const { error: errAvatar } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', lastMessage.id);
+          if (errAvatar) console.warn('No se pudo borrar el mensaje del avatar:', errAvatar);
+          
+          // Borrar mensaje del usuario
+          const { error: errUser } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', secondLastMessage.id);
+          if (errUser) console.warn('No se pudo borrar el mensaje del usuario:', errUser);
+        } catch (err) {
+          console.warn('Error limpiando mensajes al editar:', err);
+        }
+        setMessages(prev => prev.slice(0, -2));
+      }
     }
 
     // Enfocar el input de texto del chat
