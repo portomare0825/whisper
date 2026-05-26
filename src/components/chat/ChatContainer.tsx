@@ -1141,7 +1141,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }, 50);
   };
 
-  const handleRetry = async (userMessageText: string) => {
+  const handleRetry = async (userMessageText: string, isRegenerate = false) => {
     if (sending) return;
     setSending(true);
 
@@ -1154,7 +1154,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         body: JSON.stringify({
           conversation_id: conversation.id,
           avatar_id: avatar.id,
-          message: userMessageText
+          message: userMessageText,
+          is_regenerate: isRegenerate
         })
       });
 
@@ -1259,7 +1260,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }
 
     // Reintentar con el texto del último mensaje del usuario
-    await handleRetry(lastUserMessage.content);
+    await handleRetry(lastUserMessage.content, true);
   };
 
   const handleDeleteAvatar = async () => {

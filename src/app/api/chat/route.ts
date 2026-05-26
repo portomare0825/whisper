@@ -337,7 +337,7 @@ const ghostFewShot = [
 // ═══════════════════════════════════════════════════════════════════
 export async function POST(req: Request) {
   try {
-    const { conversation_id, message, avatar_id } = await req.json();
+    const { conversation_id, message, avatar_id, is_regenerate } = await req.json();
 
     // Utilizamos el Service Role Key para hacer bypass a RLS y tener acceso total a la DB
     const supabase = createClient(
@@ -756,13 +756,15 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     // assistantContentRaw fue llenado durante el loop de modelos
     let assistantContent = assistantContentRaw;
 
-    // ── GUARDAR MENSAJE DEL USUARIO (solo tras éxito de la IA) ──
-    const { error: userInsertError } = await supabase.from('messages').insert([
-      { conversation_id, role: 'user', content: message }
-    ]);
+    // ── GUARDAR MENSAJE DEL USUARIO (solo tras éxito de la IA y si no es regeneración) ──
+    if (!is_regenerate) {
+      const { error: userInsertError } = await supabase.from('messages').insert([
+        { conversation_id, role: 'user', content: message }
+      ]);
 
-    if (userInsertError) {
-      throw new Error(`Error saving user message: ${userInsertError.message}`);
+      if (userInsertError) {
+        throw new Error(`Error saving user message: ${userInsertError.message}`);
+      }
     }
 
     // ── DETECCIÓN DE CENSURA para usuarios FREE (Premium ya fue filtrado en el loop) ──
@@ -921,7 +923,7 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     }
 
     // ── ACTUALIZAR CONTADOR DE MENSAJES y disparar summary si es necesario ──
-    const newMessageCount = (conversation.message_count || 0) + 2; // user + avatar
+    const newMessageCount = (conversation.message_count || 0) + (is_regenerate ? 1 : 2); // user + avatar o solo avatar si es regeneración
     await supabase
       .from('conversations')
       .update({ 
