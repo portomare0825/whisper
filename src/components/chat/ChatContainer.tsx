@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
+import { PremiumPoseSelector } from './PremiumPoseSelector';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -46,9 +47,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [showPoseModal, setShowPoseModal] = useState(false);
   const [poseEmotion, setPoseEmotion] = useState<'smiling' | 'angry' | 'sad' | 'winking' | 'neutral'>('smiling');
   const [poseLayout, setPoseLayout] = useState<'portrait' | 'medium' | 'full'>('medium');
+  const [poseOutfitHint, setPoseOutfitHint] = useState('');
+  const [poseTab, setPoseTab] = useState<'basic' | 'premium'>('basic');
   const [changingPose, setChangingPose] = useState(false);
   const [poseError, setPoseError] = useState('');
-  const [poseOutfitHint, setPoseOutfitHint] = useState('');
   const [pendingPoseJob, setPendingPoseJob] = useState<{ generation_id: string; emotion: string; pose: string; is_free: boolean } | null>(null);
   
   // Estados para el Vestuario (Galería)
@@ -1976,8 +1978,26 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 </div>
               </div>
             ) : (
-              <form onSubmit={handlePoseChange} className="space-y-6">
-                {/* Icono */}
+              <div className="space-y-6">
+                {/* Tabs de Selección */}
+                <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 mb-2">
+                  <button
+                    onClick={() => setPoseTab('basic')}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${poseTab === 'basic' ? 'bg-primary text-black shadow-md' : 'text-white/60 hover:text-white'}`}
+                  >
+                    Básico (10 🪙)
+                  </button>
+                  <button
+                    onClick={() => setPoseTab('premium')}
+                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${poseTab === 'premium' ? 'bg-gradient-to-r from-amber-400 to-yellow-600 text-black shadow-md' : 'text-white/60 hover:text-white'}`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" /> Escenarios Premium (15 🪙)
+                  </button>
+                </div>
+
+                {poseTab === 'basic' ? (
+                  <form onSubmit={handlePoseChange} className="space-y-6">
+                    {/* Icono */}
                 <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto border border-primary/30">
                   <Smile className="w-8 h-8 text-primary" />
                 </div>
@@ -2132,6 +2152,20 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   )}
                 </div>
               </form>
+            ) : (
+              <PremiumPoseSelector 
+                conversationId={conversation.id}
+                avatarId={avatar.id}
+                userCoins={coins}
+                onSuccess={(generationId) => {
+                  setPendingOutfitJob({ generation_id: generationId, prompt: 'Escenario Premium', is_free: false });
+                  setShowPoseModal(false);
+                }}
+                onError={(err) => setPoseError(err)}
+                onCancel={() => setShowPoseModal(false)}
+              />
+            )}
+            </div>
             )}
           </div>
         </div>

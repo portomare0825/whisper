@@ -3,14 +3,17 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { createClient } from '@supabase/supabase-js';
 import { submitFalVTON, parseFalAPIError } from '@/lib/fal-vton';
+import { generatePosePremium } from '@/lib/fal-instantid';
+import { ESTILOS_PREMIUM } from '@/lib/constants/catalog';
 
 const OUTFIT_CHANGE_COST = 10;
+const OUTFIT_CHANGE_PREMIUM_COST = 15;
 
 export async function POST(req: Request) {
   try {
-    const { conversation_id, avatar_id, prompt } = await req.json();
+    const { conversation_id, avatar_id, prompt, action = 'outfit_change', premium_style_id, complexion } = await req.json();
 
-    if (!conversation_id || !avatar_id || !prompt) {
+    if (!conversation_id || !avatar_id || (!prompt && action === 'outfit_change') || (!premium_style_id && action === 'pose_change')) {
       return NextResponse.json({ error: 'Parámetros insuficientes' }, { status: 400 });
     }
 
@@ -58,15 +61,44 @@ export async function POST(req: Request) {
       }, { status: 404 });
     }
 
-    if (profile.coins < OUTFIT_CHANGE_COST) {
+    const isPremium = action === 'pose_change';
+    const currentCost = isPremium ? OUTFIT_CHANGE_PREMIUM_COST : OUTFIT_CHANGE_COST;
+
+    if (profile.coins < currentCost) {
       return NextResponse.json({
-        error: `Saldo insuficiente. Cambiar el outfit cuesta ${OUTFIT_CHANGE_COST} monedas y solo tienes ${profile.coins}.`,
+        error: `Saldo insuficiente. Esta acción cuesta ${currentCost} monedas y solo tienes ${profile.coins}.`,
         code: 'INSUFFICIENT_COINS',
         current_coins: profile.coins
       }, { status: 403 });
     }
 
-    // 6. Obtener el proveedor de VTON configurado
+    // 6. Ejecutar la acción correspondiente
+    if (isPremium) {
+      const estilo = ESTILOS_PREMIUM.find(e => e.id === premium_style_id);
+      if (!estilo) {
+        return NextResponse.json({ error: 'Estilo premium no encontrado en el catálogo' }, { status: 400 });
+      }
+
+      const falResult = await generatePosePremium({
+        faceImageUrl: avatar.base_image_url,
+        templatePoseUrl: estilo.imagen_plantilla,
+        basePrompt: estilo.prompt_base,
+        complexion: complexion,
+        physicalDescription: avatar.physical_description || ''
+      });
+
+      if (!falResult.success) {
+        return NextResponse.json({ error: falResult.error }, { status: 502 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        status: 'queued',
+        generation_id: falResult.generationId
+      });
+    }
+
+    // 7. Obtener el proveedor de VTON configurado (Flujo clásico)
     const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
 
     // --- Fal.ai IDM-VTON (nuevo proveedor) ---

@@ -1,151 +1,121 @@
-/**
- * Adaptador para Fal.ai InstantID
- *
- * Permite cambiar la pose y expresión facial de un avatar manteniendo su identidad.
- * Utiliza el mismo truco stateless de codificar el resultado inmediato de la llamada síncrona
- * en el generation_id para mantener compatibilidad total con el flujo de polling del cliente.
- *
- * Env requerida: FAL_KEY
- */
+export interface GeneratePoseParams {
+  faceImageUrl: string;
+  templatePoseUrl: string;
+  basePrompt: string;
+  complexion?: string;
+  gender?: string;
+  physicalDescription?: string;
+}
 
-interface FalInstantIDResult {
+export interface FalInstantIDResult {
   success: boolean;
   imageUrl?: string;
   error?: string;
   generationId?: string;
 }
 
+/**
+ * Codifica el resultado de Fal.ai en un formato base64 compatible
+ * con la arquitectura actual de polling del frontend.
+ */
 function encodeResult(imageUrl: string, prompt: string): string {
   try {
-    const payload = JSON.stringify({ t: 'faliid', u: imageUrl, p: prompt });
-    return 'faliid_' + Buffer.from(payload).toString('base64url');
+    const payload = JSON.stringify({ t: 'fal_pose', u: imageUrl, p: prompt });
+    return 'fal_' + Buffer.from(payload).toString('base64url');
   } catch {
-    return 'faliid_error';
+    return 'fal_error';
   }
 }
 
-export function decodeInstantIDResult(generationId: string): {
-  imageUrl: string;
-  prompt: string;
-} | null {
-  try {
-    if (!generationId.startsWith('faliid_')) return null;
-    const b64 = generationId.slice(7);
-    const raw = Buffer.from(b64, 'base64url').toString('utf-8');
-    const parsed = JSON.parse(raw);
-    if (parsed.t !== 'faliid') return null;
-    return { imageUrl: parsed.u, prompt: parsed.p };
-  } catch {
-    return null;
-  }
-}
-
-export async function submitFalInstantID(params: {
-  faceImageUrl: string;
-  prompt: string;
-}): Promise<FalInstantIDResult> {
+/**
+ * Genera la pose premium utilizando InstantID en Fal.ai,
+ * fusionando la foto de la cara del usuario con la plantilla
+ * e inyectando la complexión física.
+ */
+export async function generatePosePremium(params: GeneratePoseParams): Promise<FalInstantIDResult> {
   const FAL_KEY = process.env.FAL_KEY;
 
   if (!FAL_KEY) {
-    return {
-      success: false,
-      error: 'FAL_KEY no configurada en el servidor',
-    };
+    return { success: false, error: 'FAL_KEY no configurada en el servidor' };
   }
 
   try {
-    console.log('Iniciando Fal.ai InstantID para pose/expresión. Prompt:', params.prompt);
+    // 1. Construir el prompt dinámico inyectando la complexión física si existe
+    let finalPrompt = params.basePrompt;
+    let complexionModifiers = "";
 
-    // Ajustar el prompt para mejorar los resultados
-    const enhancedPrompt = `${params.prompt.trim()}, high quality, realistic photography, professional studio lighting, detailed background`;
-    const negativePrompt = 'nsfw, nude, naked, explicit, bad eyes, bad hands, deformed faces, bad anatomy, blur, low quality, distorted, extra limbs, watermark, text, lowres, ugly';
-
-    const response = await fetch(
-      'https://fal.run/fal-ai/instantid',
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Key ${FAL_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          face_image_url: params.faceImageUrl,
-          prompt: enhancedPrompt,
-          negative_prompt: negativePrompt,
-          ip_adapter_scale: 0.8,
-          identity_controlnet_conditioning_scale: 0.8,
-          image_size: {
-            width: 576,
-            height: 1024
-          }
-        }),
+    if (params.complexion) {
+      if (params.complexion === 'delgada' || params.complexion === 'atletica') {
+        complexionModifiers = "petite woman, slender build, athletic toned body, narrow waist, ";
+      } else if (params.complexion === 'curvilinea') {
+        complexionModifiers = "voluptuous, hourglass figure, beautiful soft curves, well-proportioned, ";
+      } else if (params.complexion === 'robusta' || params.complexion === 'plus-size') {
+        complexionModifiers = "plus-size model, curvy woman, full figured, beautiful thick body, ";
       }
-    );
+    }
+
+    if (complexionModifiers) {
+      // Inyectar justo después del "photorealistic" o al inicio del prompt
+      finalPrompt = `${complexionModifiers}${params.basePrompt}`;
+    }
+
+    // Aseguramos que Flux no tome estilos 3D si el rostro de referencia es un avatar 3D
+    finalPrompt = `Hyper-realistic human photography, ${finalPrompt}`;
+
+    console.log('Generando Pose Premium con InstantID. Prompt final:', finalPrompt);
+
+    // 2. Llamada a Fal.ai usando el endpoint de InstantID o Flux-ControlNet
+    // Usamos el endpoint de Flux PuLID que ofrece mejor text-to-image y mantención del rostro (evita caras tipo carnet)
+    const response = await fetch('https://fal.run/fal-ai/flux-pulid', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Key ${FAL_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        reference_image_url: params.faceImageUrl,    // Imagen del rostro a inyectar
+        prompt: finalPrompt,
+        image_size: "portrait_4_3",
+        sync_mode: true
+      })
+    });
 
     if (!response.ok) {
-      let errDetail = `Error en la API de Fal.ai (Status ${response.status})`;
+      let errorDetail = `Fal.ai respondió con status ${response.status}`;
       try {
         const errBody = await response.text();
         const parsed = JSON.parse(errBody);
-        errDetail = parsed.detail?.message || parsed.error || parsed.message || errBody;
+        errorDetail = parsed.detail?.message || parsed.error || parsed.message || errBody;
       } catch {}
-      console.error('Error en Fal.ai InstantID:', errDetail);
-      return {
-        success: false,
-        error: `Fallo en el servicio de generación de pose de Fal.ai: ${errDetail}`,
-      };
+      console.error('Fal.ai InstantID Error:', errorDetail);
+      return { success: false, error: errorDetail };
     }
 
     const data = await response.json();
-    let generatedImageUrl: string | undefined;
-
+    
+    let imageUrl: string | undefined;
     if (data?.images?.[0]?.url) {
-      generatedImageUrl = data.images[0].url;
+      imageUrl = data.images[0].url;
     } else if (data?.image?.url) {
-      generatedImageUrl = data.image.url;
+      imageUrl = data.image.url;
+    } else if (typeof data?.image === 'string') {
+      imageUrl = data.image;
     }
 
-    if (!generatedImageUrl) {
-      console.error('Fal.ai InstantID no devolvió una URL de imagen válida:', JSON.stringify(data));
-      return {
-        success: false,
-        error: 'El servicio de generación no devolvió un resultado de imagen válido.',
-      };
+    if (!imageUrl) {
+      console.error('Fal.ai no devolvió URL de imagen:', JSON.stringify(data).slice(0, 500));
+      return { success: false, error: 'Fal.ai no devolvió una imagen válida' };
     }
 
-    console.log('Imagen de pose/expresión generada con éxito:', generatedImageUrl);
-
-    // Codificar el resultado en el generationId para el polling stateless
-    const generationId = encodeResult(generatedImageUrl, params.prompt);
+    const generationId = encodeResult(imageUrl, finalPrompt);
 
     return {
       success: true,
-      imageUrl: generatedImageUrl,
+      imageUrl,
       generationId,
     };
-
-  } catch (err) {
-    console.error('Excepción en submitFalInstantID:', err);
-    return {
-      success: false,
-      error: err instanceof Error ? err.message : 'Error inesperado al conectar con Fal.ai',
-    };
+  } catch (err: any) {
+    console.error('Error llamando a Fal.ai InstantID:', err);
+    return { success: false, error: err.message || 'Error desconocido' };
   }
-}
-
-export function checkFalInstantIDStatus(params: {
-  generationId: string;
-  prompt: string;
-}): { status: 'completed' | 'failed'; imageUrl?: string; error?: string } {
-  const decoded = decodeInstantIDResult(params.generationId);
-  if (!decoded) {
-    return {
-      status: 'failed',
-      error: 'ID de generación no válido o corrupto',
-    };
-  }
-  return {
-    status: 'completed',
-    imageUrl: decoded.imageUrl,
-  };
 }

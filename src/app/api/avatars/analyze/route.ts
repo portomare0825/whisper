@@ -79,7 +79,7 @@ export async function POST(req: Request) {
                 {
                   "name": "Un nombre atractivo en español (ej. Camila, Valeria, Lucas) que encaje con la apariencia de la foto.",
                   "personality": "Una descripción muy atractiva de su personalidad y rasgos de comportamiento (mínimo 2 líneas).",
-                  "physical_description": "Una descripción física detallada enfocada en que un modelo de IA la entienda.",
+                  "physical_description": "Calcula y describe explícitamente tres cosas: 1) Edad aproximada en años, 2) Contextura física (ej. delgada, curvilínea, robusta, atlética) y 3) Tamaño/Estatura estimada (ej. pequeña, alta, mediana). PROHIBIDO usar palabras como 3D, dibujo, ilustración, avatar o animación. Descríbelo como si fuera un humano real.",
                   "system_prompt": "Instrucciones de comportamiento detalladas (3-4 líneas) escritas en segunda persona para guiar a la IA.",
                   "ymin": integer (0-1000 indicating the top edge of the face),
                   "xmin": integer (0-1000 indicating the left edge of the face),

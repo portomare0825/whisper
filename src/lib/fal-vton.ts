@@ -45,14 +45,15 @@ function encodeResult(imageUrl: string, prompt: string): string {
 function decodeResult(generationId: string): {
   imageUrl: string;
   prompt: string;
+  isPose: boolean;
 } | null {
   try {
     if (!generationId.startsWith('fal_')) return null;
     const b64 = generationId.slice(4);
     const raw = Buffer.from(b64, 'base64url').toString('utf-8');
     const parsed = JSON.parse(raw);
-    if (parsed.t !== 'fal') return null;
-    return { imageUrl: parsed.u, prompt: parsed.p };
+    if (parsed.t !== 'fal' && parsed.t !== 'fal_pose') return null;
+    return { imageUrl: parsed.u, prompt: parsed.p, isPose: parsed.t === 'fal_pose' };
   } catch {
     return null;
   }
@@ -222,6 +223,7 @@ export function checkFalVTONStatus(params: {
   status: 'completed' | 'failed';
   imageUrl?: string;
   error?: string;
+  isPose?: boolean;
 } {
   const decoded = decodeResult(params.generationId);
 
@@ -235,6 +237,7 @@ export function checkFalVTONStatus(params: {
   return {
     status: 'completed',
     imageUrl: decoded.imageUrl,
+    isPose: decoded.isPose
   };
 }
 

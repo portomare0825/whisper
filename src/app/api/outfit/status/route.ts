@@ -60,6 +60,7 @@ export async function POST(req: Request) {
     const userId = conversation.user_id;
 
     let newImageUrl: string;
+    let currentCost = OUTFIT_CHANGE_COST;
 
     // 5. Consultar según el proveedor (detectado por el formato del ID)
     if (generation_id.startsWith('fal_')) {
@@ -78,6 +79,9 @@ export async function POST(req: Request) {
       }
 
       newImageUrl = falResult.imageUrl;
+      if (falResult.isPose) {
+        currentCost = 15;
+      }
     } else {
       // 4. Validar API Key de PixelAPI para flujo legacy/pixel
       const PIXELAPI_KEY = process.env.PIXELAPI_KEY;
@@ -134,9 +138,9 @@ export async function POST(req: Request) {
         }, { status: 404 });
       }
 
-      if (profile.coins < OUTFIT_CHANGE_COST) {
+      if (profile.coins < currentCost) {
         return NextResponse.json({ 
-          error: `Saldo insuficiente. Cambiar el outfit cuesta ${OUTFIT_CHANGE_COST} monedas y tienes ${profile.coins}.`,
+          error: `Saldo insuficiente. Esta acción cuesta ${currentCost} monedas y tienes ${profile.coins}.`,
           code: 'INSUFFICIENT_COINS',
           current_coins: profile.coins
         }, { status: 403 });
@@ -145,7 +149,7 @@ export async function POST(req: Request) {
       // Descontar monedas
       const { data: newCoins, error: rpcError } = await adminSupabase.rpc('add_coins', {
         user_id_param: userId,
-        amount: -OUTFIT_CHANGE_COST
+        amount: -currentCost
       });
 
       if (rpcError) {
