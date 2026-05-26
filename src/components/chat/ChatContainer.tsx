@@ -1688,18 +1688,18 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
           {/* Sugerencias de IA */}
           {suggestions.length > 0 && (
-            <div className="mx-0.5 md:mx-6 mb-1 md:mb-4 flex flex-col gap-1 md:gap-1.5 animate-in slide-in-from-bottom-4 duration-300">
+            <div className="mx-2 md:mx-6 mb-2 md:mb-4 flex flex-col gap-1.5 md:gap-2 animate-in slide-in-from-bottom-4 duration-300 relative z-20">
               <div className="flex items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
-                <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
-                <span className="text-[10px] md:text-xs font-semibold text-primary/80 uppercase tracking-wider">Sugerencias del asistente</span>
+                <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary animate-pulse" />
+                <span className="text-[10px] md:text-xs font-bold text-primary uppercase tracking-wider">Sugerencias de respuesta</span>
                 <button 
                   onClick={() => setSuggestions([])}
-                  className="ml-auto text-muted-foreground hover:text-white"
+                  className="ml-auto text-muted-foreground hover:text-white p-1"
                 >
                   <X className="w-3.5 h-3.5 md:w-4 md:h-4" />
                 </button>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {suggestions.map((suggestion, idx) => (
                   <button
                     key={idx}
@@ -1707,7 +1707,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                       setInput(suggestion);
                       setSuggestions([]);
                     }}
-                    className="text-left text-xs md:text-sm text-white font-medium bg-black/60 backdrop-blur-md hover:bg-black/80 border border-white/20 rounded-lg md:rounded-xl p-3 shadow-lg transition-all"
+                    className="text-left text-xs md:text-sm text-white/90 font-medium bg-black/85 hover:bg-black/95 border border-primary/30 rounded-xl p-3 shadow-[0_4px_12px_rgba(0,0,0,0.5)] hover:border-primary transition-all duration-200 cursor-pointer active:scale-[0.98]"
                   >
                     "{suggestion}"
                   </button>
