@@ -15,9 +15,9 @@ async function handleReengage(req: Request) {
     const { searchParams } = new URL(req.url);
     const isDev = process.env.NODE_ENV === 'development';
     
-    // Obtener los minutos desde los query params o usar valores por defecto (1 min en dev, 6 horas en prod)
+    // Obtener los minutos desde los query params o usar valores por defecto (1 min en dev, 15 minutos en prod)
     const minutesParam = searchParams.get('minutes');
-    const minutesThreshold = minutesParam ? parseInt(minutesParam, 10) : (isDev ? 1 : 360);
+    const minutesThreshold = minutesParam ? parseInt(minutesParam, 10) : (isDev ? 1 : 15);
     
     if (isNaN(minutesThreshold) || minutesThreshold <= 0) {
       return NextResponse.json({ error: 'Parámetro "minutes" inválido.' }, { status: 400 });
@@ -103,8 +103,8 @@ async function handleReengage(req: Request) {
 
       const lastMessage = lastMessages[0];
 
-      // CONDICIÓN CLAVE: El último mensaje debe ser del usuario y haber superado el tiempo de inactividad
-      if (lastMessage.role === 'user') {
+      // CONDICIÓN CLAVE: Haber superado el tiempo de inactividad (ahora funciona tanto si el usuario como el avatar enviaron el último mensaje)
+      if (lastMessage.role === 'user' || lastMessage.role === 'avatar') {
         const lastMsgTime = new Date(lastMessage.created_at).getTime();
         const diffMs = now - lastMsgTime;
 
