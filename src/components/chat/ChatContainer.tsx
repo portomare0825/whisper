@@ -1681,7 +1681,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                       setInput(suggestion);
                       setSuggestions([]);
                     }}
-                    className="text-left text-xs md:text-sm text-white/80 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg md:rounded-xl p-2 md:p-3 transition-colors"
+                    className="text-left text-xs md:text-sm text-white font-medium bg-black/60 backdrop-blur-md hover:bg-black/80 border border-white/20 rounded-lg md:rounded-xl p-3 shadow-lg transition-all"
                   >
                     "{suggestion}"
                   </button>
