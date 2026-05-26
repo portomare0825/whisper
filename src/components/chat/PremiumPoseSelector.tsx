@@ -75,8 +75,9 @@ export function PremiumPoseSelector({
           <Sparkles className="w-4 h-4 text-primary" />
           Silueta / Complexión
         </label>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="flex flex-wrap gap-2">
           {[
+            { id: 'delgada', label: 'Delgada / Flaca' },
             { id: 'atletica', label: 'Atlética / Fit' },
             { id: 'promedio', label: 'Normal' },
             { id: 'curvilinea', label: 'Curvilínea' },
@@ -85,7 +86,7 @@ export function PremiumPoseSelector({
             <button
               key={comp.id}
               onClick={() => setComplexion(comp.id)}
-              className={`p-3 rounded-xl border text-center transition-all cursor-pointer text-xs font-semibold ${
+              className={`flex-1 min-w-[100px] p-2.5 rounded-xl border text-center transition-all cursor-pointer text-xs font-semibold ${
                 complexion === comp.id 
                   ? 'border-primary bg-primary/20 shadow-[0_0_15px_rgba(212,175,55,0.2)] text-white' 
                   : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
