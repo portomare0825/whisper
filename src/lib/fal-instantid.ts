@@ -71,10 +71,11 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
     }
 
     // Añadimos texturas de piel ultra realistas y parámetros de cámara para destruir el efecto "plástico"
-    const skinDetails = "RAW photography, ultra-detailed skin texture, visible skin pores, fine peach fuzz, unretouched skin, natural skin imperfections, micro-details, shot on 85mm lens, photorealistic masterpiece, ";
+    // Usamos términos más agresivos para forzar la estética no-digital
+    const skinDetails = "EXTREMELY RAW photography, highly detailed real human skin, macro shot of skin texture, visible pores, subtle skin blemishes, freckles, fine peach fuzz, unretouched, imperfect natural skin, shot on 85mm DSLR, ";
     
-    // Aseguramos que Flux no tome estilos 3D si el rostro de referencia es un avatar 3D
-    finalPrompt = `${skinDetails} Hyper-realistic human photography, ${finalPrompt}`;
+    // Aseguramos que Flux rechace de plano cualquier intento de dibujar en estilo 3D o "plástico"
+    finalPrompt = `${skinDetails} absolutely no 3D rendering, no digital art, strictly real life human photography, ${finalPrompt}`;
 
     console.log('Generando Pose Premium con InstantID. Prompt final:', finalPrompt);
 
