@@ -100,7 +100,7 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   }
 
   return (
-    <div className="h-[calc(100vh-4rem)] md:h-[calc(100vh-4rem)] -mx-4 -my-4 md:m-0 bg-background/50 rounded-none md:rounded-3xl border-0 md:border border-white/10 overflow-hidden backdrop-blur-md">
+    <div className="fixed inset-0 top-16 md:relative md:top-auto md:h-[calc(100vh-4rem)] md:m-0 bg-background md:bg-background/50 rounded-none md:rounded-3xl border-0 md:border border-white/10 overflow-hidden md:backdrop-blur-md z-30">
       <ChatContainer 
         avatar={avatar}
         conversation={conversation}
