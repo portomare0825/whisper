@@ -43,13 +43,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   // Estado para la generación asíncrona de outfits
   const [pendingOutfitJob, setPendingOutfitJob] = useState<{ generation_id: string; prompt: string; is_free: boolean } | null>(null);
   
-  // Estados para el cambio de Pose y Expresión
+  // Estados para el cambio de Pose y Expresión (Premium)
   const [showPoseModal, setShowPoseModal] = useState(false);
-  const [poseEmotion, setPoseEmotion] = useState<'smiling' | 'angry' | 'sad' | 'winking' | 'neutral'>('smiling');
-  const [poseLayout, setPoseLayout] = useState<'portrait' | 'medium' | 'full'>('medium');
-  const [poseOutfitHint, setPoseOutfitHint] = useState('');
-  const [poseTab, setPoseTab] = useState<'basic' | 'premium'>('basic');
-  const [changingPose, setChangingPose] = useState(false);
   const [poseError, setPoseError] = useState('');
   const [pendingPoseJob, setPendingPoseJob] = useState<{ generation_id: string; emotion: string; pose: string; is_free: boolean } | null>(null);
   
@@ -1950,210 +1945,16 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       {/* Modal de Cambio de Pose y Expresión */}
       {showPoseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          <div className="relative w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden glass-morphism rounded-3xl border border-primary/30 p-0 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
             {/* Botón de cerrar */}
-            {!changingPose && (
-              <button 
-                onClick={() => { setShowPoseModal(false); setPoseError(''); setPoseOutfitHint(''); }}
-                className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
+            <button 
+              onClick={() => { setShowPoseModal(false); setPoseError(''); }}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
 
-            {changingPose ? (
-              <div className="py-8 flex flex-col items-center justify-center space-y-6">
-                <div className="relative w-20 h-20 flex items-center justify-center">
-                  <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                  <Smile className="w-8 h-8 text-primary animate-pulse" />
-                  <Sparkles className="w-4 h-4 text-amber-400 absolute top-0 right-0 animate-bounce" />
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xl font-bold text-white tracking-wide">
-                    Cambiando pose del avatar...
-                  </h4>
-                  <p className="text-sm text-white/60 max-w-xs mx-auto animate-pulse">
-                    Fotografiando a tu avatar en su nuevo estado de ánimo. Esto tomará unos segundos.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-6">
-                {/* Tabs de Selección */}
-                <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 mb-2">
-                  <button
-                    onClick={() => setPoseTab('basic')}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all ${poseTab === 'basic' ? 'bg-primary text-black shadow-md' : 'text-white/60 hover:text-white'}`}
-                  >
-                    Básico (10 🪙)
-                  </button>
-                  <button
-                    onClick={() => setPoseTab('premium')}
-                    className={`flex-1 py-2.5 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${poseTab === 'premium' ? 'bg-gradient-to-r from-amber-400 to-yellow-600 text-black shadow-md' : 'text-white/60 hover:text-white'}`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5" /> Escenarios Premium (15 🪙)
-                  </button>
-                </div>
-
-                {poseTab === 'basic' ? (
-                  <form onSubmit={handlePoseChange} className="space-y-6">
-                    {/* Icono */}
-                <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto border border-primary/30">
-                  <Smile className="w-8 h-8 text-primary" />
-                </div>
-
-                {/* Título */}
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-bold text-white tracking-tight">
-                    Expresión y Pose de {avatar.name}
-                  </h3>
-                  <p className="text-white/60 text-xs md:text-sm">
-                    Modifica la pose y emoción del avatar. Cada cambio cuesta <span className="text-amber-400 font-semibold">10 monedas</span>.
-                  </p>
-                </div>
-
-                {/* Saldo de monedas actual en el modal */}
-                <div className="flex items-center justify-between bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl text-xs md:text-sm">
-                  <span className="text-white/60">Tu saldo actual:</span>
-                  <div className="flex items-center gap-1 font-bold">
-                    <span className="gold-gradient">{coins}</span>
-                    <span className="text-amber-400">🪙</span>
-                  </div>
-                </div>
-
-                {coins < 10 ? (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 space-y-4 text-center">
-                    <p className="text-xs text-destructive-foreground font-semibold leading-relaxed">
-                      No tienes suficientes monedas para realizar esta acción (Costo: 10 🪙).
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPoseModal(false);
-                        setShowBuyCoinsModal(true);
-                      }}
-                      className="premium-button inline-flex w-full py-3 rounded-xl font-bold text-xs justify-center items-center gap-2 shadow-lg"
-                    >
-                      Obtener monedas / Plan Pro <Zap className="w-4 h-4 text-black fill-current" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="space-y-5 text-left">
-                    {/* 1. SELECCIONAR EMOCIÓN */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
-                        ¿Qué emoción quieres que muestre?
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {[
-                          { id: 'smiling', label: 'Feliz / Riendo', icon: '😃' },
-                          { id: 'angry', label: 'Enojada / Molesta', icon: '😡' },
-                          { id: 'sad', label: 'Triste', icon: '😢' },
-                          { id: 'winking', label: 'Coqueta', icon: '😉' },
-                          { id: 'neutral', label: 'Seria / Pensativa', icon: '😐' }
-                        ].map((emo) => (
-                          <button
-                            key={emo.id}
-                            type="button"
-                            onClick={() => setPoseEmotion(emo.id as any)}
-                            className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                              poseEmotion === emo.id 
-                                ? 'border-primary bg-primary/10 shadow-[0_0_10px_rgba(212,175,55,0.15)] text-white' 
-                                : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-                            }`}
-                          >
-                            <span className="text-2xl mb-1">{emo.icon}</span>
-                            <span className="text-xs font-bold leading-tight">{emo.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 2. SELECCIONAR POSE / ENCUADRE */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
-                        ¿Qué encuadre o pose prefieres?
-                      </label>
-                      <div className="grid grid-cols-3 gap-2">
-                        {[
-                          { id: 'portrait', label: 'Retrato', desc: 'Cara y hombros', icon: '🧑' },
-                          { id: 'medium', label: 'Medio Cuerpo', desc: 'Cintura arriba', icon: '🧍' },
-                          { id: 'full', label: 'Cuerpo Entero', desc: 'Cuerpo completo', icon: '🚶' }
-                        ].map((layout) => (
-                          <button
-                            key={layout.id}
-                            type="button"
-                            onClick={() => setPoseLayout(layout.id as any)}
-                            className={`flex flex-col items-center justify-center p-3 rounded-xl border text-center transition-all cursor-pointer ${
-                              poseLayout === layout.id 
-                                ? 'border-primary bg-primary/10 shadow-[0_0_10px_rgba(212,175,55,0.15)] text-white' 
-                                : 'border-white/10 bg-white/5 text-white/60 hover:bg-white/10 hover:text-white'
-                            }`}
-                          >
-                            <span className="text-2xl mb-1">{layout.icon}</span>
-                            <span className="text-xs font-bold leading-tight">{layout.label}</span>
-                            <span className="text-[9px] text-white/40 mt-0.5 leading-none">{layout.desc}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* 3. ROPA OPCIONAL */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
-                        Ropa personalizada <span className="text-white/40 font-normal normal-case">(opcional)</span>
-                      </label>
-                      <textarea
-                        value={poseOutfitHint}
-                        onChange={(e) => setPoseOutfitHint(e.target.value)}
-                        placeholder="Ej: vestido largo rojo, ropa deportiva, bikini azul en la playa... (si dejas vacío, la IA lo elige)"
-                        rows={2}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/40 text-sm text-white resize-none"
-                      />
-                      <div className="flex flex-wrap gap-1.5">
-                        {['Vestido elegante negro', 'Bikini en la playa', 'Outfit deportivo', 'Casual con jeans'].map((s) => (
-                          <button
-                            key={s}
-                            type="button"
-                            onClick={() => setPoseOutfitHint(s)}
-                            className="text-[11px] text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg px-2.5 py-1.5 transition-colors cursor-pointer"
-                          >
-                            {s}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {poseError && (
-                  <p className="text-xs text-destructive font-semibold text-center animate-pulse">
-                    {poseError}
-                  </p>
-                )}
-
-                {/* Botones de acción */}
-                <div className="flex gap-3">
-                  <button 
-                    type="button"
-                    onClick={() => { setShowPoseModal(false); setPoseError(''); setPoseOutfitHint(''); }}
-                    className="flex-1 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-colors text-sm font-semibold cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  {coins >= 10 && (
-                    <button 
-                      type="submit"
-                      disabled={changingPose}
-                      className="flex-1 premium-button py-3.5 rounded-xl text-primary-foreground font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:scale-100"
-                    >
-                      Generar Pose (-10 🪙)
-                    </button>
-                  )}
-                </div>
-              </form>
-            ) : (
-              <PremiumPoseSelector 
+            <PremiumPoseSelector 
                 conversationId={conversation.id}
                 avatarId={avatar.id}
                 userCoins={coins}
@@ -2164,9 +1965,6 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 onError={(err) => setPoseError(err)}
                 onCancel={() => setShowPoseModal(false)}
               />
-            )}
-            </div>
-            )}
           </div>
         </div>
       )}
