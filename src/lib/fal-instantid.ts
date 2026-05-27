@@ -60,6 +60,11 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
       finalPrompt = `${complexionModifiers}${params.basePrompt}`;
     }
 
+    if (params.physicalDescription) {
+      // Ahora que los datos corporales están limpios de términos "3D" o "caricaturas", los usamos para dictar la edad y fisionomía base.
+      finalPrompt = `Detailed human physical appearance: ${params.physicalDescription}. ${finalPrompt}`;
+    }
+
     // Aseguramos que Flux no tome estilos 3D si el rostro de referencia es un avatar 3D
     finalPrompt = `Hyper-realistic human photography, ${finalPrompt}`;
 
