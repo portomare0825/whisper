@@ -2321,15 +2321,24 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                       style={{
                         animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
                       }}
-                      onDoubleClick={(e) => {
+                      onClick={(e) => {
                         e.stopPropagation();
-                        // Hacemos un toggle de escala manual manipulando el estilo en línea directo 
-                        // ya que estamos saltándonos un state global para evitar parpadeos
-                        const target = e.currentTarget;
-                        const isZoomed = target.style.transform.includes('scale');
-                        target.style.transform = isZoomed ? '' : 'scale(3)';
-                        target.style.cursor = isZoomed ? 'zoom-in' : 'zoom-out';
-                        target.style.transformOrigin = `${e.nativeEvent.offsetX}px ${e.nativeEvent.offsetY}px`;
+                        const target = e.currentTarget as any;
+                        const now = Date.now();
+                        const lastClick = parseInt(target.dataset.lastClick || '0', 10);
+                        const timeDiff = now - lastClick;
+                        
+                        if (timeDiff > 0 && timeDiff < 400) {
+                          // Es un doble tap táctil válido en móvil
+                          const isZoomed = target.style.transform.includes('scale');
+                          target.style.transform = isZoomed ? '' : 'scale(3)';
+                          target.style.cursor = isZoomed ? 'zoom-in' : 'zoom-out';
+                          target.style.transformOrigin = `${e.nativeEvent.offsetX}px ${e.nativeEvent.offsetY}px`;
+                          target.dataset.lastClick = "0"; // reseteamos
+                        } else {
+                          // Primer tap: guardamos el tiempo
+                          target.dataset.lastClick = now.toString();
+                        }
                       }}
                     />
                   );
