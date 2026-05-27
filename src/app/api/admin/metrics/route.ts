@@ -62,7 +62,8 @@ export async function GET() {
       { count: activeUsers },
       { count: totalAvatars },
       { count: activeConversations },
-      { count: totalMessages }
+      { count: totalMessages },
+      { data: dbSizeResult }
     ] = await Promise.all([
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfToday),
@@ -71,8 +72,15 @@ export async function GET() {
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).gte('updated_at', thirtyMinutesAgo),
       supabaseAdmin.from('avatars').select('*', { count: 'exact', head: true }).is('deleted_at', null),
       supabaseAdmin.from('conversations').select('*', { count: 'exact', head: true }),
-      supabaseAdmin.from('messages').select('*', { count: 'exact', head: true })
+      supabaseAdmin.from('messages').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.rpc('get_database_size')
     ]);
+
+    const dbBytes = dbSizeResult && dbSizeResult[0] ? dbSizeResult[0].total_bytes : 0;
+    const dbPretty = dbSizeResult && dbSizeResult[0] ? dbSizeResult[0].total_pretty : '0 B';
+    // Límite gratuito de Supabase: 500 MB (524,288,000 bytes)
+    const limitBytes = 524288000;
+    const percentUsed = Number(((dbBytes / limitBytes) * 100).toFixed(2));
 
     return NextResponse.json({
       metrics: {
@@ -89,6 +97,12 @@ export async function GET() {
         chat: {
           conversations: activeConversations || 0,
           messages: totalMessages || 0,
+        },
+        db: {
+          bytes: dbBytes,
+          pretty: dbPretty,
+          limitBytes: limitBytes,
+          percentUsed: percentUsed > 100 ? 100 : percentUsed
         }
       }
     });

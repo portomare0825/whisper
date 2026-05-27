@@ -12,6 +12,12 @@ interface Metrics {
   users: { total: number; today: number; week: number; month: number; activeNow: number; };
   avatars: { total: number; };
   chat: { conversations: number; messages: number; };
+  db?: {
+    bytes: number;
+    pretty: string;
+    limitBytes: number;
+    percentUsed: number;
+  };
 }
 
 export default function AdminDashboard() {
@@ -198,6 +204,57 @@ export default function AdminDashboard() {
             
           </div>
         </section>
+
+        {/* SECCIÓN 3: ALMACENAMIENTO DE DATOS */}
+        {metrics?.db && (
+          <section>
+            <div className="flex items-center gap-2 mb-4 px-1 mt-6">
+              <Database className="w-5 h-5 text-indigo-400" />
+              <h2 className="text-lg font-semibold tracking-wide">Infraestructura & Almacenamiento</h2>
+            </div>
+            <div className="bg-[#0f172a]/50 backdrop-blur-sm border border-indigo-500/20 rounded-3xl p-6 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-20 transition-opacity duration-300 group-hover:opacity-40" />
+              
+              <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Tamaño de Base de Datos</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">
+                      {metrics.db.pretty}
+                    </span>
+                    <span className="text-sm text-slate-400">/ 500 MB</span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Espacio ocupado en tu clúster de Supabase PostgreSQL.
+                  </p>
+                </div>
+
+                <div className="md:col-span-2 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-400 font-medium">Uso del plan gratuito (Límite: 500MB)</span>
+                    <span className="font-bold text-indigo-400">{metrics.db.percentUsed}%</span>
+                  </div>
+                  
+                  {/* Barra de progreso */}
+                  <div className="w-full h-3 bg-slate-950 rounded-full border border-white/5 overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-violet-600 via-indigo-500 to-indigo-400 rounded-full shadow-[0_0_12px_rgba(99,102,241,0.5)] transition-all duration-500"
+                      style={{ width: `${metrics.db.percentUsed}%` }}
+                    />
+                  </div>
+                  
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>0 MB</span>
+                    <span>250 MB</span>
+                    <span>500 MB</span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* NOTA SOBRE VERCEL */}
         <div className="mt-12 bg-white/[0.02] border border-white/5 rounded-2xl p-6 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-6">
