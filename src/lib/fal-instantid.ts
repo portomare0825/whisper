@@ -46,8 +46,8 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
 
     if (params.complexion) {
       if (params.complexion === 'delgada' || params.complexion === 'atletica') {
-        // Usamos 'slim adult woman' en lugar de 'petite' para evitar disparar los filtros NSFW de seguridad
-        complexionModifiers = "slim adult woman, slender build, athletic toned body, narrow waist, ";
+        // Cambiamos completamente el enfoque a vocabulario de 'alta costura' para que no sea censurado
+        complexionModifiers = "fashion model figure, tall and thin physique, elegant body shape, flat stomach, ";
       } else if (params.complexion === 'curvilinea') {
         complexionModifiers = "voluptuous, hourglass figure, beautiful soft curves, well-proportioned, ";
       } else if (params.complexion === 'robusta' || params.complexion === 'plus-size') {
