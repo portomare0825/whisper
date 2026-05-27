@@ -58,6 +58,24 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [tearDirection, setTearDirection] = useState<'left' | 'right'>('right');
   const [isImageZoomed, setIsImageZoomed] = useState(false);
   
+  // Estados para arrastrar/pan la imagen en zoom
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [zoomOrigin, setZoomOrigin] = useState({ x: 50, y: 50 });
+
+  // Resetear el desplazamiento al quitar el zoom o cambiar de imagen
+  useEffect(() => {
+    if (!isImageZoomed) {
+      setPan({ x: 0, y: 0 });
+    }
+  }, [isImageZoomed]);
+
+  useEffect(() => {
+    setPan({ x: 0, y: 0 });
+    setIsImageZoomed(false);
+  }, [fullScreenImage]);
+  
   // Estados para el gesto táctil (Swipe) en carrusel
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -2069,9 +2087,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 setFullScreenImage(null);
                 setIsImageZoomed(false);
               }}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
+              onTouchStart={isImageZoomed ? undefined : handleTouchStart}
+              onTouchMove={isImageZoomed ? undefined : handleTouchMove}
+              onTouchEnd={isImageZoomed ? undefined : () => handleTouchEnd(carouselUrls, currentIndex)}
             >
               {/* Inyectar estilos CSS para el efecto de rasgado de papel realista */}
               {/* Inyectar estilos CSS para el efecto de cortina de cristal glaseado en 3D */}
@@ -2181,9 +2199,47 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   key={fullScreenImage} // Fuerza re-render para disparar animación
                   src={fullScreenImage} 
                   alt="Outfit Full Screen" 
-                  className={`${isImageZoomed ? 'fixed inset-0 w-screen h-screen object-cover z-[200] rounded-none border-none' : 'max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl border border-white/10'} shadow-2xl pointer-events-auto transition-all duration-300`}
+                  className={`${
+                    isImageZoomed 
+                      ? 'fixed inset-0 w-screen h-screen object-cover z-[200] rounded-none border-none touch-none ' + (isDraggingImage ? 'cursor-grabbing' : 'cursor-grab') 
+                      : 'max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl border border-white/10 cursor-zoom-in'
+                  } shadow-2xl pointer-events-auto ${isDraggingImage ? 'transition-none' : 'transition-all duration-300'}`}
                   style={{
+                    transform: isImageZoomed ? `translate(${pan.x}px, ${pan.y}px) scale(3)` : 'none',
+                    transformOrigin: isImageZoomed ? `${zoomOrigin.x}% ${zoomOrigin.y}%` : 'center',
                     animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
+                  }}
+                  onPointerDown={(e) => {
+                    if (!isImageZoomed) return;
+                    e.stopPropagation();
+                    setIsDraggingImage(true);
+                    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+                    try {
+                      e.currentTarget.setPointerCapture(e.pointerId);
+                    } catch (err) {}
+                  }}
+                  onPointerMove={(e) => {
+                    if (!isImageZoomed || !isDraggingImage) return;
+                    e.stopPropagation();
+                    const newX = e.clientX - dragStart.x;
+                    const newY = e.clientY - dragStart.y;
+                    setPan({ x: newX, y: newY });
+                  }}
+                  onPointerUp={(e) => {
+                    if (!isImageZoomed) return;
+                    e.stopPropagation();
+                    setIsDraggingImage(false);
+                    try {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                    } catch (err) {}
+                  }}
+                  onPointerCancel={(e) => {
+                    if (!isImageZoomed) return;
+                    e.stopPropagation();
+                    setIsDraggingImage(false);
+                    try {
+                      e.currentTarget.releasePointerCapture(e.pointerId);
+                    } catch (err) {}
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2195,10 +2251,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                     if (timeDiff > 0 && timeDiff < 400) {
                       // Doble toque: Zoom y Ocultar UI
                       const willZoom = !isImageZoomed;
+                      const rect = target.getBoundingClientRect();
+                      const xPercent = ((e.clientX - rect.left) / rect.width) * 100;
+                      const yPercent = ((e.clientY - rect.top) / rect.height) * 100;
+                      setZoomOrigin({ x: xPercent, y: yPercent });
                       setIsImageZoomed(willZoom);
-                      target.style.transform = willZoom ? 'scale(3)' : '';
-                      target.style.cursor = willZoom ? 'zoom-in' : 'zoom-out';
-                      target.style.transformOrigin = `${e.nativeEvent.offsetX}px ${e.nativeEvent.offsetY}px`;
                       target.dataset.lastClick = "0"; // reseteamos
                     } else {
                       // Primer tap: Guardar tiempo. 
