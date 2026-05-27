@@ -103,7 +103,8 @@ export async function POST(req: Request) {
       // Descontar monedas
       const { data: newCoins, error: rpcError } = await adminSupabase.rpc('add_coins', {
         user_id_param: userId,
-        amount: -POSE_CHANGE_COST
+        amount: -POSE_CHANGE_COST,
+        reason_param: 'pose_change'
       });
 
       if (rpcError) {
