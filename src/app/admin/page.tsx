@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   Users, UserPlus, Activity, Database, 
   MessageSquare, UserCircle, RefreshCw, BarChart, ChevronLeft,
-  Coins, TrendingUp, UserCheck
+  Coins, TrendingUp, UserCheck, Cpu, Wallet, AlertTriangle
 } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 
@@ -25,6 +25,10 @@ interface Metrics {
     coinsUsed: number;
     activeSubscribers: number;
   };
+  falBalance?: {
+    currentBalance: number;
+    currency: string;
+  } | null;
 }
 
 export default function AdminDashboard() {
@@ -109,7 +113,13 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3 md:gap-4">
             <button 
-              onClick={() => router.push('/dashboard')}
+              onClick={() => {
+                if (typeof window !== 'undefined' && window.history.length > 1) {
+                  router.back();
+                } else {
+                  router.push('/dashboard');
+                }
+              }}
               className="p-2 rounded-full hover:bg-white/5 transition-colors text-slate-400 hover:text-white"
             >
               <ChevronLeft className="w-5 h-5 md:w-6 md:h-6" />
@@ -308,6 +318,81 @@ export default function AdminDashboard() {
             </div>
           </section>
         )}
+
+        {/* SECCIÓN: SERVICIOS EXTERNOS & IA */}
+        <section>
+          <div className="flex items-center gap-2 mb-4 px-1 mt-6">
+            <Cpu className="w-5 h-5 text-violet-400" />
+            <h2 className="text-lg font-semibold tracking-wide">Proveedores de Inteligencia Artificial</h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            {/* Tarjeta de Fal.ai Balance */}
+            <div className="md:col-span-2 bg-[#0f172a]/50 backdrop-blur-sm border border-violet-500/20 rounded-3xl p-6 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent opacity-20 transition-opacity duration-300 group-hover:opacity-40" />
+              
+              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="space-y-2">
+                  <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Saldo Disponible en fal.ai</span>
+                  <div className="flex items-baseline gap-2">
+                    {metrics?.falBalance === undefined ? (
+                      <span className="text-3xl font-extrabold text-white animate-pulse">Cargando...</span>
+                    ) : metrics.falBalance === null ? (
+                      <div className="flex items-center gap-2 text-rose-400">
+                        <AlertTriangle className="w-5 h-5 animate-bounce" />
+                        <span className="text-lg md:text-xl font-bold">No disponible / Sin clave ADMIN</span>
+                      </div>
+                    ) : (
+                      <>
+                        <span className={`text-4xl md:text-5xl font-extrabold tracking-tight ${
+                          metrics.falBalance.currentBalance < 5 ? 'text-amber-400 animate-pulse' : 'text-emerald-400'
+                        }`}>
+                          ${metrics.falBalance.currentBalance.toFixed(2)}
+                        </span>
+                        <span className="text-sm text-slate-400">{metrics.falBalance.currency}</span>
+                      </>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {metrics?.falBalance === null 
+                      ? "Asegúrate de que tu FAL_KEY en .env.local posea el rol de ADMIN para consultar facturación."
+                      : "Créditos para generación de imágenes (VTON, InstantID) y síntesis de voz."}
+                  </p>
+                </div>
+
+                <a 
+                  href="https://fal.run/dashboard/billing" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="premium-button text-white px-5 py-2.5 rounded-xl font-medium text-xs flex items-center gap-2 border border-violet-500/30 hover:border-violet-500/60 shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 transition-all whitespace-nowrap"
+                >
+                  <Wallet className="w-4 h-4" />
+                  Gestionar Saldo fal.ai
+                </a>
+              </div>
+            </div>
+
+            {/* Tarjeta de estado de API de Fal.ai */}
+            <div className="bg-[#0f172a]/50 backdrop-blur-sm border border-violet-500/20 rounded-3xl p-6 relative overflow-hidden group">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-20 transition-opacity duration-300 group-hover:opacity-40" />
+              <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
+                <div>
+                  <h3 className="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-2">Estado del Servicio</h3>
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${metrics?.falBalance ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`} />
+                    <span className="text-lg font-bold text-white">
+                      {metrics?.falBalance ? 'Conectado / Activo' : 'Clave de API cargada'}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Llamadas al endpoint IDM-VTON y síntesis de audio configuradas a través del SDK oficial de fal.ai.
+                </p>
+              </div>
+            </div>
+
+          </div>
+        </section>
 
         {/* NOTA SOBRE VERCEL */}
         <div className="mt-12 bg-white/[0.02] border border-white/5 rounded-2xl p-6 text-center md:text-left flex flex-col md:flex-row items-center justify-between gap-6">

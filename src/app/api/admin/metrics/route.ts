@@ -53,6 +53,34 @@ export async function GET() {
     // "Conectados recientemente" (actualizados en los últimos 30 minutos)
     const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60000).toISOString();
 
+    // Fal.ai API call helper with graceful fallback
+    const fetchFalBalance = async () => {
+      const falKey = process.env.FAL_KEY;
+      if (!falKey) return null;
+      try {
+        const res = await fetch('https://api.fal.ai/v1/account/billing?expand=credits', {
+          headers: {
+            'Authorization': `Key ${falKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.credits) {
+            return {
+              currentBalance: data.credits.current_balance,
+              currency: data.credits.currency || 'USD'
+            };
+          }
+        } else {
+          console.warn(`fal.ai billing API returned status ${res.status}`);
+        }
+      } catch (err) {
+        console.error("Error al obtener balance de fal.ai:", err);
+      }
+      return null;
+    };
+
     // Promesas concurrentes para máxima velocidad
     const [
       { count: totalUsers },
@@ -64,7 +92,8 @@ export async function GET() {
       { count: activeConversations },
       { count: totalMessages },
       { data: dbSizeResult },
-      { data: financialResult }
+      { data: financialResult },
+      falBalanceData
     ] = await Promise.all([
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfToday),
@@ -75,7 +104,8 @@ export async function GET() {
       supabaseAdmin.from('conversations').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('messages').select('*', { count: 'exact', head: true }),
       supabaseAdmin.rpc('get_database_size'),
-      supabaseAdmin.rpc('get_admin_financials')
+      supabaseAdmin.rpc('get_admin_financials'),
+      fetchFalBalance()
     ]);
 
     const dbBytes = dbSizeResult && dbSizeResult[0] ? dbSizeResult[0].total_bytes : 0;
@@ -123,7 +153,8 @@ export async function GET() {
           coinsSold: coinsSold,
           coinsUsed: finData.total_coins_used,
           activeSubscribers: finData.active_subscribers
-        }
+        },
+        falBalance: falBalanceData
       }
     });
 
