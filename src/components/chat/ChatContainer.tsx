@@ -46,6 +46,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [showPoseModal, setShowPoseModal] = useState(false);
   const [poseError, setPoseError] = useState('');
   const [pendingPoseJob, setPendingPoseJob] = useState<{ generation_id: string; emotion: string; pose: string; is_free: boolean } | null>(null);
+  const [changingPose, setChangingPose] = useState(false);
+  const [poseEmotion, setPoseEmotion] = useState('smile');
+  const [poseLayout, setPoseLayout] = useState('standing');
+  const [poseOutfitHint, setPoseOutfitHint] = useState('');
+  const [isUltraFullScreen, setIsUltraFullScreen] = useState(false);
   
   // Estados para el Vestuario (Galería)
   const [showWardrobeModal, setShowWardrobeModal] = useState(false);
@@ -769,7 +774,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         body: JSON.stringify({ 
           priceId, 
           planName,
-          isCoinPackage: true
+          isCoinPackage: true,
+          userId: conversation.user_id
         })
       });
       const data = await res.json();

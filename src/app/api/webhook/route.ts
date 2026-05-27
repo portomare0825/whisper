@@ -45,57 +45,94 @@ export async function POST(req: Request) {
 
         if (isCoinPackage) {
           // Lógica de compra de Monedas
-          let coinsToAward = 10;
-          if (planName.includes('Básico')) coinsToAward = 10;
-          else if (planName.includes('Popular')) coinsToAward = 50;
-          else if (planName.includes('Premium')) coinsToAward = 200;
+          const transactionReason = `purchase_${session.id}`;
 
-          const { error: rpcError } = await adminClient.rpc('add_coins', {
-            user_id_param: userId,
-            amount: coinsToAward
-          });
+          // Evitar doble acreditación si el flujo del redirect ya lo hizo
+          const { data: existingTx } = await adminClient
+            .from('coin_transactions')
+            .select('id')
+            .eq('reason', transactionReason)
+            .maybeSingle();
 
-          if (rpcError) {
-            console.error(`Error al acreditar ${coinsToAward} monedas al usuario ${userId}:`, rpcError);
+          if (!existingTx) {
+            // Normalizar el planName para evitar errores de acentuación
+            const planNameNormalized = planName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            let coinsToAward = 10;
+            if (planNameNormalized.includes('basico')) coinsToAward = 10;
+            else if (planNameNormalized.includes('popular')) coinsToAward = 50;
+            else if (planNameNormalized.includes('premium')) coinsToAward = 200;
+
+            const { error: rpcError } = await adminClient.rpc('add_coins', {
+              user_id_param: userId,
+              amount: coinsToAward,
+              reason_param: transactionReason
+            });
+
+            if (rpcError) {
+              console.error(`Error al acreditar ${coinsToAward} monedas al usuario ${userId}:`, rpcError);
+            } else {
+              console.log(`Compra de monedas exitosa via Webhook. +${coinsToAward} monedas para ${userId}`);
+            }
           } else {
-            console.log(`Compra de monedas exitosa. +${coinsToAward} monedas para ${userId}`);
+            console.log(`Webhook: Compra de monedas ya procesada previamente para la sesión ${session.id}`);
           }
         } else {
           // Lógica de Suscripciones (Diario, Semanal, Mensual)
-          await adminClient.from('subscriptions').delete().eq('user_id', userId);
-          
-          const planNameLower = planName.toLowerCase();
-          const planType = planNameLower.includes('diario') || planNameLower.includes('semanal') 
-                            ? 'pay_per_use' 
-                            : 'pro';
-          
-          const expiresAt = new Date();
-          if (planNameLower.includes('diario')) {
-            expiresAt.setDate(expiresAt.getDate() + 1);
-          } else if (planNameLower.includes('semanal')) {
-            expiresAt.setDate(expiresAt.getDate() + 7);
+          const transactionReason = `subscription_${session.id}`;
+
+          const { data: existingSub } = await adminClient
+            .from('subscriptions')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          const { data: existingTx } = await adminClient
+            .from('coin_transactions')
+            .select('id')
+            .eq('reason', transactionReason)
+            .maybeSingle();
+
+          if (!existingSub && !existingTx) {
+            await adminClient.from('subscriptions').delete().eq('user_id', userId);
+            
+            const planNameLower = planName.toLowerCase();
+            const planType = planNameLower.includes('diario') || planNameLower.includes('semanal') 
+                              ? 'pay_per_use' 
+                              : 'pro';
+            
+            const expiresAt = new Date();
+            if (planNameLower.includes('diario')) {
+              expiresAt.setDate(expiresAt.getDate() + 1);
+            } else if (planNameLower.includes('semanal')) {
+              expiresAt.setDate(expiresAt.getDate() + 7);
+            } else {
+              expiresAt.setDate(expiresAt.getDate() + 30);
+            }
+
+            await adminClient.from('subscriptions').insert({
+              user_id: userId,
+              status: 'active',
+              plan_type: planType,
+              expires_at: expiresAt.toISOString()
+            });
+
+            // Otorgar monedas iniciales por suscribirse
+            let coinsToAward = 10;
+            if (planNameLower.includes('semanal')) coinsToAward = 40;
+            else if (planNameLower.includes('mensual') || planNameLower.includes('pro')) coinsToAward = 150;
+
+            await adminClient.rpc('add_coins', {
+              user_id_param: userId,
+              amount: coinsToAward,
+              reason_param: transactionReason
+            });
+
+            console.log(`Suscripción actualizada a ${planType} para el usuario ${userId} via Webhook`);
           } else {
-            expiresAt.setDate(expiresAt.getDate() + 30);
+            console.log(`Webhook: Suscripción ya procesada previamente para la sesión ${session.id}`);
           }
-
-          await adminClient.from('subscriptions').insert({
-            user_id: userId,
-            status: 'active',
-            plan_type: planType,
-            expires_at: expiresAt.toISOString()
-          });
-
-          // Otorgar monedas iniciales por suscribirse
-          let coinsToAward = 10;
-          if (planNameLower.includes('semanal')) coinsToAward = 40;
-          else if (planNameLower.includes('mensual') || planNameLower.includes('pro')) coinsToAward = 150;
-
-          await adminClient.rpc('add_coins', {
-            user_id_param: userId,
-            amount: coinsToAward
-          });
-
-          console.log(`Suscripción actualizada a ${planType} para el usuario ${userId}`);
         }
       }
     }

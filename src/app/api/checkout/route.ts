@@ -14,9 +14,7 @@ export async function POST(req: Request) {
       apiVersion: '2026-04-22.dahlia' as any,
     });
 
-    const { priceId, planName, isCoinPackage } = await req.json();
-
-
+    const { priceId, planName, isCoinPackage, userId: frontendUserId } = await req.json();
 
     // 2. MODO REAL STRIPE
     // Este código se ejecutará cuando pongas tus llaves reales en el .env
@@ -36,6 +34,12 @@ export async function POST(req: Request) {
     );
     const { data: { user } } = await supabase.auth.getUser();
 
+    const finalUserId = user?.id || frontendUserId || '';
+
+    if (!finalUserId) {
+      throw new Error("No se pudo determinar el ID de usuario para esta transacción");
+    }
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
@@ -48,7 +52,7 @@ export async function POST(req: Request) {
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/checkout/cancel`,
       metadata: {
-        userId: user?.id || '',
+        userId: finalUserId,
         planName,
         isCoinPackage: isCoinPackage ? 'true' : 'false'
       }

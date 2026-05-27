@@ -79,6 +79,7 @@ const plans = [
 export default function BillingPage() {
   const [activePlan, setActivePlan] = useState<string>('Gratuito');
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string>('');
 
   useEffect(() => {
     async function checkSubscription() {
@@ -90,6 +91,7 @@ export default function BillingPage() {
           setLoading(false);
           return;
         }
+        setUserId(user.id);
 
         const { data: subscription } = await supabase
           .from('subscriptions')
@@ -137,7 +139,7 @@ export default function BillingPage() {
       const response = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId, planName }),
+        body: JSON.stringify({ priceId, planName, userId }),
       });
 
       const { url, error, isSimulated } = await response.json();
