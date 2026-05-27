@@ -56,7 +56,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   // Estados para el efecto de rasgado de papel ("Paper Tear") y Ultra Pantalla Completa
   const [prevImage, setPrevImage] = useState<string | null>(null);
   const [tearDirection, setTearDirection] = useState<'left' | 'right'>('right');
-  const [isUltraFullScreen, setIsUltraFullScreen] = useState(false);
+  const [isImageZoomed, setIsImageZoomed] = useState(false);
   
   // Estados para el gesto táctil (Swipe) en carrusel
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -2064,10 +2064,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         return (
           <>
             <div 
-              className="fixed inset-0 z-[60] flex items-center justify-center bg-black/95 backdrop-blur-xl p-4 md:p-8 animate-in fade-in duration-300 cursor-zoom-out select-none"
+              className={`fixed inset-0 ${isImageZoomed ? 'z-[150] p-0' : 'z-[60] p-4 md:p-8'} flex items-center justify-center bg-black/95 backdrop-blur-xl animate-in fade-in duration-300 cursor-zoom-out select-none transition-all`}
               onClick={() => {
                 setFullScreenImage(null);
-                setIsUltraFullScreen(false);
+                setIsImageZoomed(false);
               }}
               onTouchStart={handleTouchStart}
               onTouchMove={handleTouchMove}
@@ -2139,22 +2139,24 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               `}} />
 
               {/* Botón Cerrar */}
-              <button 
-                className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70] border border-white/5 shadow-lg"
-                onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); setIsUltraFullScreen(false); }}
-              >
-                <X className="w-6 h-6" />
-              </button>
+              {!isImageZoomed && (
+                <button 
+                  className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full backdrop-blur-md transition-all cursor-pointer z-[70] border border-white/5 shadow-lg"
+                  onClick={(e) => { e.stopPropagation(); setFullScreenImage(null); setIsImageZoomed(false); }}
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              )}
               
               {/* Contador de Imágenes */}
-              {carouselUrls.length > 1 && (
+              {!isImageZoomed && carouselUrls.length > 1 && (
                 <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-white/10 text-white text-xs font-bold rounded-full backdrop-blur-md border border-white/5 tracking-wider z-[70] shadow-md">
                   {currentIndex + 1} / {carouselUrls.length}
                 </div>
               )}
 
               {/* Flecha Izquierda */}
-              {carouselUrls.length > 1 && (
+              {!isImageZoomed && carouselUrls.length > 1 && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2172,24 +2174,36 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
               {/* Imagen Principal con zoom y transición */}
               <div 
-                className="relative max-w-full max-h-full flex items-center justify-center pointer-events-none overflow-hidden cursor-zoom-in"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsUltraFullScreen(true);
-                }}
+                className={`relative flex items-center justify-center pointer-events-none ${isImageZoomed ? 'w-screen h-screen' : 'max-w-full max-h-full overflow-hidden'}`}
               >
                 {/* Imagen nueva (Fondo que se revela) */}
                 <img 
                   key={fullScreenImage} // Fuerza re-render para disparar animación
                   src={fullScreenImage} 
                   alt="Outfit Full Screen" 
-                  className={`max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl shadow-2xl border border-white/10 pointer-events-auto transition-all`}
+                  className={`${isImageZoomed ? 'fixed inset-0 w-screen h-screen object-cover z-[200] rounded-none border-none' : 'max-w-full max-h-[75vh] md:max-h-[80vh] object-contain rounded-2xl border border-white/10'} shadow-2xl pointer-events-auto transition-all duration-300`}
                   style={{
                     animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
                   }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setIsUltraFullScreen(true);
+                    const target = e.currentTarget as any;
+                    const now = Date.now();
+                    const lastClick = parseInt(target.dataset.lastClick || '0', 10);
+                    const timeDiff = now - lastClick;
+                    
+                    if (timeDiff > 0 && timeDiff < 400) {
+                      // Doble toque: Zoom y Ocultar UI
+                      const willZoom = !isImageZoomed;
+                      setIsImageZoomed(willZoom);
+                      target.style.transform = willZoom ? 'scale(3)' : '';
+                      target.style.cursor = willZoom ? 'zoom-in' : 'zoom-out';
+                      target.style.transformOrigin = `${e.nativeEvent.offsetX}px ${e.nativeEvent.offsetY}px`;
+                      target.dataset.lastClick = "0"; // reseteamos
+                    } else {
+                      // Primer tap: Guardar tiempo. 
+                      target.dataset.lastClick = now.toString();
+                    }
                   }}
                 />
 
@@ -2241,7 +2255,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               </div>
 
               {/* Flecha Derecha */}
-              {carouselUrls.length > 1 && (
+              {!isImageZoomed && carouselUrls.length > 1 && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -2258,9 +2272,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               )}
 
               {/* Barra de Herramientas de Acción */}
-              <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
-                <a 
-                  href={fullScreenImage} 
+              {!isImageZoomed && (
+                <div className="absolute bottom-6 inset-x-0 flex justify-center gap-4 z-[70] px-4">
+                  <a 
+                    href={fullScreenImage} 
                   target="_blank" 
                   rel="noopener noreferrer"
                   download
@@ -2297,113 +2312,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   );
                 })()}
               </div>
-            </div>
-
-            {/* Vista a Pantalla Completa Absoluta (Ultra Full Screen) con gestos táctiles y animación */}
-            {isUltraFullScreen && (
-              <div 
-                className="fixed inset-0 z-[100] bg-black flex items-center justify-center cursor-zoom-out select-none animate-in fade-in duration-300"
-                onClick={() => setIsUltraFullScreen(false)}
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
-              >
-                {/* Imagen nueva (Fondo que se revela) con transform manual de zoom */}
-                {(() => {
-                  // Usaremos estado local rápido dentro de este render para manejar el zoom sin tener que cambiar la definición arriba
-                  // Bueno, React no permite useState condicional, así que lo simulamos con un manejador en onWheel o usamos un simple scale
-                  // En su lugar usaremos un botón de doble click (Zoom In / Zoom Out)
-                  return (
-                    <img 
-                      src={fullScreenImage} 
-                      alt="Ultra Full Screen" 
-                      className={`w-full h-full object-contain md:object-cover animate-in fade-in duration-300 transition-transform`}
-                      style={{
-                        animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const target = e.currentTarget as any;
-                        const now = Date.now();
-                        const lastClick = parseInt(target.dataset.lastClick || '0', 10);
-                        const timeDiff = now - lastClick;
-                        
-                        if (timeDiff > 0 && timeDiff < 400) {
-                          // Es un doble tap táctil válido en móvil
-                          const isZoomed = target.style.transform.includes('scale');
-                          target.style.transform = isZoomed ? '' : 'scale(3)';
-                          target.style.cursor = isZoomed ? 'zoom-in' : 'zoom-out';
-                          target.style.transformOrigin = `${e.nativeEvent.offsetX}px ${e.nativeEvent.offsetY}px`;
-                          target.dataset.lastClick = "0"; // reseteamos
-                        } else {
-                          // Primer tap: guardamos el tiempo
-                          target.dataset.lastClick = now.toString();
-                        }
-                      }}
-                    />
-                  );
-                })()}
-
-                {/* Banner indicativo de doble toque para Zoom */}
-                <div className="absolute top-8 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full border border-white/10 shadow-xl pointer-events-none z-[110] text-white/90 text-sm font-medium animate-pulse">
-                  👆 Toca dos veces la pantalla para hacer zoom
-                </div>
-
-                {/* Cortina izquierda */}
-                {prevImage && (
-                  <img 
-                    src={prevImage} 
-                    alt="Left curtain" 
-                    className="absolute w-full h-full object-contain md:object-cover pointer-events-none z-20"
-                    style={{
-                      clipPath: 'polygon(0% 0%, 50% 0%, 50% 100%, 0% 100%)',
-                      animation: 'curtainLeft 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards',
-                      transformOrigin: 'left center'
-                    }}
-                  />
-                )}
-
-                {/* Cortina derecha */}
-                {prevImage && (
-                  <img 
-                    src={prevImage} 
-                    alt="Right curtain" 
-                    className="absolute w-full h-full object-contain md:object-cover pointer-events-none z-20"
-                    style={{
-                      clipPath: 'polygon(50% 0%, 100% 0%, 100% 100%, 50% 100%)',
-                      animation: 'curtainRight 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards',
-                      transformOrigin: 'right center'
-                    }}
-                  />
-                )}
-
-                {/* Separadores dorados resplandecientes */}
-                {prevImage && (
-                  <>
-                    <div 
-                      className="absolute top-0 bottom-0 left-1/2 w-[2px] bg-gradient-to-b from-amber-300 via-yellow-400 to-amber-500 shadow-[0_0_20px_rgba(251,191,36,0.9)] z-30 pointer-events-none"
-                      style={{
-                        animation: 'dividerLeft 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards'
-                      }}
-                    />
-                    <div 
-                      className="absolute top-0 bottom-0 left-1/2 w-[2px] bg-gradient-to-b from-amber-300 via-yellow-400 to-amber-500 shadow-[0_0_20px_rgba(251,191,36,0.9)] z-30 pointer-events-none"
-                      style={{
-                        animation: 'dividerRight 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards'
-                      }}
-                    />
-                  </>
-                )}
-
-                {/* Botón flotante para cerrar la vista completa */}
-                <button 
-                  className="absolute top-4 right-4 md:top-8 md:right-8 p-3 bg-black/60 hover:bg-black/80 text-white rounded-full transition-all cursor-pointer z-[110]"
-                  onClick={(e) => { e.stopPropagation(); setIsUltraFullScreen(false); }}
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
             )}
+            </div>
           </>
         );
       })()}
