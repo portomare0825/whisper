@@ -49,43 +49,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No tienes permiso para eliminar este avatar' }, { status: 403 });
     }
 
-    // 2. Extraer las rutas de las imágenes en Supabase Storage
-    const pathsToDelete: string[] = [];
-    const extractPath = (url: string) => {
-      if (!url) return null;
-      // El formato típico es: https://[project_id].supabase.co/storage/v1/object/public/avatars/path/to/image.png
-      const parts = url.split('/avatars/');
-      if (parts.length > 1) {
-        return decodeURIComponent(parts[1].split('?')[0]); // Quitar posibles query params
-      }
-      return null;
-    };
-
-    const basePath = extractPath(avatar.base_image_url);
-    if (basePath) pathsToDelete.push(basePath);
-
-    const currentPath = extractPath(avatar.current_image_url);
-    if (currentPath && currentPath !== basePath) {
-      pathsToDelete.push(currentPath);
-    }
-
-    // 3. Borrar los archivos de Supabase Storage con el Service Role (omitiendo RLS)
-    if (pathsToDelete.length > 0) {
-      const { error: storageError } = await supabase.storage
-        .from('avatars')
-        .remove(pathsToDelete);
-      
-      if (storageError) {
-        console.error('Error al borrar imágenes de storage:', storageError);
-      } else {
-        console.log('Imágenes de storage borradas con éxito:', pathsToDelete);
-      }
-    }
-
-    // 4. Borrar el avatar de la base de datos (y por CASCADE se borran conversaciones y mensajes)
+    // 2. Soft Delete: En lugar de borrar de la base de datos y de storage, 
+    // simplemente actualizamos la fecha de borrado.
+    // Mantenemos las imágenes en storage para que los chats antiguos sigan viéndolo.
     const { error: deleteError } = await supabase
       .from('avatars')
-      .delete()
+      .update({ deleted_at: new Date().toISOString() })
       .eq('id', avatar_id);
 
     if (deleteError) {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, MessageSquare, CreditCard, Settings, LogOut, PlusCircle, Menu, X, ShieldCheck } from 'lucide-react';
+import { Home, MessageSquare, CreditCard, Settings, LogOut, PlusCircle, Menu, X, ShieldCheck, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase';
 
@@ -220,7 +220,10 @@ export default function Sidebar() {
   const items = [
     { icon: Home, label: 'Dashboard', href: '/dashboard' },
     { icon: MessageSquare, label: 'Chats', href: '/dashboard/chats' },
-    ...(isAdmin ? [{ icon: ShieldCheck, label: 'Moderación', href: '/dashboard/moderation' }] : []),
+    ...(isAdmin ? [
+      { icon: ShieldCheck, label: 'Moderación', href: '/dashboard/moderation' },
+      { icon: BarChart3, label: 'Panel Admin', href: '/admin' }
+    ] : []),
     { icon: CreditCard, label: 'Suscripción', href: '/dashboard/billing' },
     { icon: Settings, label: 'Ajustes', href: '/dashboard/settings' },
   ];

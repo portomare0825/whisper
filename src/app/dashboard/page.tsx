@@ -25,6 +25,7 @@ export default async function DashboardPage() {
     .from('avatars')
     .select('*, avatar_ratings(rating)')
     .or(`user_id.eq.${user?.id},and(visibility.eq.public,moderation_status.eq.approved)`)
+    .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
   // Formatear avatares para calcular el promedio de estrellas y número de valoraciones
