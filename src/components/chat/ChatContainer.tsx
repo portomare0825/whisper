@@ -8,7 +8,6 @@ import { PremiumPoseSelector } from './PremiumPoseSelector';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
 interface ChatContainerProps {
   avatar: Avatar;
   conversation: Conversation;
@@ -2309,15 +2308,37 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 onTouchMove={handleTouchMove}
                 onTouchEnd={() => handleTouchEnd(carouselUrls, currentIndex)}
               >
-                {/* Imagen nueva (Fondo que se revela) */}
-                <img 
-                  src={fullScreenImage} 
-                  alt="Ultra Full Screen" 
-                  className={`w-full h-full object-contain md:object-cover animate-in fade-in duration-300`}
-                  style={{
-                    animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
-                  }}
-                />
+                {/* Imagen nueva (Fondo que se revela) con transform manual de zoom */}
+                {(() => {
+                  // Usaremos estado local rápido dentro de este render para manejar el zoom sin tener que cambiar la definición arriba
+                  // Bueno, React no permite useState condicional, así que lo simulamos con un manejador en onWheel o usamos un simple scale
+                  // En su lugar usaremos un botón de doble click (Zoom In / Zoom Out)
+                  return (
+                    <img 
+                      src={fullScreenImage} 
+                      alt="Ultra Full Screen" 
+                      className={`w-full h-full object-contain md:object-cover animate-in fade-in duration-300 transition-transform`}
+                      style={{
+                        animation: prevImage ? 'contentReveal 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards' : 'none'
+                      }}
+                      onDoubleClick={(e) => {
+                        e.stopPropagation();
+                        // Hacemos un toggle de escala manual manipulando el estilo en línea directo 
+                        // ya que estamos saltándonos un state global para evitar parpadeos
+                        const target = e.currentTarget;
+                        const isZoomed = target.style.transform.includes('scale');
+                        target.style.transform = isZoomed ? '' : 'scale(3)';
+                        target.style.cursor = isZoomed ? 'zoom-in' : 'zoom-out';
+                        target.style.transformOrigin = `${e.nativeEvent.offsetX}px ${e.nativeEvent.offsetY}px`;
+                      }}
+                    />
+                  );
+                })()}
+
+                {/* Banner indicativo de doble toque para Zoom */}
+                <div className="absolute top-8 px-4 py-2 bg-black/60 backdrop-blur-md rounded-full border border-white/10 shadow-xl pointer-events-none z-[110] text-white/90 text-sm font-medium animate-pulse">
+                  👆 Toca dos veces la pantalla para hacer zoom
+                </div>
 
                 {/* Cortina izquierda */}
                 {prevImage && (
