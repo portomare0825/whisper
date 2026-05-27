@@ -63,7 +63,8 @@ export async function GET() {
       { count: totalAvatars },
       { count: activeConversations },
       { count: totalMessages },
-      { data: dbSizeResult }
+      { data: dbSizeResult },
+      { data: financialResult }
     ] = await Promise.all([
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfToday),
@@ -73,7 +74,8 @@ export async function GET() {
       supabaseAdmin.from('avatars').select('*', { count: 'exact', head: true }).is('deleted_at', null),
       supabaseAdmin.from('conversations').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('messages').select('*', { count: 'exact', head: true }),
-      supabaseAdmin.rpc('get_database_size')
+      supabaseAdmin.rpc('get_database_size'),
+      supabaseAdmin.rpc('get_admin_financials')
     ]);
 
     const dbBytes = dbSizeResult && dbSizeResult[0] ? dbSizeResult[0].total_bytes : 0;
@@ -81,6 +83,18 @@ export async function GET() {
     // Límite gratuito de Supabase: 500 MB (524,288,000 bytes)
     const limitBytes = 524288000;
     const percentUsed = Number(((dbBytes / limitBytes) * 100).toFixed(2));
+
+    const finData = financialResult && financialResult[0] ? financialResult[0] : {
+      total_coins_remaining: 0,
+      total_coins_sold: 0,
+      total_coins_used: 0,
+      active_subscribers: 0
+    };
+
+    // Resguardo inteligente para el histórico si la tabla de transacciones es nueva
+    const coinsSold = finData.total_coins_sold > 0 
+      ? finData.total_coins_sold 
+      : finData.total_coins_remaining;
 
     return NextResponse.json({
       metrics: {
@@ -103,6 +117,12 @@ export async function GET() {
           pretty: dbPretty,
           limitBytes: limitBytes,
           percentUsed: percentUsed > 100 ? 100 : percentUsed
+        },
+        financials: {
+          coinsRemaining: finData.total_coins_remaining,
+          coinsSold: coinsSold,
+          coinsUsed: finData.total_coins_used,
+          activeSubscribers: finData.active_subscribers
         }
       }
     });

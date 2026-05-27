@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
   Users, UserPlus, Activity, Database, 
-  MessageSquare, UserCircle, RefreshCw, BarChart, ChevronLeft 
+  MessageSquare, UserCircle, RefreshCw, BarChart, ChevronLeft,
+  Coins, TrendingUp, UserCheck
 } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
 
@@ -17,6 +18,12 @@ interface Metrics {
     pretty: string;
     limitBytes: number;
     percentUsed: number;
+  };
+  financials?: {
+    coinsRemaining: number;
+    coinsSold: number;
+    coinsUsed: number;
+    activeSubscribers: number;
   };
 }
 
@@ -204,6 +211,52 @@ export default function AdminDashboard() {
             
           </div>
         </section>
+
+        {/* SECCIÓN: ECONOMÍA & SUSCRIPCIONES */}
+        {metrics?.financials && (
+          <section>
+            <div className="flex items-center gap-2 mb-4 px-1 mt-6">
+              <Coins className="w-5 h-5 text-amber-400" />
+              <h2 className="text-lg font-semibold tracking-wide">Economía & Suscripciones</h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
+              
+              <MetricCard 
+                title="Suscritos Activos" 
+                value={metrics.financials.activeSubscribers} 
+                icon={<UserCheck className="w-5 h-5 text-indigo-400" />} 
+                gradient="from-indigo-500/20 to-blue-500/5"
+                border="border-indigo-500/20"
+                valueColor="text-indigo-400"
+              />
+              <MetricCard 
+                title="Monedas Vendidas" 
+                value={metrics.financials.coinsSold} 
+                icon={<Coins className="w-5 h-5 text-amber-400" />} 
+                gradient="from-amber-500/20 to-orange-500/5"
+                border="border-amber-500/20"
+                valueColor="text-amber-400"
+              />
+              <MetricCard 
+                title="Monedas Usadas" 
+                value={metrics.financials.coinsUsed} 
+                icon={<TrendingUp className="w-5 h-5 text-rose-400" />} 
+                gradient="from-rose-500/20 to-pink-500/5"
+                border="border-rose-500/20"
+                valueColor="text-rose-400"
+              />
+              <MetricCard 
+                title="Monedas de Usuarios" 
+                value={metrics.financials.coinsRemaining} 
+                icon={<Database className="w-5 h-5 text-teal-400" />} 
+                gradient="from-teal-500/20 to-emerald-500/5"
+                border="border-teal-500/20"
+                valueColor="text-teal-400"
+              />
+              
+            </div>
+          </section>
+        )}
 
         {/* SECCIÓN 3: ALMACENAMIENTO DE DATOS */}
         {metrics?.db && (
