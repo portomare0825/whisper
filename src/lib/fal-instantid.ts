@@ -60,8 +60,13 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
       finalPrompt = `${complexionModifiers}${params.basePrompt}`;
     }
 
-    if (params.physicalDescription) {
-      // Ahora que los datos corporales están limpios de términos "3D" o "caricaturas", los usamos para dictar la edad y fisionomía base.
+    // Si el usuario elige activamente cambiar su cuerpo (a robusta, delgada, etc),
+    // OMITIMOS la descripción física de la base de datos para que la IA no se confunda
+    // (Ej. si en la BD dice "delgada" pero el usuario quiere verla "robusta").
+    const isForcingDifferentBody = params.complexion && params.complexion !== 'promedio';
+
+    if (params.physicalDescription && !isForcingDifferentBody) {
+      // Solo inyectamos la fisionomía base de la BD si el usuario escoge la complexión "Normal"
       finalPrompt = `Detailed human physical appearance: ${params.physicalDescription}. ${finalPrompt}`;
     }
 
