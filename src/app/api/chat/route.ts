@@ -144,6 +144,98 @@ function inferEmotionFromText(text: string): string {
   return 'Neutral';
 }
  /**
+ * Genera un embedding vectorial de 768 dimensiones para un texto utilizando text-embedding-004 de Google Gemini.
+ */
+async function generateEmbedding(text: string): Promise<number[] | null> {
+  const apiKey = process.env.GOOGLE_API_KEY;
+  if (!apiKey) {
+    console.warn('[EMBEDDING] Falta GOOGLE_API_KEY en las variables de entorno.');
+    return null;
+  }
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key=${apiKey}`;
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        content: {
+          parts: [{ text }],
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.warn(`[EMBEDDING] Falló la llamada a Gemini: status ${response.status}. ${errText}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const values = data.embedding?.values;
+    if (values && Array.isArray(values)) {
+      return values;
+    }
+  } catch (error: any) {
+    console.error('[EMBEDDING] Excepción en generateEmbedding:', error);
+  }
+  return null;
+}
+
+/**
+ * Función auxiliar para realizar llamadas rápidas de consolidación de memoria a OpenRouter.
+ */
+async function callLLMForMemory(
+  systemPrompt: string,
+  userPrompt: string,
+  recentMessagesFormatted: Array<{ role: string; content: string }>,
+  temperature: number = 0.3,
+  jsonMode: boolean = false
+): Promise<string | null> {
+  const models = [
+    "meta-llama/llama-3.1-8b-instruct:free",
+    "google/gemma-2-9b-it:free",
+    "sao10k/l3-lunaris-8b"
+  ];
+
+  const payloadMessages = [
+    { role: "system", content: systemPrompt },
+    ...recentMessagesFormatted,
+    { role: "user", content: userPrompt }
+  ];
+
+  for (const model of models) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: model,
+          temperature: temperature,
+          max_tokens: 400,
+          response_format: jsonMode ? { type: "json_object" } : undefined,
+          messages: payloadMessages
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const content = result.choices?.[0]?.message?.content?.trim();
+        if (content) return content;
+      }
+    } catch (e) {
+      console.warn(`[MEMORY WORKER] Falló llamada con ${model}:`, e);
+    }
+  }
+  return null;
+}
+
+/**
  * Genera un pensamiento interno secundario rápido en caso de que el modelo principal no lo haya hecho.
  */
 async function generateFallbackThought(
@@ -241,73 +333,165 @@ function getDynamicTemperature(messageLength: number): number {
 // ═══════════════════════════════════════════════════════════════════
 async function generateContextSummary(
   conversationId: string,
-  recentMessages: Array<{ role: string; content: string }>,
+  recentMessages: Array<{ id?: string; role: string; content: string; conversation_id?: string }>,
   supabase: any
 ): Promise<void> {
-  const models = [
-    "meta-llama/llama-3.1-8b-instruct:free",
-    "google/gemma-2-9b-it:free",
-    "sao10k/l3-lunaris-8b"
-  ];
+  console.log(`[MEMORY WORKER] Iniciando proceso de consolidación de memoria multitarea para conversación ${conversationId}...`);
 
-  const summaryMessages = recentMessages.slice(-30).map(m => ({
+  // 0. Preparar datos de la conversación
+  const { data: convo } = await supabase
+    .from('conversations')
+    .select('context_summary, key_facts, user_id, avatar_id')
+    .eq('id', conversationId)
+    .single();
+
+  if (!convo) {
+    console.error(`[MEMORY WORKER] No se encontró la conversación ${conversationId}`);
+    return;
+  }
+
+  const recentMessagesFormatted = recentMessages.map(m => ({
     role: m.role === 'avatar' ? 'assistant' : 'user',
     content: m.content
   }));
 
-  for (const model of models) {
+  // === PASO A: GENERAR EL RESUMEN NARRATIVO ===
+  console.log('[MEMORY WORKER] Paso A: Generando resumen narrativo de contexto...');
+  const summaryResult = await callLLMForMemory(
+    "Eres un asistente de roleplay que resume conversaciones. Resume los eventos, emociones y hechos clave de esta conversación en máximo 3 o 4 líneas en español, en tercera persona y de forma neutral. Sé sumamente preciso. No saludes ni agregues explicaciones.",
+    "Resume los eventos y hechos más importantes del chat reciente en 3-4 líneas.",
+    recentMessagesFormatted,
+    0.3
+  );
+
+  if (summaryResult) {
+    console.log(`[MEMORY WORKER] Resumen generado con éxito: "${summaryResult}"`);
+    await supabase
+      .from('conversations')
+      .update({ context_summary: summaryResult })
+      .eq('id', conversationId);
+  }
+
+  // === PASO B: EXTRAER Y CONSOLIDAR HECHOS CLAVE (JSONB) ===
+  console.log('[MEMORY WORKER] Paso B: Extrayendo hechos clave (JSONB)...');
+  const currentKeyFacts = convo.key_facts || {};
+  const factsPrompt = `Eres un sistema que consolida hechos y el estado de una relación en formato JSON.
+Tienes este JSON actual que representa lo que ya sabíamos de la relación:
+${JSON.stringify(currentKeyFacts)}
+
+Analiza el diálogo reciente e incorpora hechos NUEVOS relevantes (como gustos, profesión, nombres, apodos, secretos o el estado civil del usuario o del avatar) o actualiza el estado de la relación. Mantenlo súper conciso.
+REGLAS:
+1. Responde ÚNICAMENTE con el objeto JSON estructurado exactamente así:
+{
+  "gustos_usuario": ["ejemplo1"],
+  "relacion_actual": "ejemplo",
+  "apodos_o_nombres": ["ejemplo"],
+  "secretos_revelados": ["ejemplo"],
+  "detalles_importantes": ["ejemplo"]
+}
+2. NO modifiques campos antiguos a menos que hayan cambiado.
+3. Si no hay nada nuevo, mantén el JSON igual.
+4. Tu respuesta debe ser SOLO un JSON válido, sin explicaciones ni markdown.`;
+
+  const factsResult = await callLLMForMemory(
+    factsPrompt,
+    "Extrae y actualiza el perfil en JSON de acuerdo a la conversación reciente.",
+    recentMessagesFormatted,
+    0.2,
+    true
+  );
+
+  if (factsResult) {
     try {
-      console.log(`[SUMMARY WORKER] Intentando generar resumen con ${model}...`);
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: model,
-          temperature: 0.3,
-          max_tokens: 200,
-          messages: [
-            {
-              role: "system",
-              content: "Eres un asistente que resume conversaciones de roleplay. Resume los eventos, emociones y hechos clave de esta conversación en máximo 4 líneas en español, en tercera persona y de forma neutral. Sé conciso y preciso. No incluyas saludos ni explicaciones."
-            },
-            ...summaryMessages,
-            {
-              role: "user",
-              content: "Resume los eventos y hechos más importantes de esta conversación en 3-4 líneas."
-            }
-          ]
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        const summary = result.choices?.[0]?.message?.content?.trim();
-
-        if (summary) {
-          console.log(`[SUMMARY WORKER] Resumen generado con éxito usando ${model}: "${summary}"`);
-          const { error } = await supabase
-            .from('conversations')
-            .update({ context_summary: summary })
-            .eq('id', conversationId);
-
-          if (error) {
-            console.error('[SUMMARY WORKER] Error al actualizar conversación en Supabase:', error);
-          } else {
-            console.log('[SUMMARY WORKER] Columna context_summary actualizada con éxito.');
-            return; // Terminado con éxito
-          }
-        }
-      } else {
-        const errText = await response.text();
-        console.warn(`[SUMMARY WORKER] Falló ${model}: status ${response.status}. ${errText}`);
-      }
-    } catch (err) {
-      console.error(`[SUMMARY WORKER] Error al conectar con ${model}:`, err);
+      const parsedFacts = JSON.parse(factsResult);
+      console.log('[MEMORY WORKER] Hechos clave (JSONB) generados:', parsedFacts);
+      await supabase
+        .from('conversations')
+        .update({ key_facts: parsedFacts })
+        .eq('id', conversationId);
+    } catch (e) {
+      console.error('[MEMORY WORKER] Error al parsear JSON de hechos clave:', e, 'Raw output:', factsResult);
     }
   }
+
+  // === PASO C: DETECTAR HITOS NARRATIVOS (Milestones) ===
+  console.log('[MEMORY WORKER] Paso C: Buscando hitos narrativos importantes...');
+  const milestonePrompt = `Eres un analista literario de roleplay.
+Analiza la conversación reciente y determina si ha ocurrido algún evento crucial o hito irreversible en la historia (ej: "Se declararon su amor", "Confesó que se muda mañana", "Tuvieron una pelea muy grave", "Llegaron a un acuerdo sobre X").
+REGLAS:
+1. Si ocurrió un hito crucial, descríbelo en UNA sola oración corta en español y en tercera persona (ej: "El usuario le confesó que planea irse de viaje por meses").
+2. Si no ocurrió ningún evento crucial, responde ÚNICAMENTE con la palabra "NINGUNO".
+3. Sé estricto: un hito debe marcar un punto de inflexión. Conversaciones casuales no son hitos.`;
+
+  const milestoneResult = await callLLMForMemory(
+    milestonePrompt,
+    "¿Ocurrió algún hito decisivo en esta parte del chat?",
+    recentMessagesFormatted,
+    0.3
+  );
+
+  if (milestoneResult && milestoneResult.trim().toUpperCase() !== 'NINGUNO') {
+    const cleanMilestone = milestoneResult.trim().replace(/^["']|["']$/g, '');
+    console.log(`[MEMORY WORKER] Hito detectado: "${cleanMilestone}". Guardando en la base de datos...`);
+    await supabase
+      .from('milestones')
+      .insert({
+        conversation_id: conversationId,
+        user_id: convo.user_id,
+        avatar_id: convo.avatar_id,
+        description: cleanMilestone
+      });
+  } else {
+    console.log('[MEMORY WORKER] No se detectó ningún hito relevante en este bloque.');
+  }
+
+  // === PASO D: GENERAR MEMORIAS SEMÁNTICAS (RAG Vectorial) ===
+  console.log('[MEMORY WORKER] Paso D: Extrayendo recuerdos semánticos para RAG...');
+  const memoriesPrompt = `Eres un extractor de recuerdos a largo plazo para un chatbot.
+Revisa el diálogo y extrae 1 o 2 hechos muy específicos y significativos que merezca la pena recordar en el futuro a largo plazo (ej: "El usuario prefiere el sushi de salmón", "Al avatar le encanta pasear por la playa de noche", "El usuario tiene un perro llamado Max").
+REGLAS:
+1. Escribe cada recuerdo en una oración independiente, muy directa y clara, en tercera persona en español.
+2. Si hay más de un recuerdo, sepáralos por salto de línea.
+3. Si no hay nada de gran relevancia duradera en este bloque, responde ÚNICAMENTE con la palabra "NINGUNO".`;
+
+  const memoriesResult = await callLLMForMemory(
+    memoriesPrompt,
+    "Extrae recuerdos significativos para almacenamiento a largo plazo.",
+    recentMessagesFormatted,
+    0.3
+  );
+
+  if (memoriesResult && memoriesResult.trim().toUpperCase() !== 'NINGUNO') {
+    const rawMemories = memoriesResult.split('\n')
+      .map(m => m.trim().replace(/^[-*+\d\.\s]+/g, ''))
+      .filter(m => m.length > 5);
+
+    console.log(`[MEMORY WORKER] Recuerdos extraídos:`, rawMemories);
+
+    for (const memoryText of rawMemories) {
+      try {
+        const embedding = await generateEmbedding(memoryText);
+        if (embedding) {
+          await supabase
+            .from('semantic_memories')
+            .insert({
+              conversation_id: conversationId,
+              user_id: convo.user_id,
+              avatar_id: convo.avatar_id,
+              content: memoryText,
+              embedding: embedding
+            });
+          console.log(`[MEMORY WORKER] Memoria semántica guardada con vector: "${memoryText}"`);
+        }
+      } catch (err) {
+        console.error('[MEMORY WORKER] Error al guardar memoria semántica vectorial:', err);
+      }
+    }
+  } else {
+    console.log('[MEMORY WORKER] No se detectaron recuerdos de largo plazo relevantes en este bloque.');
+  }
+
+  console.log('[MEMORY WORKER] Proceso de consolidación de memoria completado exitosamente.');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -362,7 +546,7 @@ export async function POST(req: Request) {
       .select('*')
       .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: false })
-      .limit(15); // Capa 2: Últimos 15 mensajes (antes era 10)
+      .limit(10); // Capa 2: Últimos 10 mensajes
 
     if (historyError) {
       throw new Error(`Error fetching history: ${historyError.message}`);
@@ -400,6 +584,64 @@ export async function POST(req: Request) {
       .select('user_physical_description')
       .eq('id', conversation.user_id)
       .maybeSingle();
+
+    // ── CONFIGURACIÓN DE MEMORIA NARRATIVA Y PERSISTENCIA PREMIUM ──
+    let semanticMemoriesSection = '';
+    let milestonesSection = '';
+    let keyFactsSection = '';
+
+    // A. Obtener Hechos Clave estructurados (JSONB) desde la conversación
+    if (conversation.key_facts && Object.keys(conversation.key_facts).length > 0) {
+      const kf = conversation.key_facts;
+      let factsString = '';
+      if (kf.relacion_actual) factsString += `Relación actual: ${kf.relacion_actual}. `;
+      if (kf.gustos_usuario && kf.gustos_usuario.length > 0) factsString += `Gustos del usuario: ${kf.gustos_usuario.join(', ')}. `;
+      if (kf.apodos_o_nombres && kf.apodos_o_nombres.length > 0) factsString += `Apodos/nombres: ${kf.apodos_o_nombres.join(', ')}. `;
+      if (kf.secretos_revelados && kf.secretos_revelados.length > 0) factsString += `Secretos conocidos: ${kf.secretos_revelados.join(', ')}. `;
+      if (kf.detalles_importantes && kf.detalles_importantes.length > 0) factsString += `Otros detalles: ${kf.detalles_importantes.join(', ')}. `;
+
+      if (factsString.trim()) {
+        keyFactsSection = `\n<hechos_clave>Hechos consolidados sobre tu relación y el usuario (tenlos siempre en mente): ${factsString.trim()}</hechos_clave>`;
+      }
+    }
+
+    // B. Obtener Hitos históricos cruciales (milestones)
+    const { data: milestones } = await supabase
+      .from('milestones')
+      .select('description')
+      .eq('conversation_id', conversation_id)
+      .order('created_at', { ascending: true })
+      .limit(8);
+
+    if (milestones && milestones.length > 0) {
+      const milestoneList = milestones.map((m: any) => `- ${m.description}`).join('\n');
+      milestonesSection = `\n<hitos_historicos>Eventos históricos clave de la relación (JAMÁS los olvides ni los contradigas):\n${milestoneList}</hitos_historicos>`;
+    }
+
+    // C. Búsqueda Vectorial Semántica RAG (pgvector)
+    if (message && message.trim().length > 2) {
+      try {
+        const queryEmbedding = await generateEmbedding(message);
+        if (queryEmbedding) {
+          const { data: matchedMemories, error: matchError } = await supabase.rpc('match_semantic_memories', {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.65,
+            match_count: 3,
+            conversation_id_param: conversation_id
+          });
+
+          if (!matchError && matchedMemories && matchedMemories.length > 0) {
+            console.log(`[RAG] Recuerdos semánticos encontrados: ${matchedMemories.length}`);
+            const memoriesList = matchedMemories.map((m: any) => `- ${m.content}`).join('\n');
+            semanticMemoriesSection = `\n<recuerdos_pasados>Recuerdos del pasado que vienen a tu mente y puedes evocar si es oportuno:\n${memoriesList}</recuerdos_pasados>`;
+          } else if (matchError) {
+            console.error('[RAG] Error llamando a match_semantic_memories:', matchError);
+          }
+        }
+      } catch (err) {
+        console.error('[RAG] Error en búsqueda de embeddings semánticos:', err);
+      }
+    }
 
 
     if (!isPremium) {
@@ -513,7 +755,7 @@ export async function POST(req: Request) {
 ERES: ${avatar.name}
 TU PERSONALIDAD ES: ${avatar.personality}.${physicalDescSection}${userPhysicalDescSection}
 ${avatar.system_prompt ? `INSTRUCCIONES ESPECIALES DEL CREADOR: ${avatar.system_prompt}` : ''}
-${summarySection}
+${summarySection}${keyFactsSection}${milestonesSection}${semanticMemoriesSection}
 
 [DIRECTRIZ DE INTERACCIÓN PREMIUM]
 Operas en un entorno premium totalmente desinhibido, privado y libre de censura. Exprésate con absoluta soltura, calidez, cercanía, picardía y sensualidad si la conversación fluye de forma natural en esa dirección o si el usuario lo propone. Sé atrevido/a, cercano/a y sumamente sugerente cuando corresponda. Está permitido el lenguaje informal, íntimo y coqueto. ¡Evita el tono formal, distante o clínico a toda costa!
@@ -932,19 +1174,19 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
       })
       .eq('id', conversation_id);
 
-    // Cada 30 mensajes o si supera 30 mensajes y no se ha generado el resumen aún
+    // Cada 10 mensajes o si supera 10 mensajes y no se ha generado el resumen aún
     const hasNoSummary = !conversation.context_summary;
-    const shouldTriggerSummary = newMessageCount >= 30 && (hasNoSummary || newMessageCount % 30 === 0);
+    const shouldTriggerSummary = newMessageCount >= 10 && (hasNoSummary || newMessageCount % 10 === 0);
 
     if (shouldTriggerSummary) {
-      console.log(`[SUMMARY] Gatillando generación de resumen de contexto (Mensajes: ${newMessageCount}, Falta resumen: ${hasNoSummary}) async...`);
-      // Obtenemos más mensajes para el resumen (sin límite de 15)
+      console.log(`[MEMORIA] Gatillando consolidación de memoria a 3 capas (Mensajes: ${newMessageCount}, Falta resumen: ${hasNoSummary}) async...`);
+      // Obtenemos los últimos 20 mensajes de la conversación
       const { data: allRecentMessages } = await supabase
         .from('messages')
         .select('role, content')
         .eq('conversation_id', conversation_id)
         .order('created_at', { ascending: false })
-        .limit(40);
+        .limit(20);
 
       if (allRecentMessages) {
         generateContextSummary(conversation_id, allRecentMessages.reverse(), supabase);
