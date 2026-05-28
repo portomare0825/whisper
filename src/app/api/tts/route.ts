@@ -142,6 +142,7 @@ interface TextSegment {
 }
 
 // Divide el texto en segmentos alternados de narración (dentro de asteriscos) y diálogos (fuera de ellos)
+// Incluye un filtro inteligente para omitir las acotaciones redundantes que describen el tono de voz
 function segmentText(text: string): TextSegment[] {
   const segments: TextSegment[] = [];
   const regex = /(\*[^*]+\*)/g;
@@ -153,6 +154,25 @@ function segmentText(text: string): TextSegment[] {
       // Remover los asteriscos externos para que la IA no intente leerlos
       const cleanNarration = part.slice(1, -1).trim();
       if (cleanNarration) {
+        const cleanLower = cleanNarration.toLowerCase();
+        
+        // FILTRO INTELIGENTE: Omitir frases meta-narrativas que describen cómo habla el avatar
+        // (ya que ElevenLabs de hecho hablará con ese tono, haciéndolo redundante e interruptivo)
+        const isVoiceDescription = 
+          cleanLower.includes('mi voz') || 
+          cleanLower.includes('mi tono') || 
+          cleanLower.includes('hablo con') || 
+          cleanLower.includes('susurro') || 
+          cleanLower.includes('con voz') || 
+          cleanLower.includes('diciendo con') || 
+          cleanLower.includes('digo con') ||
+          cleanLower.includes('hablar con');
+
+        if (isVoiceDescription) {
+          console.log(`[TTS Router] 🚫 Omitiendo descripción de voz redundante: "${cleanNarration}"`);
+          continue; // Omitir y no generar audio para este segmento
+        }
+
         segments.push({ text: cleanNarration, isNarration: true });
       }
     } else {
