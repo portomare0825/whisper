@@ -13,7 +13,7 @@ const plans = [
     period: 'siempre',
     description: 'Para probar la experiencia básica.',
     features: [
-      '1 Avatar activo',
+      '1 Ranura de avatar activo',
       '20 mensajes cada 3 horas',
       'Espera de 3h tras límite',
       'Voz estándar',
@@ -30,7 +30,7 @@ const plans = [
     description: 'Acceso total de prueba intensiva.',
     features: [
       '15 Monedas de regalo',
-      'Avatares ilimitados',
+      '3 Ranuras de avatar',
       'Mensajes ilimitados',
       'Roleplay explícito sin censura',
       'Ver pensamientos del avatar',
@@ -48,7 +48,7 @@ const plans = [
     description: 'La opción flexible favorita.',
     features: [
       '45 Monedas de regalo',
-      'Avatares ilimitados',
+      '8 Ranuras de avatar',
       'Mensajes ilimitados',
       'Roleplay explícito sin censura',
       'Ver pensamientos del avatar',
@@ -68,7 +68,7 @@ const plans = [
     description: 'El compañero perfecto a largo plazo.',
     features: [
       '90 Monedas de regalo',
-      'Avatares ilimitados',
+      '15 Ranuras de avatar',
       'Mensajes ilimitados',
       'Roleplay explícito sin censura',
       'Ver pensamientos del avatar',
