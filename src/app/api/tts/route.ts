@@ -155,13 +155,17 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json({ audioContent: result.audioContent, source: 'google-cloud-premium' });
-    } catch (premiumErr) {
+    } catch (premiumErr: any) {
       console.warn('Fallo en Google Cloud TTS Premium. Usando fallback de Google Translate:', premiumErr);
       // Fallback a Google Translate si la API Key da error (por ejemplo, por problemas de facturación)
       const narrationPausedText = text.replace(/\*([^*]+)\*/g, '... $1... ');
       const audioBuffer = await getGoogleTranslateTTS(narrationPausedText, gender);
       const base64Audio = audioBuffer.toString('base64');
-      return NextResponse.json({ audioContent: base64Audio, source: 'google-translate-fallback-billing-error' });
+      return NextResponse.json({ 
+        audioContent: base64Audio, 
+        source: 'google-translate-fallback-billing-error',
+        errorDetails: premiumErr instanceof Error ? premiumErr.message : String(premiumErr)
+      });
     }
   } catch (err: any) {
     console.error('TTS API Error:', err);

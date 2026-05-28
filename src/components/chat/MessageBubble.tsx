@@ -232,7 +232,7 @@ export default function MessageBubble({
           );
         } else if (data.source === 'google-translate-fallback-billing-error') {
           console.warn(
-            '%c[TTS Engine] ⚠️ Tu API Key falló (problema de facturación/cuenta). Usando Fallback de Google Translate gratis (%s)',
+            '%c[TTS Engine] ⚠️ Tu API Key falló. Detalle: "' + (data.errorDetails || 'Error desconocido') + '". Usando Fallback de Google Translate gratis (%s)',
             'color: #d97706; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #fffbeb; border-radius: 4px;',
             avatar.voice_settings?.gender === 'male' ? 'es-US (Latino)' : 'es-MX (México)'
           );
