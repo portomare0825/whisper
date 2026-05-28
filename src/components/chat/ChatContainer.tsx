@@ -1677,6 +1677,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   sending={sending}
                   isPremium={isPremium}
                   novelMode={novelMode}
+                  userCoins={coins}
+                  conversationUserId={conversation.user_id}
+                  onBuyCoins={() => setShowBuyCoinsModal(true)}
                 />
               );
             })}

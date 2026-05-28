@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 // Función para obtener TTS de Google Translate (Opción 3) como fallback gratuito e ilimitado
 async function getGoogleTranslateTTS(text: string, gender?: string): Promise<Buffer> {
@@ -370,13 +371,39 @@ async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: s
 
 export async function POST(req: Request) {
   try {
-    const { text, gender, elevenLabsVoiceId } = await req.json();
+    const { text, gender, elevenLabsVoiceId, user_id, quality = 'free' } = await req.json();
 
     if (!text) {
       return NextResponse.json({ error: 'Falta el texto para la síntesis de voz' }, { status: 400 });
     }
 
-    const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_API_KEY !== 'your_elevenlabs_key_here';
+    // Inicializar cliente administrativo de Supabase
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
+    let currentCoins = 0;
+    if (user_id) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('coins')
+        .eq('id', user_id)
+        .single();
+      if (profile) {
+        currentCoins = profile.coins || 0;
+      }
+    }
+
+    // Si el usuario eligió calidad Premium pero no tiene saldo, retornar error
+    if (quality === 'premium' && currentCoins < 1) {
+      return NextResponse.json({ 
+        error: 'No tienes monedas suficientes para reproducir con voz ultra-realista. Necesitas al menos 1 🪙.' 
+      }, { status: 403 });
+    }
+
+    const usePremium = quality === 'premium' && currentCoins >= 1;
+    const hasElevenLabsKey = usePremium && !!process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_API_KEY !== 'your_elevenlabs_key_here';
     const hasGoogleKey = !!process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'your_google_api_key_here';
     const hasOnomatopoeia = /\*[^*]+\*/.test(text);
     let elevenLabsErrorDetails: string | null = null;
@@ -402,9 +429,20 @@ export async function POST(req: Request) {
 
         const combinedAudio = Buffer.concat(audioBuffers);
         const base64Audio = combinedAudio.toString('base64');
+
+        // Descontar una moneda del perfil del usuario por el éxito de la generación premium de ElevenLabs
+        if (user_id && usePremium) {
+          await supabase
+            .from('profiles')
+            .update({ coins: currentCoins - 1 })
+            .eq('id', user_id);
+          console.log(`[TTS API] 🪙 Cobrada 1 moneda a ${user_id} por usar ElevenLabs Híbrido.`);
+        }
+
         return NextResponse.json({ 
           audioContent: base64Audio, 
-          source: 'hybrid-audiobook' 
+          source: 'hybrid-audiobook',
+          coinsDeducted: true
         });
       } catch (hybridErr: any) {
         console.warn('Fallo en el Modo Audiolibro Híbrido. Usando Google Cloud normal como fallback:', hybridErr);
@@ -417,9 +455,20 @@ export async function POST(req: Request) {
       try {
         const audioBuffer = await getElevenLabsTTS(text, gender, elevenLabsVoiceId);
         const base64Audio = audioBuffer.toString('base64');
+
+        // Descontar una moneda del perfil del usuario por el éxito de la generación premium de ElevenLabs
+        if (user_id && usePremium) {
+          await supabase
+            .from('profiles')
+            .update({ coins: currentCoins - 1 })
+            .eq('id', user_id);
+          console.log(`[TTS API] 🪙 Cobrada 1 moneda a ${user_id} por usar ElevenLabs Completo.`);
+        }
+
         return NextResponse.json({ 
           audioContent: base64Audio, 
-          source: 'elevenlabs-premium' 
+          source: 'elevenlabs-premium',
+          coinsDeducted: true
         });
       } catch (elevenErr: any) {
         console.warn('Fallo en ElevenLabs Completo. Usando Google Cloud:', elevenErr);

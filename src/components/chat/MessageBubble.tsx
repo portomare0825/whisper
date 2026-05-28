@@ -208,6 +208,9 @@ interface MessageBubbleProps {
   sending?: boolean;
   isPremium?: boolean;
   novelMode?: boolean;
+  userCoins?: number;
+  conversationUserId?: string;
+  onBuyCoins?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -224,11 +227,15 @@ export default function MessageBubble({
   sending = false,
   isPremium = false,
   novelMode = false,
+  userCoins = 0,
+  conversationUserId,
+  onBuyCoins,
 }: MessageBubbleProps) {
   const isAvatar = message.role === 'avatar';
   const [isPlaying, setIsPlaying] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [showThought, setShowThought] = useState(false);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Resolver estilo de emoción
@@ -316,7 +323,7 @@ export default function MessageBubble({
     }
   };
 
-  const playAudio = async () => {
+  const playAudio = async (isPremiumRequest: boolean = false) => {
     if (isPlaying) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -351,6 +358,8 @@ export default function MessageBubble({
             text: message.content,
             gender: avatar.voice_settings?.gender || 'female',
             elevenLabsVoiceId: avatar.voice_settings?.elevenlabs_voice_id,
+            user_id: conversationUserId,
+            quality: isPremiumRequest ? 'premium' : 'free'
           }),
         });
 
@@ -414,6 +423,29 @@ export default function MessageBubble({
     }
   };
 
+  const handlePlayClick = () => {
+    if (isPlaying || message.audio_url) {
+      playAudio(false);
+      return;
+    }
+    setShowQualityMenu(!showQualityMenu);
+  };
+
+  const playFreeAudio = () => {
+    setShowQualityMenu(false);
+    runLocalSynthesis();
+  };
+
+  const playPremiumAudio = async () => {
+    setShowQualityMenu(false);
+    if (userCoins < 1) {
+      alert("No tienes suficientes monedas para escuchar la voz premium. Necesitas al menos 1 🪙.");
+      if (onBuyCoins) onBuyCoins();
+      return;
+    }
+    await playAudio(true);
+  };
+
   // ── MODO NOVELA: contenedor de flujo continuo ──
   if (novelMode && isAvatar) {
     return (
@@ -442,16 +474,51 @@ export default function MessageBubble({
                 <RefreshCw className="w-3 h-3" />
               </button>
             )}
-            <button 
-              onClick={playAudio}
-              className={cn(
-                "p-1 rounded-full transition-colors",
-                isPlaying ? "bg-primary/20 text-primary" : "hover:bg-white/10 text-white/70 hover:text-white"
+            <div className="relative">
+              <button 
+                onClick={handlePlayClick}
+                className={cn(
+                  "p-1 rounded-full transition-colors",
+                  isPlaying ? "bg-primary/20 text-primary" : "hover:bg-white/10 text-white/70 hover:text-white"
+                )}
+                title={isPlaying ? "Detener audio" : "Escuchar mensaje"}
+              >
+                {isPlaying ? <Square className="w-3 h-3 fill-current" /> : <Volume2 className="w-3 h-3" />}
+              </button>
+
+              {showQualityMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowQualityMenu(false)} />
+                  <div className="absolute right-0 bottom-full mb-2 z-50 w-52 glass-morphism border border-white/10 rounded-xl p-1.5 shadow-2xl animate-in slide-in-from-bottom-1 duration-200">
+                    <div className="px-2 py-1 border-b border-white/5 mb-1">
+                      <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider text-left block">Calidad de audio</span>
+                    </div>
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        onClick={playFreeAudio}
+                        className="w-full text-left px-2 py-1 hover:bg-white/5 rounded-lg text-[10px] text-white/90 font-medium transition-all flex items-center gap-1.5"
+                      >
+                        <span>⚖️</span>
+                        <div className="flex flex-col">
+                          <span>Voz Normal (Gratis)</span>
+                          <span className="text-[8px] text-muted-foreground">Audio del dispositivo</span>
+                        </div>
+                      </button>
+                      <button
+                        onClick={playPremiumAudio}
+                        className="w-full text-left px-2 py-1 hover:bg-white/5 rounded-lg text-[10px] text-white/90 font-medium transition-all flex items-center gap-1.5"
+                      >
+                        <span>👑</span>
+                        <div className="flex flex-col">
+                          <span className="flex items-center gap-1">Voz Sensual (ElevenLabs) <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
+                          <span className="text-[8px] text-muted-foreground">Voces realistas con emociones</span>
+                        </div>
+                      </button>
+                    </div>
+                  </div>
+                </>
               )}
-              title={isPlaying ? "Detener audio" : "Escuchar mensaje"}
-            >
-              {isPlaying ? <Square className="w-3 h-3 fill-current" /> : <Volume2 className="w-3 h-3" />}
-            </button>
+            </div>
             {isPremium && message.hidden_thought && (
               <button
                 onClick={() => setShowThought(prev => !prev)}
@@ -552,16 +619,51 @@ export default function MessageBubble({
                   }
                 </button>
               )}
-              <button 
-                onClick={playAudio}
-                className={cn(
-                  "p-1 md:p-1.5 rounded-full transition-colors",
-                  isPlaying ? "bg-primary/20 text-primary" : "hover:bg-white/10 text-white/70 hover:text-white"
+              <div className="relative">
+                <button 
+                  onClick={handlePlayClick}
+                  className={cn(
+                    "p-1 md:p-1.5 rounded-full transition-colors",
+                    isPlaying ? "bg-primary/20 text-primary" : "hover:bg-white/10 text-white/70 hover:text-white"
+                  )}
+                  title={isPlaying ? "Detener audio" : "Escuchar mensaje"}
+                >
+                  {isPlaying ? <Square className="w-3 h-3 md:w-3.5 md:h-3.5 fill-current" /> : <Volume2 className="w-3 h-3 md:w-3.5 md:h-3.5" />}
+                </button>
+
+                {showQualityMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowQualityMenu(false)} />
+                    <div className="absolute right-0 top-full mt-2 z-50 w-52 glass-morphism border border-white/10 rounded-xl p-1.5 shadow-2xl animate-in slide-in-from-top-1 duration-200">
+                      <div className="px-2 py-1 border-b border-white/5 mb-1">
+                        <span className="text-[8px] font-bold text-muted-foreground uppercase tracking-wider text-left block">Calidad de audio</span>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <button
+                          onClick={playFreeAudio}
+                          className="w-full text-left px-2 py-1 hover:bg-white/5 rounded-lg text-[10px] text-white/90 font-medium transition-all flex items-center gap-1.5"
+                        >
+                          <span>⚖️</span>
+                          <div className="flex flex-col">
+                            <span>Voz Normal (Gratis)</span>
+                            <span className="text-[8px] text-muted-foreground">Audio del dispositivo</span>
+                          </div>
+                        </button>
+                        <button
+                          onClick={playPremiumAudio}
+                          className="w-full text-left px-2 py-1 hover:bg-white/5 rounded-lg text-[10px] text-white/90 font-medium transition-all flex items-center gap-1.5"
+                        >
+                          <span>👑</span>
+                          <div className="flex flex-col text-left">
+                            <span className="flex items-center gap-1 font-semibold">Voz Sensual (ElevenLabs) <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
+                            <span className="text-[8px] text-muted-foreground">Voces realistas con emociones</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </>
                 )}
-                title={isPlaying ? "Detener audio" : "Escuchar mensaje"}
-              >
-                {isPlaying ? <Square className="w-3 h-3 md:w-3.5 md:h-3.5 fill-current" /> : <Volume2 className="w-3 h-3 md:w-3.5 md:h-3.5" />}
-              </button>
+              </div>
             </div>
           </div>
         )}
