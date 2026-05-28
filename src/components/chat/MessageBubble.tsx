@@ -431,9 +431,9 @@ export default function MessageBubble({
     setShowQualityMenu(!showQualityMenu);
   };
 
-  const playFreeAudio = () => {
+  const playFreeAudio = async () => {
     setShowQualityMenu(false);
-    runLocalSynthesis();
+    await playAudio(false);
   };
 
   const playPremiumAudio = async () => {
@@ -500,8 +500,8 @@ export default function MessageBubble({
                       >
                         <span>⚖️</span>
                         <div className="flex flex-col">
-                          <span>Voz Normal (Gratis)</span>
-                          <span className="text-[8px] text-muted-foreground">Audio del dispositivo</span>
+                          <span>Voz Estándar (Gratis)</span>
+                          <span className="text-[8px] text-muted-foreground">Voz oficial generada por Google</span>
                         </div>
                       </button>
                       <button
@@ -510,7 +510,7 @@ export default function MessageBubble({
                       >
                         <span>👑</span>
                         <div className="flex flex-col">
-                          <span className="flex items-center gap-1">Voz Sensual (ElevenLabs) <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
+                          <span className="flex items-center gap-1">Voz Sensual Premium <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
                           <span className="text-[8px] text-muted-foreground">Voces realistas con emociones</span>
                         </div>
                       </button>
@@ -645,8 +645,8 @@ export default function MessageBubble({
                         >
                           <span>⚖️</span>
                           <div className="flex flex-col">
-                            <span>Voz Normal (Gratis)</span>
-                            <span className="text-[8px] text-muted-foreground">Audio del dispositivo</span>
+                            <span>Voz Estándar (Gratis)</span>
+                            <span className="text-[8px] text-muted-foreground">Voz oficial generada por Google</span>
                           </div>
                         </button>
                         <button
@@ -655,7 +655,7 @@ export default function MessageBubble({
                         >
                           <span>👑</span>
                           <div className="flex flex-col text-left">
-                            <span className="flex items-center gap-1 font-semibold">Voz Sensual (ElevenLabs) <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
+                            <span className="flex items-center gap-1 font-semibold">Voz Sensual Premium <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
                             <span className="text-[8px] text-muted-foreground">Voces realistas con emociones</span>
                           </div>
                         </button>
