@@ -81,20 +81,13 @@ export async function POST(req: Request) {
           // Lógica de Suscripciones (Diario, Semanal, Mensual)
           const transactionReason = `subscription_${session.id}`;
 
-          const { data: existingSub } = await adminClient
-            .from('subscriptions')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .maybeSingle();
-
           const { data: existingTx } = await adminClient
             .from('coin_transactions')
             .select('id')
             .eq('reason', transactionReason)
             .maybeSingle();
 
-          if (!existingSub && !existingTx) {
+          if (!existingTx) {
             await adminClient.from('subscriptions').delete().eq('user_id', userId);
             
             const planNameLower = planName.toLowerCase();

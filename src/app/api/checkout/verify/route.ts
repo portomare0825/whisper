@@ -82,21 +82,13 @@ export async function GET(req: Request) {
       // Flujo de Suscripción (Diario, Semanal, Mensual)
       const transactionReason = `subscription_${sessionId}`;
 
-      // Evitar doble proceso de suscripción
-      const { data: existingSub } = await adminClient
-        .from('subscriptions')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('status', 'active')
-        .maybeSingle();
-
       const { data: existingTx } = await adminClient
         .from('coin_transactions')
         .select('id')
         .eq('reason', transactionReason)
         .maybeSingle();
 
-      if (existingSub || existingTx) {
+      if (existingTx) {
         return NextResponse.json({ verified: true, alreadyProcessed: true, type: 'subscription' });
       }
 
