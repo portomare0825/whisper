@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Upload, Sparkles, AlertCircle } from 'lucide-react';
+import { Upload, Sparkles, AlertCircle, Coins, Plus } from 'lucide-react';
 import { compressAvatarImage } from '@/lib/image-utils';
 import { createClient } from '@/lib/supabase';
 
@@ -28,40 +28,114 @@ export default function NewAvatarPage() {
   const [file, setFile] = useState<File | null>(null);
   const [checkingLimit, setCheckingLimit] = useState(true);
   const [limitReached, setLimitReached] = useState(false);
+  const [userCoins, setUserCoins] = useState<number>(0);
+  const [avatarCount, setAvatarCount] = useState<number>(0);
+  const [baseLimit, setBaseLimit] = useState<number>(1);
+  const [extraSlots, setExtraSlots] = useState<number>(0);
+  const [buyingSlot, setBuyingSlot] = useState(false);
+  const [buyError, setBuyError] = useState<string | null>(null);
+  const [planName, setPlanName] = useState<string>('Gratuito');
 
-  useEffect(() => {
-    async function checkLimits() {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+  async function checkLimits() {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-        const { data: subscription } = await supabase
-          .from('subscriptions')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .maybeSingle();
+      // 1. Obtener ranuras adicionales del perfil y monedas
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('extra_avatar_slots, coins')
+        .eq('id', user.id)
+        .maybeSingle();
+      const extraSlotsVal = profile?.extra_avatar_slots || 0;
+      const coinsVal = profile?.coins || 0;
+      setUserCoins(coinsVal);
+      setExtraSlots(extraSlotsVal);
 
-        const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+      // 2. Obtener la suscripción activa
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
 
-        if (!isPremium) {
-          const { count } = await supabase
-            .from('avatars')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id);
+      const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
 
-          if (count && count >= 1) {
-            setLimitReached(true);
+      let baseSlotsLimit = 1; // Gratuito por defecto
+      let pName = 'Gratuito';
+      if (isPremium && subscription) {
+        if (subscription.plan_type === 'pro') {
+          baseSlotsLimit = 15; // Mensual Pro
+          pName = 'Mensual Pro';
+        } else if (subscription.plan_type === 'pay_per_use') {
+          if (subscription.expires_at && subscription.created_at) {
+            const diffMs = new Date(subscription.expires_at).getTime() - new Date(subscription.created_at).getTime();
+            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+            if (diffDays > 2) {
+              baseSlotsLimit = 8; // Pase Semanal
+              pName = 'Semanal';
+            } else {
+              baseSlotsLimit = 3; // Pase Diario
+              pName = 'Diario';
+            }
+          } else {
+            baseSlotsLimit = 3;
+            pName = 'Diario';
           }
         }
-      } catch (err) {
-        console.error('Error al comprobar límites:', err);
-      } finally {
-        setCheckingLimit(false);
       }
+      setBaseLimit(baseSlotsLimit);
+      setPlanName(pName);
+
+      const totalSlotsLimit = baseSlotsLimit + extraSlotsVal;
+
+      const { count } = await supabase
+        .from('avatars')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      const countVal = count || 0;
+      setAvatarCount(countVal);
+
+      if (countVal >= totalSlotsLimit) {
+        setLimitReached(true);
+      } else {
+        setLimitReached(false);
+      }
+    } catch (err) {
+      console.error('Error al comprobar límites:', err);
+    } finally {
+      setCheckingLimit(false);
     }
+  }
+
+  useEffect(() => {
     checkLimits();
   }, []);
+
+  const handleBuySlot = async () => {
+    try {
+      setBuyingSlot(true);
+      setBuyError(null);
+      
+      const res = await fetch('/api/user/slots/buy', {
+        method: 'POST',
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al comprar ranura');
+      }
+      
+      // Compra exitosa, volver a comprobar límites
+      await checkLimits();
+    } catch (err: any) {
+      setBuyError(err.message || 'Ocurrió un error inesperado al procesar la compra.');
+    } finally {
+      setBuyingSlot(false);
+    }
+  };
 
   // Convertir archivo a Base64 para análisis
   const fileToBase64 = (file: File): Promise<string> => {
@@ -144,7 +218,15 @@ export default function NewAvatarPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
-      // Validar límites del plan Gratuito
+      // Validar límites y comprobar permisos de administrador según el plan
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('extra_avatar_slots, is_admin')
+        .eq('id', user.id)
+        .maybeSingle();
+      const extraSlots = profile?.extra_avatar_slots || 0;
+      const isAdmin = !!profile?.is_admin;
+
       const { data: subscription } = await supabase
         .from('subscriptions')
         .select('*')
@@ -154,15 +236,34 @@ export default function NewAvatarPage() {
 
       const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
 
-      if (!isPremium) {
-        const { count } = await supabase
-          .from('avatars')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', user.id);
-
-        if (count && count >= 1) {
-          throw new Error('Tu plan Gratuito solo te permite tener 1 avatar activo. Por favor, actualiza a Premium para tener avatares ilimitados.');
+      let baseSlotsLimit = 1; // Gratuito por defecto
+      if (isPremium && subscription) {
+        if (subscription.plan_type === 'pro') {
+          baseSlotsLimit = 15; // Mensual Pro
+        } else if (subscription.plan_type === 'pay_per_use') {
+          if (subscription.expires_at && subscription.created_at) {
+            const diffMs = new Date(subscription.expires_at).getTime() - new Date(subscription.created_at).getTime();
+            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+            if (diffDays > 2) {
+              baseSlotsLimit = 8; // Pase Semanal
+            } else {
+              baseSlotsLimit = 3; // Pase Diario
+            }
+          } else {
+            baseSlotsLimit = 3;
+          }
         }
+      }
+
+      const totalSlotsLimit = baseSlotsLimit + extraSlots;
+
+      const { count } = await supabase
+        .from('avatars')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (count && count >= totalSlotsLimit) {
+        throw new Error(`Has alcanzado tu límite máximo de ${totalSlotsLimit} avatares activos. Por favor, actualiza tu plan o adquiere ranuras adicionales para expandirlo.`);
       }
 
       // 1. Subir imagen a Supabase Storage
@@ -175,15 +276,6 @@ export default function NewAvatarPage() {
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
-
-      // Consultar si el perfil del usuario actual es administrador
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      const isAdmin = !!profile?.is_admin;
 
       // 2. Guardar en la base de datos
       const { data: newAvatar, error: dbError } = await supabase
@@ -237,20 +329,103 @@ export default function NewAvatarPage() {
   }
 
   if (limitReached) {
+    const hasEnoughCoins = userCoins >= 30;
+
     return (
-      <div className="max-w-xl mx-auto text-center space-y-8 py-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="max-w-2xl mx-auto text-center space-y-8 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="w-20 h-20 bg-amber-400/10 rounded-3xl flex items-center justify-center mx-auto border border-amber-400/20">
           <AlertCircle className="w-10 h-10 text-amber-400" />
         </div>
         <div className="space-y-4">
           <h1 className="text-4xl font-bold tracking-tight">Límite de <span className="gold-gradient">Avatares</span></h1>
-          <p className="text-white/80 leading-relaxed font-semibold">
-            Has alcanzado el límite máximo del plan Gratuito (1 avatar activo).
+          <p className="text-white/80 leading-relaxed font-semibold text-lg">
+            Has alcanzado tu límite máximo de {baseLimit + extraSlots} {baseLimit + extraSlots === 1 ? 'avatar activo' : 'avatares activos'}.
           </p>
+          <div className="inline-flex flex-wrap justify-center gap-3 bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl text-sm font-medium backdrop-blur-md">
+            <span>Plan: <span className="text-primary font-bold">{planName}</span> ({baseLimit})</span>
+            <span className="text-white/20">•</span>
+            <span>Ranuras Extras: <span className="text-emerald-400 font-bold">{extraSlots}</span></span>
+            <span className="text-white/20">•</span>
+            <span>Usados: <span className="text-amber-400 font-bold">{avatarCount}</span></span>
+          </div>
           <p className="text-muted-foreground text-sm max-w-md mx-auto">
-            Para crear múltiples avatares personalizados con rasgos exclusivos y voces premium, te invitamos a adquirir cualquiera de nuestros planes Premium.
+            Tienes {avatarCount} de {baseLimit + extraSlots} avatares creados. Para seguir creando nuevos compañeros mágicos, puedes expandir tu límite.
           </p>
         </div>
+
+        {/* Módulo de Compra de Slot Extra con Diseño Premium */}
+        <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/15 rounded-3xl p-6 md:p-8 max-w-lg mx-auto shadow-2xl space-y-6 text-left relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="flex justify-between items-start gap-4">
+            <div>
+              <span className="bg-emerald-400/10 text-emerald-400 border border-emerald-400/20 text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full">
+                Compra Permanente
+              </span>
+              <h3 className="text-xl font-bold text-white mt-3 flex items-center gap-2">
+                Adquirir Ranura Adicional 🪄
+              </h3>
+              <p className="text-muted-foreground text-xs mt-1.5 leading-relaxed">
+                Desbloquea de forma permanente una ranura extra para tener un nuevo avatar activo simultáneamente. ¡Sin suscripciones!
+              </p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Costo</div>
+              <div className="text-2xl font-black text-amber-400 flex items-center justify-end gap-1">
+                30 <Coins className="w-5 h-5" />
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-white/5 pt-5 flex flex-col sm:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10">
+                <Coins className="w-5 h-5 text-amber-400 animate-pulse" />
+              </div>
+              <div>
+                <div className="text-[10px] text-muted-foreground font-semibold">Tus monedas</div>
+                <div className="text-sm font-bold text-white">{userCoins} Monedas 🪙</div>
+              </div>
+            </div>
+
+            {hasEnoughCoins ? (
+              <button
+                type="button"
+                disabled={buyingSlot}
+                onClick={handleBuySlot}
+                className="premium-button text-primary-foreground font-bold px-6 py-3 rounded-xl flex items-center gap-2 hover:scale-[1.03] active:scale-[0.97] transition-all disabled:opacity-50 shadow-lg"
+              >
+                {buyingSlot ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    Comprar Ranura Extra
+                    <Plus className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => router.push('/dashboard/billing')}
+                className="bg-amber-400/10 hover:bg-amber-400/20 text-amber-400 border border-amber-400/20 font-bold px-6 py-3 rounded-xl flex items-center gap-2 hover:scale-[1.03] active:scale-[0.97] transition-all"
+              >
+                Cargar Monedas
+                <Coins className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {buyError && (
+            <div className="bg-destructive/10 border border-destructive/20 text-destructive text-xs px-4 py-3 rounded-xl flex items-center gap-2 animate-shake">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{buyError}</span>
+            </div>
+          )}
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <button 
             type="button"
