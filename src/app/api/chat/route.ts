@@ -862,9 +862,9 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
             "temperature": dynamicTemperature,
             "top_p": 0.9,
             "min_p": 0.08,
-            "presence_penalty": 0.6, // Penaliza tokens repetidos para incentivar nuevos temas/palabras
-            "frequency_penalty": 0.6, // Penaliza fuertemente la repetición exacta de palabras y frases enteras
-            "repetition_penalty": 1.15, // Penaliza repeticiones consecutivas
+            "presence_penalty": 0.2, // Penalización muy sutil para incentivar variedad sin romper el lenguaje
+            "frequency_penalty": 0.25, // Penalización suave para evitar bucles de frases exactas
+            "repetition_penalty": 1.05, // Penalización estándar estable
             "max_tokens": 500,
             "messages": [
               { "role": "system", "content": systemPrompt },
