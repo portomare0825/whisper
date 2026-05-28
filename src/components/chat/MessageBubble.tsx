@@ -225,7 +225,12 @@ export default function MessageBubble({
           throw new Error(data.error || 'Fallo en la API de TTS');
         }
 
-        if (data.source === 'elevenlabs-premium') {
+        if (data.source === 'hybrid-audiobook') {
+          console.log(
+            '%c[TTS Engine] 📚 Reproduciendo en MODO AUDIOLIBRO HÍBRIDO (Narrador: Google Cloud 🟢 | Personaje: ElevenLabs 👑)', 
+            'color: #0284c7; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #f0f9ff; border-radius: 4px;'
+          );
+        } else if (data.source === 'elevenlabs-premium') {
           console.log(
             '%c[TTS Engine] 👑 Reproduciendo voz ULTRA-REALISTA de ElevenLabs con emociones (%s)', 
             'color: #7c3aed; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #f5f3ff; border-radius: 4px;',

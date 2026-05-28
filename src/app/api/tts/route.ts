@@ -135,6 +135,74 @@ function formatTextForElevenLabs(text: string): string {
   });
 }
 
+// Estructura para los segmentos de texto en modo audiolibro
+interface TextSegment {
+  text: string;
+  isNarration: boolean;
+}
+
+// Divide el texto en segmentos alternados de narración (dentro de asteriscos) y diálogos (fuera de ellos)
+function segmentText(text: string): TextSegment[] {
+  const segments: TextSegment[] = [];
+  const regex = /(\*[^*]+\*)/g;
+  const parts = text.split(regex);
+
+  for (const part of parts) {
+    if (!part) continue;
+    if (part.startsWith('*') && part.endsWith('*')) {
+      // Remover los asteriscos externos para que la IA no intente leerlos
+      const cleanNarration = part.slice(1, -1).trim();
+      if (cleanNarration) {
+        segments.push({ text: cleanNarration, isNarration: true });
+      }
+    } else {
+      const cleanDialogue = part.trim();
+      if (cleanDialogue) {
+        segments.push({ text: cleanDialogue, isNarration: false });
+      }
+    }
+  }
+  return segments;
+}
+
+// Genera el audio para un segmento de narración utilizando Google Cloud TTS
+async function getGoogleCloudSegmentTTS(text: string, gender: string, apiKey: string): Promise<Buffer> {
+  const voiceName = gender === 'male' ? 'es-US-Neural2-B' : 'es-US-Neural2-A';
+  const ssmlGender = gender === 'male' ? 'MALE' : 'FEMALE';
+  const languageCode = 'es-US';
+
+  // Usamos prosodia con volumen un poco más suave y ritmo pausado para dar tono de narrador
+  const ssmlText = `<speak><prosody volume="-2.0dB" rate="0.95">${escapeXml(text)}</prosody></speak>`;
+
+  const response = await fetch(`https://texttospeech.googleapis.com/v1/text:synthesize?key=${apiKey}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      input: { ssml: ssmlText },
+      voice: {
+        languageCode: languageCode,
+        name: voiceName,
+        ssmlGender: ssmlGender,
+      },
+      audioConfig: {
+        audioEncoding: 'MP3',
+        speakingRate: 1.0,
+        pitch: 0.0,
+        sampleRateHertz: 44100 // Forzar 44.1kHz para que coincida perfectamente con ElevenLabs al unirlos
+      },
+    }),
+  });
+
+  const result = await response.json();
+  if (result.error) {
+    throw new Error(result.error.message);
+  }
+
+  return Buffer.from(result.audioContent, 'base64');
+}
+
 // Función para obtener TTS de ElevenLabs para emociones y onomatopeyas
 async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: string): Promise<Buffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
@@ -147,7 +215,8 @@ async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: s
 
   // Voces preestablecidas de ElevenLabs: Bella (Mujer) y Adam (Hombre)
   const voiceId = customVoiceId || (gender === 'male' ? 'pNInz6obpgq9NpudJojf' : 'EXAVITQu4vr4xnSDxMaL');
-  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+  // Especificar output_format a mp3_44100_128 para garantizar coincidencia de sample rates al unir buffers
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
   
   const res = await fetch(url, {
     method: 'POST',
@@ -182,12 +251,44 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Falta el texto para la síntesis de voz' }, { status: 400 });
     }
 
-    // RUTA INTELIGENTE: Si hay ElevenLabs configurado Y el texto contiene onomatopeyas/acciones entre asteriscos
     const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_API_KEY !== 'your_elevenlabs_key_here';
+    const hasGoogleKey = !!process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'your_google_api_key_here';
     const hasOnomatopoeia = /\*[^*]+\*/.test(text);
     let elevenLabsErrorDetails: string | null = null;
 
-    if (hasElevenLabsKey && hasOnomatopoeia) {
+    // 1. MODO AUDIOLIBRO HÍBRIDO (Google Cloud para Narrar + ElevenLabs para Diálogo)
+    if (hasElevenLabsKey && hasGoogleKey && hasOnomatopoeia) {
+      try {
+        console.log('[TTS API] 🎙️ Iniciando Modo Audiolibro Híbrido...');
+        const segments = segmentText(text);
+        const audioBuffers: Buffer[] = [];
+
+        for (const segment of segments) {
+          if (segment.isNarration) {
+            console.log(`[TTS API] 📖 Narración (Google Cloud): "${segment.text.substring(0, 30)}..."`);
+            const buffer = await getGoogleCloudSegmentTTS(segment.text, gender || 'female', process.env.GOOGLE_API_KEY!);
+            audioBuffers.push(buffer);
+          } else {
+            console.log(`[TTS API] 🗣️ Diálogo (ElevenLabs): "${segment.text.substring(0, 30)}..."`);
+            const buffer = await getElevenLabsTTS(segment.text, gender, elevenLabsVoiceId);
+            audioBuffers.push(buffer);
+          }
+        }
+
+        const combinedAudio = Buffer.concat(audioBuffers);
+        const base64Audio = combinedAudio.toString('base64');
+        return NextResponse.json({ 
+          audioContent: base64Audio, 
+          source: 'hybrid-audiobook' 
+        });
+      } catch (hybridErr: any) {
+        console.warn('Fallo en el Modo Audiolibro Híbrido. Usando Google Cloud normal como fallback:', hybridErr);
+        elevenLabsErrorDetails = `Fallo Híbrido: ${hybridErr instanceof Error ? hybridErr.message : String(hybridErr)}`;
+      }
+    }
+
+    // 2. MODO ELEVENLABS COMPLETO (Si no tiene narraciones pero sí hay API Key de ElevenLabs)
+    if (hasElevenLabsKey && !hasOnomatopoeia) {
       try {
         const audioBuffer = await getElevenLabsTTS(text, gender, elevenLabsVoiceId);
         const base64Audio = audioBuffer.toString('base64');
@@ -196,7 +297,7 @@ export async function POST(req: Request) {
           source: 'elevenlabs-premium' 
         });
       } catch (elevenErr: any) {
-        console.warn('Fallo en la síntesis de ElevenLabs. Usando Google Cloud como fallback:', elevenErr);
+        console.warn('Fallo en ElevenLabs Completo. Usando Google Cloud:', elevenErr);
         elevenLabsErrorDetails = elevenErr instanceof Error ? elevenErr.message : String(elevenErr);
       }
     }
