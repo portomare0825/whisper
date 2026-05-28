@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 export async function POST(req: Request) {
   try {
-    const { conversation_id, avatar_id } = await req.json();
+    const { conversation_id, avatar_id, style = 'neutral' } = await req.json();
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,10 +38,35 @@ export async function POST(req: Request) {
       content: m.content
     })) || [];
 
+    // Definir instrucciones de estilo dinámicamente según la preferencia del usuario
+    let styleInstruction = "";
+    if (style === 'alpha') {
+      styleInstruction = `
+REGLA DE ESTILO CRÍTICA (ALFA / SEGURO / ATREVIDO):
+- Las sugerencias del usuario deben sonar sumamente seguras de sí mismas, decididas, audaces, atrevidas, líderes, dominantes y proactivas. Alguien que toma la iniciativa de forma decidida y sin rodeos. Evita sonar tímido o indeciso.`;
+    } else if (style === 'stoic') {
+      styleInstruction = `
+REGLA DE ESTILO CRÍTICA (ESTOICO / SERIO / RESERVADO):
+- Las sugerencias del usuario deben sonar tranquilas, lógicas, muy maduras, reservadas, analíticas, con gran aplomo y compostura emocional. Respuestas precisas, un tanto misteriosas, directas pero elegantes.`;
+    } else if (style === 'romantic') {
+      styleInstruction = `
+REGLA DE ESTILO CRÍTICA (COQUETO / ROMÁNTICO / DULCE):
+- Las sugerencias del usuario deben ser dulces, sumamente cariñosas, coquetas, íntimas, tiernas o seductoras. Deben demostrar afecto físico o complicidad emocional con el avatar.`;
+    } else if (style === 'funny') {
+      styleInstruction = `
+REGLA DE ESTILO CRÍTICA (DIVERTIDO / JUGUETÓN / SARCÁSTICO):
+- Las sugerencias del usuario deben ser divertidas, humorísticas, ingeniosas, juguetonas o con un toque de sarcasmo ligero y bromas cómplices. Respuestas que provoquen una sonrisa.`;
+    } else {
+      styleInstruction = `
+REGLA DE ESTILO CRÍTICA (NEUTRAL / EQUILIBRADO):
+- Las sugerencias del usuario deben ser equilibradas, naturales y adaptadas de forma orgánica al curso natural de la conversación.`;
+    }
+
     // 3. Crear el prompt para las sugerencias
     const systemPrompt = `Eres un asistente experto en roleplay y conversaciones dinámicas.
 Tu tarea es leer la conversación actual entre un usuario y un personaje llamado ${avatar.name} (cuyos rasgos son: ${avatar.personality}), y generar EXACTAMENTE 2 sugerencias de lo que el USUARIO podría decir a continuación para mantener la charla interesante.
 Las sugerencias pueden incluir diálogo normal o acciones físicas entre *asteriscos* (ejemplo: *sonrío y asiento*).
+${styleInstruction}
 
 REGLAS ESTRICTAS DE FORMATO:
 - Debes devolver SOLO un objeto JSON válido, sin Markdown, sin explicaciones, sin texto adicional.

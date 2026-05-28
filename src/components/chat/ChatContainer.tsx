@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare } from 'lucide-react';
+import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { PremiumPoseSelector } from './PremiumPoseSelector';
@@ -30,6 +30,19 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [countdownTime, setCountdownTime] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [suggestionStyle, setSuggestionStyle] = useState<'neutral' | 'alpha' | 'stoic' | 'romantic' | 'funny'>('neutral');
+  const [showSuggestionStyleMenu, setShowSuggestionStyleMenu] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedStyle = localStorage.getItem(`suggestions-style-${conversation.id}`);
+      if (savedStyle) {
+        setSuggestionStyle(savedStyle as any);
+      } else {
+        setSuggestionStyle('neutral');
+      }
+    }
+  }, [conversation.id]);
   
   // Estados para el sistema de monedas y cambio de outfit
   const [coins, setCoins] = useState<number>(0);
@@ -393,7 +406,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           conversation_id: conversation.id,
-          avatar_id: avatar.id
+          avatar_id: avatar.id,
+          style: suggestionStyle
         })
       });
       const data = await response.json();
@@ -1712,6 +1726,13 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               <div className="flex items-center gap-1.5 md:gap-2 mb-0.5 md:mb-1">
                 <Sparkles className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary animate-pulse" />
                 <span className="text-[10px] md:text-xs font-bold text-primary uppercase tracking-wider">Sugerencias de respuesta</span>
+                <span className="text-[8px] md:text-[9px] font-semibold bg-white/10 text-white/90 px-2 py-0.5 rounded-full border border-white/10 flex items-center gap-1">
+                  {suggestionStyle === 'neutral' && '⚖️ Neutral'}
+                  {suggestionStyle === 'alpha' && '🔥 Alfa'}
+                  {suggestionStyle === 'stoic' && '🧘 Estoico'}
+                  {suggestionStyle === 'romantic' && '💖 Coqueto'}
+                  {suggestionStyle === 'funny' && '🎭 Divertido'}
+                </span>
                 <button 
                   onClick={() => setSuggestions([])}
                   className="ml-auto text-muted-foreground hover:text-white p-1"
@@ -1801,6 +1822,72 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                     </>
                   )}
                 </button>
+
+                <div className="relative flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowSuggestionStyleMenu(!showSuggestionStyleMenu)}
+                    title="Ajustar tono de sugerencias"
+                    className={`p-1 md:p-2 transition-all duration-200 relative ${
+                      showSuggestionStyleMenu 
+                        ? 'text-primary scale-110' 
+                        : suggestionStyle !== 'neutral' 
+                          ? 'text-amber-400 hover:text-amber-300' 
+                          : 'text-muted-foreground hover:text-white'
+                    }`}
+                  >
+                    <Sliders className="w-4 h-4 md:w-5 md:h-5" />
+                    {suggestionStyle !== 'neutral' && (
+                      <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-amber-400 rounded-full" />
+                    )}
+                  </button>
+
+                  {showSuggestionStyleMenu && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setShowSuggestionStyleMenu(false)}
+                      />
+                      <div className="absolute right-0 bottom-full mb-3 z-50 w-56 glass-morphism border border-white/10 rounded-2xl p-2 shadow-[0_10px_30px_rgba(0,0,0,0.8)] animate-in slide-in-from-bottom-2 duration-200">
+                        <div className="px-2.5 py-1 border-b border-white/5 mb-1.5">
+                          <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Tono de sugerencia</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          {[
+                            { id: 'neutral', label: 'Neutral', desc: 'Sugerencias naturales y estándar.', icon: '⚖️' },
+                            { id: 'alpha', label: 'Alfa / Atrevido', desc: 'Conversación directa y segura.', icon: '🔥' },
+                            { id: 'stoic', label: 'Estoico / Serio', desc: 'Tono reflexivo, sabio y maduro.', icon: '🧘' },
+                            { id: 'romantic', label: 'Coqueto / Dulce', desc: 'Conversación cariñosa y romántica.', icon: '💖' },
+                            { id: 'funny', label: 'Divertido / Broma', desc: 'Conversación bromista y juguetona.', icon: '🎭' }
+                          ].map((opt) => (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                setSuggestionStyle(opt.id as any);
+                                if (typeof window !== 'undefined') {
+                                  localStorage.setItem(`suggestions-style-${conversation.id}`, opt.id);
+                                }
+                                setShowSuggestionStyleMenu(false);
+                              }}
+                              className={`w-full text-left px-2 py-1 md:py-1.5 rounded-xl transition-all duration-150 flex items-start gap-2 ${
+                                suggestionStyle === opt.id 
+                                  ? 'bg-primary/25 text-white border border-primary/30' 
+                                  : 'hover:bg-white/5 text-white/70 border border-transparent'
+                              }`}
+                            >
+                              <span className="text-sm mt-0.5">{opt.icon}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-[11px] font-semibold leading-tight">{opt.label}</span>
+                                <span className="text-[9px] text-muted-foreground leading-tight truncate">{opt.desc}</span>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
 
                 <button
                   type="button"
