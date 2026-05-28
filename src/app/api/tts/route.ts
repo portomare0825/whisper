@@ -146,28 +146,36 @@ interface TextSegment {
 function isDialogueHeuristic(text: string): boolean {
   const clean = text.toLowerCase().trim();
   
-  // Fuertes indicadores de diálogo en primera o segunda persona hablando con el usuario
+  // 1. Si empieza con descripciones de partes del propio cuerpo o acciones reflejas, es NARRACIÓN de rol
+  const narrationStarts = [
+    'mi cuerpo', 'mi cabeza', 'mi mirada', 'mi mano', 'mi rostro', 'mi voz', 
+    'mis ojos', 'un suspiro', 'un recuerdo', 'mi dedo', 'mi boca', 'mi cabello', 'mis labios',
+    'se ', 'un ', 'una ', 'el ', 'la ', 'los ', 'las '
+  ];
+
+  for (const start of narrationStarts) {
+    if (clean.startsWith(start)) {
+      return false; // Es narración física descriptiva
+    }
+  }
+
+  // 2. Si empieza con verbos comunes en tercera persona que describen acciones físicas del rol, es NARRACIÓN
+  const narrationVerbs = [
+    'apoya', 'cierra', 'mira', 'desvía', 'desvia', 'cruza', 'sale', 'mueve', 
+    'acaricia', 'abraza', 'besa', 'tiembla', 'sonríe', 'sonrie', 'asiente', 
+    'niega', 'camina', 'acerca', 'evita'
+  ];
+  
+  const words = clean.split(/\s+/);
+  if (words.length > 0 && narrationVerbs.includes(words[0])) {
+    return false; // Es narración de acción
+  }
+
+  // 3. Si pasa los filtros anteriores, buscar fuertes indicadores de diálogo directo (tú, ti, te amo, etc.)
   const dialogueIndicators = [
-    'te amo',
-    'gracias',
-    'contigo',
-    'me encanta',
-    'quiero',
-    'de ti',
-    'para mí',
-    'para mi',
-    'haces sentir',
-    'me miras',
-    'me tocas',
-    'te extrañ',
-    'te extran',
-    'te quier',
-    'eres ',
-    'mi hogar',
-    'lo siento',
-    'por favor',
-    'tú ',
-    'tu '
+    'te amo', 'gracias', 'contigo', 'me encanta', 'quiero', 'de ti', 'para mí', 'para mi',
+    'haces sentir', 'me miras', 'me tocas', 'te extrañ', 'te extran', 'te quier',
+    'eres ', 'mi hogar', 'lo siento', 'por favor', 'tú ', 'tu '
   ];
 
   for (const indicator of dialogueIndicators) {
@@ -177,7 +185,6 @@ function isDialogueHeuristic(text: string): boolean {
   }
 
   // Si la frase es muy corta (menos de 4 palabras) y empieza con pronombres o expresiones directas
-  const words = clean.split(/\s+/);
   if (words.length <= 4 && words.length > 0) {
     const firstWord = words[0];
     if (['te', 'me', 'amo', 'quiero', 'siento', 'gracias', 'hola', 'adiós', 'adios'].includes(firstWord)) {
