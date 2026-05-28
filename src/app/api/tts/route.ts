@@ -336,10 +336,10 @@ async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: s
   // Formatear el texto para traducir emociones a sonidos reales y limpiar acciones físicas
   const formattedText = formatTextForElevenLabs(text);
 
-  // Voces preestablecidas premium y altamente sensuales/expresivas de ElevenLabs: 
-  // Femenina: Gigi (jBpfhuIE2acCO8zHdGeA) - extremadamente cálida, susurrante y sensual
-  // Masculina: Marcus (FGY252rxZaaHlTzY306X) - voz profunda, suave y seductora
-  const voiceId = customVoiceId || (gender === 'male' ? 'FGY252rxZaaHlTzY306X' : 'jBpfhuIE2acCO8zHdGeA');
+  // Voces preestablecidas premium universales oficiales de ElevenLabs (100% garantizadas de existir en cualquier cuenta):
+  // Femenina: Rachel (21m00Tcm4TlvDq8ikWAM) - una de las mejores voces oficiales, sumamente cálida, dulce y sensual
+  // Masculina: Antoni (ErXwobaYiN019PkySvjV) - voz profunda, sumamente sensual, cálida y de gran calidad
+  const voiceId = customVoiceId || (gender === 'male' ? 'ErXwobaYiN019PkySvjV' : '21m00Tcm4TlvDq8ikWAM');
   // Especificar output_format a mp3_44100_128 para garantizar coincidencia de sample rates al unir buffers
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
   
