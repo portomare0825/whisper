@@ -78,6 +78,83 @@ function isDialogueHeuristic(text: string): boolean {
   return false;
 }
 
+// UTILIDAD: Obtener el texto limpio exactamente como se renderiza visualmente para el usuario final.
+// Filtra descripciones redundantes de voz y remueve etiquetas XML/asteriscos según sea el caso.
+function getVisualCleanText(text: string): string {
+  const hasXmlTags = /<(narration|dialogue)>[\s\S]*?<\/\1>/i.test(text);
+
+  if (hasXmlTags) {
+    const tagRegex = /<(narration|dialogue)>([\s\S]*?)<\/\1>/gi;
+    let match;
+    const cleanSegments: string[] = [];
+
+    while ((match = tagRegex.exec(text)) !== null) {
+      const type = match[1].toLowerCase();
+      const content = match[2].trim();
+
+      if (content) {
+        if (type === 'narration') {
+          const cleanLower = content.toLowerCase();
+          const isVoiceDescription = 
+            cleanLower.includes('mi voz') || 
+            cleanLower.includes('mi tono') || 
+            cleanLower.includes('hablo con') || 
+            cleanLower.includes('susurro') || 
+            cleanLower.includes('con voz') || 
+            cleanLower.includes('diciendo con') || 
+            cleanLower.includes('digo con') ||
+            cleanLower.includes('hablar con');
+
+          if (isVoiceDescription) continue;
+
+          cleanSegments.push(`*${content}*`);
+        } else {
+          cleanSegments.push(content);
+        }
+      }
+    }
+    if (cleanSegments.length > 0) {
+      return cleanSegments.join(' ');
+    }
+  }
+
+  // Fallback por asteriscos
+  const parts = text.split(/(\*[^*]+\*)/g);
+  const cleanParts: string[] = [];
+
+  for (const part of parts) {
+    if (!part) continue;
+    const isAction = part.startsWith('*') && part.endsWith('*') && part.length > 2;
+
+    if (isAction) {
+      const cleanText = part.slice(1, -1).trim();
+      const cleanLower = cleanText.toLowerCase();
+
+      const isVoiceDescription = 
+        cleanLower.includes('mi voz') || 
+        cleanLower.includes('mi tono') || 
+        cleanLower.includes('hablo con') || 
+        cleanLower.includes('susurro') || 
+        cleanLower.includes('con voz') || 
+        cleanLower.includes('diciendo con') || 
+        cleanLower.includes('digo con') ||
+        cleanLower.includes('hablar con');
+
+      if (isVoiceDescription) continue;
+
+      if (isDialogueHeuristic(cleanText)) {
+        cleanParts.push(cleanText);
+      } else {
+        cleanParts.push(`*${cleanText}*`);
+      }
+    } else {
+      cleanParts.push(part);
+    }
+  }
+
+  return cleanParts.join(' ');
+}
+
 // UTILIDAD: Renderizador de Modo Novela
 // Separa *acciones* de diálogos, aplica estilos diferentes y filtra contenido meta-narrativo
 // ═══════════════════════════════════════════════════════════════════
@@ -273,7 +350,7 @@ export default function MessageBubble({
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
       
-      const cleanedText = cleanTextForTTS(message.content);
+      const cleanedText = cleanTextForTTS(getVisualCleanText(message.content));
       const utterance = new SpeechSynthesisUtterance(cleanedText);
       utterance.lang = 'es-ES';
       utterance.rate = 1.0;
@@ -355,7 +432,7 @@ export default function MessageBubble({
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            text: message.content,
+            text: getVisualCleanText(message.content),
             gender: avatar.voice_settings?.gender || 'female',
             elevenLabsVoiceId: avatar.voice_settings?.elevenlabs_voice_id,
             user_id: conversationUserId,
