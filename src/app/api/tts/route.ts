@@ -336,8 +336,10 @@ async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: s
   // Formatear el texto para traducir emociones a sonidos reales y limpiar acciones físicas
   const formattedText = formatTextForElevenLabs(text);
 
-  // Voces preestablecidas de ElevenLabs: Bella (Mujer) y Adam (Hombre)
-  const voiceId = customVoiceId || (gender === 'male' ? 'pNInz6obpgq9NpudJojf' : 'EXAVITQu4vr4xnSDxMaL');
+  // Voces preestablecidas premium y altamente sensuales/expresivas de ElevenLabs: 
+  // Femenina: Gigi (jBpfhuIE2acCO8zHdGeA) - extremadamente cálida, susurrante y sensual
+  // Masculina: Marcus (FGY252rxZaaHlTzY306X) - voz profunda, suave y seductora
+  const voiceId = customVoiceId || (gender === 'male' ? 'FGY252rxZaaHlTzY306X' : 'jBpfhuIE2acCO8zHdGeA');
   // Especificar output_format a mp3_44100_128 para garantizar coincidencia de sample rates al unir buffers
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
   
@@ -351,8 +353,8 @@ async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: s
       text: formattedText,
       model_id: 'eleven_multilingual_v2',
       voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.75,
+        stability: 0.35, // Menor estabilidad para mayor expresividad emocional y respiración natural/sensual
+        similarity_boost: 0.85,
       }
     }),
   });
