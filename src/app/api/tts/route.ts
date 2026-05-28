@@ -95,12 +95,55 @@ function convertToSSML(text: string): string {
   return ssml;
 }
 
+// Función para formatear el texto antes de enviarlo a ElevenLabs.
+// Traduce onomatopeyas y acciones comunes del español a palabras clave que ElevenLabs interpreta como sonidos reales (*giggles*, *sigh*, etc.)
+// y elimina las descripciones de acciones físicas para que no las lea literalmente en voz alta.
+function formatTextForElevenLabs(text: string): string {
+  const regex = /\*([^*]+)\*/g;
+  
+  return text.replace(regex, (match, action) => {
+    const cleanAction = action.trim().toLowerCase();
+    
+    // 1. Mapeo de risas y sonrisas
+    if (cleanAction.includes('rie') || cleanAction.includes('ría') || cleanAction.includes('risa') || cleanAction.includes('risita') || cleanAction.includes('jaja') || cleanAction.includes('jeje')) {
+      return ' *giggles* ';
+    }
+    // 2. Mapeo de suspiros y respiraciones
+    if (cleanAction.includes('suspir') || cleanAction.includes('respir') || cleanAction.includes('sopla')) {
+      return ' *sigh* ';
+    }
+    // 3. Mapeo de bostezos
+    if (cleanAction.includes('bostez')) {
+      return ' *yawn* ';
+    }
+    // 4. Mapeo de sollozos y llanto
+    if (cleanAction.includes('llor') || cleanAction.includes('sollozo') || cleanAction.includes('lagrima') || cleanAction.includes('lágrima')) {
+      return ' *crying* ';
+    }
+    // 5. Mapeo de sustos o jadeos (gasp)
+    if (cleanAction.includes('gime') || cleanAction.includes('gemid') || cleanAction.includes('jade') || cleanAction.includes('asusta')) {
+      return ' *gasp* ';
+    }
+    // 6. Mapeo de gritos o enojo
+    if (cleanAction.includes('grit') || cleanAction.includes('enfad') || cleanAction.includes('enoj')) {
+      return ' *screaming* ';
+    }
+    
+    // Si es una descripción de una acción física (ej: *camina*, *mira al suelo*, *cruza los brazos*),
+    // no queremos que ElevenLabs la lea literalmente. La reemplazamos por puntos suspensivos para generar una pequeña pausa natural y realista.
+    return ' ... ';
+  });
+}
+
 // Función para obtener TTS de ElevenLabs para emociones y onomatopeyas
 async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: string): Promise<Buffer> {
   const apiKey = process.env.ELEVENLABS_API_KEY;
   if (!apiKey) {
     throw new Error('ELEVENLABS_API_KEY no está configurada en las variables de entorno.');
   }
+
+  // Formatear el texto para traducir emociones a sonidos reales y limpiar acciones físicas
+  const formattedText = formatTextForElevenLabs(text);
 
   // Voces preestablecidas de ElevenLabs: Bella (Mujer) y Adam (Hombre)
   const voiceId = customVoiceId || (gender === 'male' ? 'pNInz6obpgq9NpudJojf' : 'EXAVITQu4vr4xnSDxMaL');
@@ -113,7 +156,7 @@ async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: s
       'xi-api-key': apiKey,
     },
     body: JSON.stringify({
-      text: text,
+      text: formattedText,
       model_id: 'eleven_multilingual_v2',
       voice_settings: {
         stability: 0.5,
