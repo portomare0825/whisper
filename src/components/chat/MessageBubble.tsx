@@ -234,13 +234,13 @@ export default function MessageBubble({
           console.warn(
             '%c[TTS Engine] ⚠️ Tu API Key falló (problema de facturación/cuenta). Usando Fallback de Google Translate gratis (%s)',
             'color: #d97706; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #fffbeb; border-radius: 4px;',
-            avatar.voice_settings?.gender === 'male' ? 'es-US (Latino)' : 'es-ES (España)'
+            avatar.voice_settings?.gender === 'male' ? 'es-US (Latino)' : 'es-MX (México)'
           );
         } else {
           console.log(
             '%c[TTS Engine] 🔵 Reproduciendo voz de Google Translate Gratis (%s)',
             'color: #2563eb; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #eff6ff; border-radius: 4px;',
-            avatar.voice_settings?.gender === 'male' ? 'es-US (Latino)' : 'es-ES (España)'
+            avatar.voice_settings?.gender === 'male' ? 'es-US (Latino)' : 'es-MX (México)'
           );
         }
 

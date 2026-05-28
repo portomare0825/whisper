@@ -20,8 +20,8 @@ async function getGoogleTranslateTTS(text: string, gender?: string): Promise<Buf
 
   // Alternar acentos de Google para distinguir masculino de femenino en el plan gratuito
   // Masculino: es-US (Español Latinoamericano)
-  // Femenino: es-ES (Español de España)
-  const languageCode = gender === 'male' ? 'es-US' : 'es-ES';
+  // Femenino: es-MX (Español de México / Latino)
+  const languageCode = gender === 'male' ? 'es-US' : 'es-MX';
 
   const buffers: Buffer[] = [];
   for (const chunk of chunks) {
