@@ -142,6 +142,7 @@ export async function POST(req: Request) {
     // RUTA INTELIGENTE: Si hay ElevenLabs configurado Y el texto contiene onomatopeyas/acciones entre asteriscos
     const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_API_KEY !== 'your_elevenlabs_key_here';
     const hasOnomatopoeia = /\*[^*]+\*/.test(text);
+    let elevenLabsErrorDetails: string | null = null;
 
     if (hasElevenLabsKey && hasOnomatopoeia) {
       try {
@@ -153,7 +154,7 @@ export async function POST(req: Request) {
         });
       } catch (elevenErr: any) {
         console.warn('Fallo en la síntesis de ElevenLabs. Usando Google Cloud como fallback:', elevenErr);
-        // Si ElevenLabs falla (por ejemplo, sin saldo), el código sigue de largo y usa Google Cloud
+        elevenLabsErrorDetails = elevenErr instanceof Error ? elevenErr.message : String(elevenErr);
       }
     }
 
@@ -166,7 +167,11 @@ export async function POST(req: Request) {
         const narrationPausedText = text.replace(/\*([^*]+)\*/g, '... $1... ');
         const audioBuffer = await getGoogleTranslateTTS(narrationPausedText, gender);
         const base64Audio = audioBuffer.toString('base64');
-        return NextResponse.json({ audioContent: base64Audio, source: 'google-translate-fallback' });
+        return NextResponse.json({ 
+          audioContent: base64Audio, 
+          source: 'google-translate-fallback-billing-error',
+          elevenLabsError: elevenLabsErrorDetails
+        });
       } catch (fallbackErr: any) {
         console.error('Fallback TTS Error:', fallbackErr);
         return NextResponse.json({ error: 'Fallo al procesar audio en el fallback gratuito' }, { status: 500 });
@@ -208,7 +213,11 @@ export async function POST(req: Request) {
         throw new Error(result.error.message);
       }
 
-      return NextResponse.json({ audioContent: result.audioContent, source: 'google-cloud-premium' });
+      return NextResponse.json({ 
+        audioContent: result.audioContent, 
+        source: 'google-cloud-premium',
+        elevenLabsError: elevenLabsErrorDetails
+      });
     } catch (premiumErr: any) {
       console.warn('Fallo en Google Cloud TTS Premium. Usando fallback de Google Translate:', premiumErr);
       // Fallback a Google Translate si la API Key da error (por ejemplo, por problemas de facturación)

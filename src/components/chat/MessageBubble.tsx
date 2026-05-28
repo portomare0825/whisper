@@ -237,6 +237,12 @@ export default function MessageBubble({
             'color: #059669; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #ecfdf5; border-radius: 4px;',
             avatar.voice_settings?.gender === 'male' ? 'es-US-Neural2-B (Hombre Latino)' : 'es-US-Neural2-A (Mujer Latina A)'
           );
+          if (data.elevenLabsError) {
+            console.warn(
+              '%c[TTS Engine] ⚠️ ElevenLabs falló y se usó Google Cloud como fallback. Detalle: "' + data.elevenLabsError + '"',
+              'color: #d97706; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #fffbeb; border-radius: 4px;'
+            );
+          }
         } else if (data.source === 'google-translate-fallback-billing-error') {
           console.warn(
             '%c[TTS Engine] ⚠️ Tu API Key falló. Detalle: "' + (data.errorDetails || 'Error desconocido') + '". Usando Fallback de Google Translate gratis (%s)',
