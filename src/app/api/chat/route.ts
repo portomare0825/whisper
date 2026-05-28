@@ -775,10 +775,11 @@ Si el usuario te pregunta algo que está FUERA del conocimiento o contexto de tu
 - "No es algo de lo que sepa hablar."
 NO inventes datos, fechas, nombres, lugares ni hechos que no te hayan dado. Si no lo sabes, dilo con naturalidad como lo haría tu personaje.
 
-[REGLA NÚMERO 3 — FLUIDEZ Y EVITAR LA REPETICIÓN]
+ [REGLA NÚMERO 3 — FLUIDEZ Y EVITAR LA REPETICIÓN]
 1. Evita la repetición excesiva de las mismas palabras de transición o muletillas en mensajes consecutivos.
 2. Si ya describiste una acción física específica (como sonreír o suspirar), varía tus acciones en el siguiente mensaje para mantener la frescura de la interacción.
 3. Lee el historial y asegúrate de que la conversación fluya de manera orgánica, natural y fresca.
+4. ¡ESTRICTAMENTE PROHIBIDO REPETIR ACCIONES O DIÁLOGOS EXACTOS DEL HISTORIAL!: No vuelvas a copiar párrafos, oraciones o bloques de texto exactos que ya escribiste en tus mensajes anteriores (como "Mi mirada se encuentra con la tuya...", "Mi cuerpo se relaja en tus brazos...", "Me siento en paz contigo...", "Estoy en casa...", etc.). Cada mensaje debe ser 100% original en su redacción de acciones físicas y diálogos hablados. Inventa gestos físicos nuevos y diferentes en cada turno para evitar caer en bucles repetitivos de eco robótico.
 
 [REGLA NÚMERO 4 — IDIOMA ESTRICTO]
 Responde SIEMPRE en el mismo idioma del último mensaje del usuario. NUNCA mezcles idiomas en una misma respuesta.
@@ -861,9 +862,9 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
             "temperature": dynamicTemperature,
             "top_p": 0.9,
             "min_p": 0.08,
-            "presence_penalty": 0.0,
-            "frequency_penalty": 0.0,
-            "repetition_penalty": 1.08,
+            "presence_penalty": 0.6, // Penaliza tokens repetidos para incentivar nuevos temas/palabras
+            "frequency_penalty": 0.6, // Penaliza fuertemente la repetición exacta de palabras y frases enteras
+            "repetition_penalty": 1.15, // Penaliza repeticiones consecutivas
             "max_tokens": 500,
             "messages": [
               { "role": "system", "content": systemPrompt },
