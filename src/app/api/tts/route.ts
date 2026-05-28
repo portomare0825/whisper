@@ -396,13 +396,13 @@ export async function POST(req: Request) {
     }
 
     // Si el usuario eligió calidad Premium pero no tiene saldo, retornar error
-    if (quality === 'premium' && currentCoins < 1) {
+    if (quality === 'premium' && currentCoins < 5) {
       return NextResponse.json({ 
-        error: 'No tienes monedas suficientes para reproducir con voz ultra-realista. Necesitas al menos 1 🪙.' 
+        error: 'No tienes monedas suficientes para reproducir con voz ultra-realista. Necesitas al menos 5 🪙.' 
       }, { status: 403 });
     }
 
-    const usePremium = quality === 'premium' && currentCoins >= 1;
+    const usePremium = quality === 'premium' && currentCoins >= 5;
     const hasElevenLabsKey = usePremium && !!process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_API_KEY !== 'your_elevenlabs_key_here';
     const hasGoogleKey = !!process.env.GOOGLE_API_KEY && process.env.GOOGLE_API_KEY !== 'your_google_api_key_here';
     const hasOnomatopoeia = /\*[^*]+\*/.test(text);
@@ -430,13 +430,13 @@ export async function POST(req: Request) {
         const combinedAudio = Buffer.concat(audioBuffers);
         const base64Audio = combinedAudio.toString('base64');
 
-        // Descontar una moneda del perfil del usuario por el éxito de la generación premium de ElevenLabs
+        // Descontar 5 monedas del perfil del usuario por el éxito de la generación premium de ElevenLabs
         if (user_id && usePremium) {
           await supabase
             .from('profiles')
-            .update({ coins: currentCoins - 1 })
+            .update({ coins: currentCoins - 5 })
             .eq('id', user_id);
-          console.log(`[TTS API] 🪙 Cobrada 1 moneda a ${user_id} por usar ElevenLabs Híbrido.`);
+          console.log(`[TTS API] 🪙 Cobrada 5 monedas a ${user_id} por usar ElevenLabs Híbrido.`);
         }
 
         return NextResponse.json({ 
@@ -456,13 +456,13 @@ export async function POST(req: Request) {
         const audioBuffer = await getElevenLabsTTS(text, gender, elevenLabsVoiceId);
         const base64Audio = audioBuffer.toString('base64');
 
-        // Descontar una moneda del perfil del usuario por el éxito de la generación premium de ElevenLabs
+        // Descontar 5 monedas del perfil del usuario por el éxito de la generación premium de ElevenLabs
         if (user_id && usePremium) {
           await supabase
             .from('profiles')
-            .update({ coins: currentCoins - 1 })
+            .update({ coins: currentCoins - 5 })
             .eq('id', user_id);
-          console.log(`[TTS API] 🪙 Cobrada 1 moneda a ${user_id} por usar ElevenLabs Completo.`);
+          console.log(`[TTS API] 🪙 Cobrada 5 monedas a ${user_id} por usar ElevenLabs Completo.`);
         }
 
         return NextResponse.json({ 

@@ -438,8 +438,8 @@ export default function MessageBubble({
 
   const playPremiumAudio = async () => {
     setShowQualityMenu(false);
-    if (userCoins < 1) {
-      alert("No tienes suficientes monedas para escuchar la voz premium. Necesitas al menos 1 🪙.");
+    if (userCoins < 5) {
+      alert("No tienes suficientes monedas para escuchar la voz premium. Necesitas al menos 5 🪙.");
       if (onBuyCoins) onBuyCoins();
       return;
     }
@@ -510,7 +510,7 @@ export default function MessageBubble({
                       >
                         <span>👑</span>
                         <div className="flex flex-col">
-                          <span className="flex items-center gap-1">Voz Sensual Premium <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
+                          <span className="flex items-center gap-1">Voz Sensual Premium <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">5 🪙</span></span>
                           <span className="text-[8px] text-muted-foreground">Voces realistas con emociones</span>
                         </div>
                       </button>
@@ -655,7 +655,7 @@ export default function MessageBubble({
                         >
                           <span>👑</span>
                           <div className="flex flex-col text-left">
-                            <span className="flex items-center gap-1 font-semibold">Voz Sensual Premium <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">1 🪙</span></span>
+                            <span className="flex items-center gap-1 font-semibold">Voz Sensual Premium <span className="bg-amber-400/20 text-amber-300 px-1 py-0.2 rounded text-[7px] border border-amber-400/30">5 🪙</span></span>
                             <span className="text-[8px] text-muted-foreground">Voces realistas con emociones</span>
                           </div>
                         </button>
