@@ -82,7 +82,61 @@ function isDialogueHeuristic(text: string): boolean {
 // Separa *acciones* de diálogos, aplica estilos diferentes y filtra contenido meta-narrativo
 // ═══════════════════════════════════════════════════════════════════
 function NovelRenderer({ text }: { text: string }) {
-  // Dividir el texto por segmentos: *acción* vs diálogo normal
+  // 1. INTENTAR PARSEO Y RENDERIZACIÓN POR ETIQUETAS XML ESTRUCTURADAS
+  const hasXmlTags = /<(narration|dialogue)>[\s\S]*?<\/\1>/i.test(text);
+
+  if (hasXmlTags) {
+    const tagRegex = /<(narration|dialogue)>([\s\S]*?)<\/\1>/gi;
+    const elements: React.ReactNode[] = [];
+    let match;
+    let index = 0;
+
+    while ((match = tagRegex.exec(text)) !== null) {
+      const type = match[1].toLowerCase();
+      const content = match[2].trim();
+
+      if (content) {
+        if (type === 'narration') {
+          const cleanLower = content.toLowerCase();
+          // Filtrar descripciones de voz redundantes
+          const isVoiceDescription = 
+            cleanLower.includes('mi voz') || 
+            cleanLower.includes('mi tono') || 
+            cleanLower.includes('hablo con') || 
+            cleanLower.includes('susurro') || 
+            cleanLower.includes('con voz') || 
+            cleanLower.includes('diciendo con') || 
+            cleanLower.includes('digo con') ||
+            cleanLower.includes('hablar con');
+
+          if (isVoiceDescription) continue;
+
+          elements.push(
+            <em
+              key={`n-${index}`}
+              className="not-italic"
+              style={{ 
+                fontStyle: 'italic', 
+                opacity: 0.75, 
+                fontSize: '0.92em',
+                letterSpacing: '0.01em'
+              }}
+            >
+              *{content}* 
+            </em>
+          );
+        } else {
+          elements.push(<span key={`d-${index}`}>{content} </span>);
+        }
+        index++;
+      }
+    }
+    if (elements.length > 0) {
+      return <>{elements}</>;
+    }
+  }
+
+  // 2. FALLBACK POR ASTERISCOS (Compatibilidad con historial clásico)
   const parts = text.split(/(\*[^*]+\*)/g);
 
   return (

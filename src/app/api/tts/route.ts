@@ -195,23 +195,66 @@ function isDialogueHeuristic(text: string): boolean {
   return false;
 }
 
-// Divide el texto en segmentos alternados de narración (dentro de asteriscos) y diálogos (fuera de ellos)
+// Divide el texto en segmentos alternados de narración (dentro de asteriscos o tags <narration>) y diálogos (fuera de ellos o tags <dialogue>)
 // Incluye un filtro inteligente para omitir las acotaciones redundantes que describen el tono de voz
 function segmentText(text: string): TextSegment[] {
   const segments: TextSegment[] = [];
+
+  // 1. INTENTAR PARSEO ESTRUCTURADO POR ETIQUETAS XML (<narration> y <dialogue>)
+  const hasXmlTags = /<(narration|dialogue)>[\s\S]*?<\/\1>/i.test(text);
+
+  if (hasXmlTags) {
+    const tagRegex = /<(narration|dialogue)>([\s\S]*?)<\/\1>/gi;
+    let match;
+
+    while ((match = tagRegex.exec(text)) !== null) {
+      const type = match[1].toLowerCase();
+      const content = match[2].trim();
+
+      if (content) {
+        if (type === 'narration') {
+          const cleanLower = content.toLowerCase();
+          // Filtrar descripciones de voz redundantes
+          const isVoiceDescription = 
+            cleanLower.includes('mi voz') || 
+            cleanLower.includes('mi tono') || 
+            cleanLower.includes('hablo con') || 
+            cleanLower.includes('susurro') || 
+            cleanLower.includes('con voz') || 
+            cleanLower.includes('diciendo con') || 
+            cleanLower.includes('digo con') ||
+            cleanLower.includes('hablar con');
+
+          if (isVoiceDescription) {
+            console.log(`[TTS Router XML] 🚫 Omitiendo descripción de voz redundante: "${content}"`);
+            continue;
+          }
+          segments.push({ text: content, isNarration: true });
+        } else {
+          segments.push({ text: content, isNarration: false });
+        }
+      }
+    }
+
+    if (segments.length > 0) {
+      console.log(`[TTS Router] 🎯 Procesado con éxito usando formato estructurado XML (${segments.length} segmentos)`);
+      return segments;
+    }
+  }
+
+  // 2. FALLBACK: PARSEO POR ASTERISCOS (Compatibilidad con historial antiguo y libre)
+  console.log('[TTS Router] ⚠️ Sin etiquetas XML detectadas. Usando parser de asteriscos por fallback...');
   const regex = /(\*[^*]+\*)/g;
   const parts = text.split(regex);
 
   for (const part of parts) {
     if (!part) continue;
     if (part.startsWith('*') && part.endsWith('*')) {
-      // Remover los asteriscos externos para que la IA no intente leerlos
       const cleanNarration = part.slice(1, -1).trim();
       if (cleanNarration) {
         const cleanLower = cleanNarration.toLowerCase();
         
         // FILTRO INTELIGENTE: Omitir frases meta-narrativas que describen cómo habla el avatar
-        // (ya que ElevenLabs de hecho hablará con ese tono, haciéndolo redundante e interruptivo)
         const isVoiceDescription = 
           cleanLower.includes('mi voz') || 
           cleanLower.includes('mi tono') || 
@@ -223,13 +266,13 @@ function segmentText(text: string): TextSegment[] {
           cleanLower.includes('hablar con');
 
         if (isVoiceDescription) {
-          console.log(`[TTS Router] 🚫 Omitiendo descripción de voz redundante: "${cleanNarration}"`);
+          console.log(`[TTS Router Asteriscos] 🚫 Omitiendo descripción de voz redundante: "${cleanNarration}"`);
           continue; // Omitir y no generar audio para este segmento
         }
 
         // HEURÍSTICA: Si el texto entre asteriscos es en realidad DIÁLOGO directo (ej: *Te amo*, *Gracias*)
         if (isDialogueHeuristic(cleanNarration)) {
-          console.log(`[TTS Router] 🗣️ Detectado diálogo dentro de asteriscos: "${cleanNarration}" -> Enviando a ElevenLabs`);
+          console.log(`[TTS Router Asteriscos] 🗣️ Detectado diálogo dentro de asteriscos: "${cleanNarration}" -> Enviando a ElevenLabs`);
           segments.push({ text: cleanNarration, isNarration: false });
         } else {
           segments.push({ text: cleanNarration, isNarration: true });
