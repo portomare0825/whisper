@@ -336,10 +336,10 @@ async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: s
   // Formatear el texto para traducir emociones a sonidos reales y limpiar acciones físicas
   const formattedText = formatTextForElevenLabs(text);
 
-  // Voces preestablecidas premium universales oficiales de ElevenLabs (100% garantizadas de existir en cualquier cuenta):
-  // Femenina: Rachel (21m00Tcm4TlvDq8ikWAM) - una de las mejores voces oficiales, sumamente cálida, dulce y sensual
-  // Masculina: Antoni (ErXwobaYiN019PkySvjV) - voz profunda, sumamente sensual, cálida y de gran calidad
-  const voiceId = customVoiceId || (gender === 'male' ? 'ErXwobaYiN019PkySvjV' : '21m00Tcm4TlvDq8ikWAM');
+  // Voces básicas por defecto de ElevenLabs (100% compatibles con cuentas GRATUITAS sin dar error de plan):
+  // Femenina: Bella (EXAVITQu4vr4xnSDxMaL) - muy dulce y fluida
+  // Masculina: Adam (pNInz6obpgq9NpudJojf) - profunda y natural
+  const voiceId = customVoiceId || (gender === 'male' ? 'pNInz6obpgq9NpudJojf' : 'EXAVITQu4vr4xnSDxMaL');
   // Especificar output_format a mp3_44100_128 para garantizar coincidencia de sample rates al unir buffers
   const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`;
   

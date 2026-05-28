@@ -369,7 +369,7 @@ export default function MessageBubble({
           console.log(
             '%c[TTS Engine] 👑 Reproduciendo voz ULTRA-REALISTA de ElevenLabs con emociones (%s)', 
             'color: #7c3aed; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #f5f3ff; border-radius: 4px;',
-            avatar.voice_settings?.gender === 'male' ? 'Antoni (Hombre Sensual Premium)' : 'Rachel (Mujer Sensual Premium)'
+            avatar.voice_settings?.gender === 'male' ? 'Adam (Hombre Sensual / Free Tier)' : 'Bella (Mujer Sensual / Free Tier)'
           );
         } else if (data.source === 'google-cloud-premium') {
           console.log(
