@@ -47,8 +47,8 @@ export async function GET(req: Request) {
       // Normalizar el planName para evitar errores por tildes o mayúsculas en el pack
       const planNameNormalized = planName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       
-      let coinsToAward = 10;
-      if (planNameNormalized.includes('basico')) coinsToAward = 10;
+      let coinsToAward = 15;
+      if (planNameNormalized.includes('basico')) coinsToAward = 15;
       else if (planNameNormalized.includes('popular')) coinsToAward = 50;
       else if (planNameNormalized.includes('premium')) coinsToAward = 200;
 
@@ -117,9 +117,9 @@ export async function GET(req: Request) {
       });
 
       // Otorgar monedas iniciales de suscripción
-      let coinsToAward = 10;
-      if (planNameLower.includes('semanal')) coinsToAward = 40;
-      else if (planNameLower.includes('mensual') || planNameLower.includes('pro')) coinsToAward = 150;
+      let coinsToAward = 15;
+      if (planNameLower.includes('semanal')) coinsToAward = 45;
+      else if (planNameLower.includes('mensual') || planNameLower.includes('pro')) coinsToAward = 90;
 
       await adminClient.rpc('add_coins', {
         user_id_param: userId,

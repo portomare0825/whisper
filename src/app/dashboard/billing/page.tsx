@@ -29,6 +29,7 @@ const plans = [
     period: 'día',
     description: 'Acceso total de prueba intensiva.',
     features: [
+      '15 Monedas de regalo',
       'Avatares ilimitados',
       'Mensajes ilimitados',
       'Roleplay explícito sin censura',
@@ -45,6 +46,7 @@ const plans = [
     period: 'semana',
     description: 'La opción flexible favorita.',
     features: [
+      '45 Monedas de regalo',
       'Avatares ilimitados',
       'Mensajes ilimitados',
       'Roleplay explícito sin censura',
@@ -63,6 +65,7 @@ const plans = [
     period: 'mes',
     description: 'El compañero perfecto a largo plazo.',
     features: [
+      '90 Monedas de regalo',
       'Avatares ilimitados',
       'Mensajes ilimitados',
       'Roleplay explícito sin censura',

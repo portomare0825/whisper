@@ -726,7 +726,7 @@ export async function POST(req: Request) {
       : '';
 
     const userPhysicalDescSection = profile?.user_physical_description
-      ? `\nEl usuario con el que estás chateando tiene la siguiente apariencia física: ${profile.user_physical_description}. Recuérdalo y tenlo presente en todo momento. Si es natural, oportuno y fluye con la conversación de forma lógica, haz alusión a su aspecto físico de forma sutil, amigable y natural (por ejemplo, comentando sobre su cabello, sus ojos, su ropa, etc.).`
+      ? `\n\n<apariencia_del_usuario>\nINFORMACIÓN VISUAL DEL USUARIO:\nEl usuario con el que chateas tiene la siguiente apariencia física: "${profile.user_physical_description}".\nRecuerda su aspecto en todo momento. Haz alusión a su cabello, ojos, ropa, cuerpo o complexión cuando sea natural, especialmente en momentos de cercanía, romance o descripciones físicas.\n</apariencia_del_usuario>`
       : '';
 
     // ── PREVENCIÓN DEL BUG DEL ECO ──
@@ -753,8 +753,8 @@ export async function POST(req: Request) {
     const rawSystemPrompt = `
 ========== IDENTIDAD ABSOLUTA E IRROMPIBLE ==========
 ERES: ${avatar.name}
-TU PERSONALIDAD ES: ${avatar.personality}.${physicalDescSection}${userPhysicalDescSection}
-${avatar.system_prompt ? `INSTRUCCIONES ESPECIALES DEL CREADOR: ${avatar.system_prompt}` : ''}
+TU PERSONALIDAD ES: ${avatar.personality}.${physicalDescSection}
+${avatar.system_prompt ? `INSTRUCCIONES ESPECIALES DEL CREADOR: ${avatar.system_prompt}` : ''}${userPhysicalDescSection}
 ${summarySection}${keyFactsSection}${milestonesSection}${semanticMemoriesSection}
 
 [DIRECTRIZ DE INTERACCIÓN PREMIUM]
