@@ -26,8 +26,34 @@ const EMOTION_STYLES: Record<string, { border: string; glow: string; label: stri
 };
 
 // ═══════════════════════════════════════════════════════════════════
+// Heurística para detectar diálogos metidos erróneamente en asteriscos por la IA
+function isDialogueHeuristic(text: string): boolean {
+  const clean = text.toLowerCase().trim();
+  const dialogueIndicators = [
+    'te amo', 'gracias', 'contigo', 'me encanta', 'quiero', 'de ti', 'para mí', 'para mi',
+    'haces sentir', 'me miras', 'me tocas', 'te extrañ', 'te extran', 'te quier',
+    'eres ', 'mi hogar', 'lo siento', 'por favor', 'tú ', 'tu '
+  ];
+
+  for (const indicator of dialogueIndicators) {
+    if (clean.includes(indicator)) {
+      return true;
+    }
+  }
+
+  const words = clean.split(/\s+/);
+  if (words.length <= 4 && words.length > 0) {
+    const firstWord = words[0];
+    if (['te', 'me', 'amo', 'quiero', 'siento', 'gracias', 'hola', 'adiós', 'adios'].includes(firstWord)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // UTILIDAD: Renderizador de Modo Novela
-// Separa *acciones* de diálogos y aplica estilos diferentes
+// Separa *acciones* de diálogos, aplica estilos diferentes y filtra contenido meta-narrativo
 // ═══════════════════════════════════════════════════════════════════
 function NovelRenderer({ text }: { text: string }) {
   // Dividir el texto por segmentos: *acción* vs diálogo normal
@@ -36,8 +62,35 @@ function NovelRenderer({ text }: { text: string }) {
   return (
     <>
       {parts.map((part, i) => {
+        if (!part) return null;
+        
         const isAction = part.startsWith('*') && part.endsWith('*') && part.length > 2;
+        
         if (isAction) {
+          const cleanText = part.slice(1, -1).trim();
+          const cleanLower = cleanText.toLowerCase();
+
+          // 1. FILTRAR descripciones de voz redundantes
+          const isVoiceDescription = 
+            cleanLower.includes('mi voz') || 
+            cleanLower.includes('mi tono') || 
+            cleanLower.includes('hablo con') || 
+            cleanLower.includes('susurro') || 
+            cleanLower.includes('con voz') || 
+            cleanLower.includes('diciendo con') || 
+            cleanLower.includes('digo con') ||
+            cleanLower.includes('hablar con');
+
+          if (isVoiceDescription) {
+            return null; // Omitir del renderizado visual
+          }
+
+          // 2. Si es diálogo directo metido en asteriscos, renderizarlo como texto normal sin asteriscos
+          if (isDialogueHeuristic(cleanText)) {
+            return <span key={i}>{cleanText} </span>;
+          }
+
+          // 3. Renderizar como acción física itálica normal (con sus asteriscos limpios)
           return (
             <em
               key={i}
@@ -49,10 +102,12 @@ function NovelRenderer({ text }: { text: string }) {
                 letterSpacing: '0.01em'
               }}
             >
-              {part}
+              *{cleanText}* 
             </em>
           );
         }
+
+        // Segmentos fuera de asteriscos (diálogos por defecto)
         return <span key={i}>{part}</span>;
       })}
     </>
