@@ -228,7 +228,7 @@ export default function MessageBubble({
           console.log(
             '%c[TTS Engine] 🟢 Reproduciendo voz PREMIUM de Google Cloud oficial (%s)', 
             'color: #059669; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #ecfdf5; border-radius: 4px;',
-            avatar.voice_settings?.gender === 'male' ? 'es-US-Neural2-B (Hombre Latino)' : 'es-MX-Neural2-C (Mujer Latina C)'
+            avatar.voice_settings?.gender === 'male' ? 'es-US-Neural2-B (Hombre Latino)' : 'es-MX-Neural2-A (Mujer Latina A)'
           );
         } else if (data.source === 'google-translate-fallback-billing-error') {
           console.warn(

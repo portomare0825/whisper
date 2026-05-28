@@ -121,7 +121,7 @@ export async function POST(req: Request) {
 
     // Si la API Key está configurada, intentar usar Google Cloud TTS Premium
     try {
-      const voiceName = gender === 'male' ? 'es-US-Neural2-B' : 'es-MX-Neural2-C';
+      const voiceName = gender === 'male' ? 'es-US-Neural2-B' : 'es-MX-Neural2-A';
       const ssmlGender = gender === 'male' ? 'MALE' : 'FEMALE';
       const languageCode = gender === 'male' ? 'es-US' : 'es-MX';
 
