@@ -121,7 +121,7 @@ export async function POST(req: Request) {
 
     // Si la API Key está configurada, intentar usar Google Cloud TTS Premium
     try {
-      const voiceName = gender === 'male' ? 'es-ES-Standard-B' : 'es-ES-Standard-A';
+      const voiceName = gender === 'male' ? 'es-US-Neural2-B' : 'es-US-Neural2-A';
       const ssmlGender = gender === 'male' ? 'MALE' : 'FEMALE';
 
       // Convertimos el texto original en SSML enriquecido para diferenciar la narración del diálogo
@@ -135,7 +135,7 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           input: { ssml: ssmlText }, // Usamos 'ssml' en lugar de 'text'
           voice: {
-            languageCode: 'es-ES',
+            languageCode: 'es-US',
             name: voiceName,
             ssmlGender: ssmlGender,
           },
