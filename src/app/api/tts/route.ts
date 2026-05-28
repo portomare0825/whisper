@@ -141,6 +141,53 @@ interface TextSegment {
   isNarration: boolean;
 }
 
+// Heurística para detectar si una frase entre asteriscos es en realidad un diálogo directo
+// (el modelo de lenguaje a veces mete diálogos en voz baja o susurros en asteriscos por error)
+function isDialogueHeuristic(text: string): boolean {
+  const clean = text.toLowerCase().trim();
+  
+  // Fuertes indicadores de diálogo en primera o segunda persona hablando con el usuario
+  const dialogueIndicators = [
+    'te amo',
+    'gracias',
+    'contigo',
+    'me encanta',
+    'quiero',
+    'de ti',
+    'para mí',
+    'para mi',
+    'haces sentir',
+    'me miras',
+    'me tocas',
+    'te extrañ',
+    'te extran',
+    'te quier',
+    'eres ',
+    'mi hogar',
+    'lo siento',
+    'por favor',
+    'tú ',
+    'tu '
+  ];
+
+  for (const indicator of dialogueIndicators) {
+    if (clean.includes(indicator)) {
+      return true;
+    }
+  }
+
+  // Si la frase es muy corta (menos de 4 palabras) y empieza con pronombres o expresiones directas
+  const words = clean.split(/\s+/);
+  if (words.length <= 4 && words.length > 0) {
+    const firstWord = words[0];
+    if (['te', 'me', 'amo', 'quiero', 'siento', 'gracias', 'hola', 'adiós', 'adios'].includes(firstWord)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 // Divide el texto en segmentos alternados de narración (dentro de asteriscos) y diálogos (fuera de ellos)
 // Incluye un filtro inteligente para omitir las acotaciones redundantes que describen el tono de voz
 function segmentText(text: string): TextSegment[] {
@@ -173,7 +220,13 @@ function segmentText(text: string): TextSegment[] {
           continue; // Omitir y no generar audio para este segmento
         }
 
-        segments.push({ text: cleanNarration, isNarration: true });
+        // HEURÍSTICA: Si el texto entre asteriscos es en realidad DIÁLOGO directo (ej: *Te amo*, *Gracias*)
+        if (isDialogueHeuristic(cleanNarration)) {
+          console.log(`[TTS Router] 🗣️ Detectado diálogo dentro de asteriscos: "${cleanNarration}" -> Enviando a ElevenLabs`);
+          segments.push({ text: cleanNarration, isNarration: false });
+        } else {
+          segments.push({ text: cleanNarration, isNarration: true });
+        }
       }
     } else {
       const cleanDialogue = part.trim();
