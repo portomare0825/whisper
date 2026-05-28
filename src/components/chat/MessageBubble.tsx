@@ -215,6 +215,7 @@ export default function MessageBubble({
           body: JSON.stringify({
             text: message.content,
             gender: avatar.voice_settings?.gender || 'female',
+            elevenLabsVoiceId: avatar.voice_settings?.elevenlabs_voice_id,
           }),
         });
 
@@ -224,7 +225,13 @@ export default function MessageBubble({
           throw new Error(data.error || 'Fallo en la API de TTS');
         }
 
-        if (data.source === 'google-cloud-premium') {
+        if (data.source === 'elevenlabs-premium') {
+          console.log(
+            '%c[TTS Engine] 👑 Reproduciendo voz ULTRA-REALISTA de ElevenLabs con emociones (%s)', 
+            'color: #7c3aed; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #f5f3ff; border-radius: 4px;',
+            avatar.voice_settings?.gender === 'male' ? 'Adam (Hombre Premium)' : 'Bella (Mujer Premium)'
+          );
+        } else if (data.source === 'google-cloud-premium') {
           console.log(
             '%c[TTS Engine] 🟢 Reproduciendo voz PREMIUM de Google Cloud oficial (%s)', 
             'color: #059669; font-weight: bold; font-size: 11px; padding: 2px 6px; background-color: #ecfdf5; border-radius: 4px;',

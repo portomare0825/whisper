@@ -95,12 +95,66 @@ function convertToSSML(text: string): string {
   return ssml;
 }
 
+// Función para obtener TTS de ElevenLabs para emociones y onomatopeyas
+async function getElevenLabsTTS(text: string, gender?: string, customVoiceId?: string): Promise<Buffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    throw new Error('ELEVENLABS_API_KEY no está configurada en las variables de entorno.');
+  }
+
+  // Voces preestablecidas de ElevenLabs: Bella (Mujer) y Adam (Hombre)
+  const voiceId = customVoiceId || (gender === 'male' ? 'pNInz6obpgq9NpudJojf' : 'EXAVITQu4vr4xnSDxMaL');
+  const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+  
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'xi-api-key': apiKey,
+    },
+    body: JSON.stringify({
+      text: text,
+      model_id: 'eleven_multilingual_v2',
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.75,
+      }
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`ElevenLabs API Error: ${res.statusText} - ${errorText}`);
+  }
+
+  const arrayBuffer = await res.arrayBuffer();
+  return Buffer.from(arrayBuffer);
+}
+
 export async function POST(req: Request) {
   try {
-    const { text, gender } = await req.json();
+    const { text, gender, elevenLabsVoiceId } = await req.json();
 
     if (!text) {
       return NextResponse.json({ error: 'Falta el texto para la síntesis de voz' }, { status: 400 });
+    }
+
+    // RUTA INTELIGENTE: Si hay ElevenLabs configurado Y el texto contiene onomatopeyas/acciones entre asteriscos
+    const hasElevenLabsKey = !!process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_API_KEY !== 'your_elevenlabs_key_here';
+    const hasOnomatopoeia = /\*[^*]+\*/.test(text);
+
+    if (hasElevenLabsKey && hasOnomatopoeia) {
+      try {
+        const audioBuffer = await getElevenLabsTTS(text, gender, elevenLabsVoiceId);
+        const base64Audio = audioBuffer.toString('base64');
+        return NextResponse.json({ 
+          audioContent: base64Audio, 
+          source: 'elevenlabs-premium' 
+        });
+      } catch (elevenErr: any) {
+        console.warn('Fallo en la síntesis de ElevenLabs. Usando Google Cloud como fallback:', elevenErr);
+        // Si ElevenLabs falla (por ejemplo, sin saldo), el código sigue de largo y usa Google Cloud
+      }
     }
 
     const apiKey = process.env.GOOGLE_API_KEY;
