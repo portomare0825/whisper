@@ -1150,20 +1150,23 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     if (messages.length === 0) return;
     
     const lastMessage = messages[messages.length - 1];
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     
     if (lastMessage.role === 'user') {
       // Caso A: Solo borrar el último mensaje del usuario
-      try {
-        const { error } = await supabase
-          .from('messages')
-          .delete()
-          .eq('id', lastMessage.id);
-        
-        if (error) {
-          console.warn('No se pudo borrar el mensaje del usuario de la base de datos:', error);
+      if (uuidRegex.test(lastMessage.id)) {
+        try {
+          const { error } = await supabase
+            .from('messages')
+            .delete()
+            .eq('id', lastMessage.id);
+          
+          if (error) {
+            console.warn('No se pudo borrar el mensaje del usuario de la base de datos:', error);
+          }
+        } catch (err) {
+          console.warn('Error limpiando el mensaje editado:', err);
         }
-      } catch (err) {
-        console.warn('Error limpiando el mensaje editado:', err);
       }
       setMessages(prev => prev.slice(0, -1));
     } else if (lastMessage.role === 'avatar') {
@@ -1171,19 +1174,23 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       const secondLastMessage = messages[messages.length - 2];
       if (secondLastMessage && secondLastMessage.role === 'user') {
         try {
-          // Borrar mensaje del avatar
-          const { error: errAvatar } = await supabase
-            .from('messages')
-            .delete()
-            .eq('id', lastMessage.id);
-          if (errAvatar) console.warn('No se pudo borrar el mensaje del avatar:', errAvatar);
+          // Borrar mensaje del avatar si es un UUID válido
+          if (uuidRegex.test(lastMessage.id)) {
+            const { error: errAvatar } = await supabase
+              .from('messages')
+              .delete()
+              .eq('id', lastMessage.id);
+            if (errAvatar) console.warn('No se pudo borrar el mensaje del avatar:', errAvatar);
+          }
           
-          // Borrar mensaje del usuario
-          const { error: errUser } = await supabase
-            .from('messages')
-            .delete()
-            .eq('id', secondLastMessage.id);
-          if (errUser) console.warn('No se pudo borrar el mensaje del usuario:', errUser);
+          // Borrar mensaje del usuario si es un UUID válido
+          if (uuidRegex.test(secondLastMessage.id)) {
+            const { error: errUser } = await supabase
+              .from('messages')
+              .delete()
+              .eq('id', secondLastMessage.id);
+            if (errUser) console.warn('No se pudo borrar el mensaje del usuario:', errUser);
+          }
         } catch (err) {
           console.warn('Error limpiando mensajes al editar:', err);
         }
