@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image as ImageIcon, Shirt, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders } from 'lucide-react';
+import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { PremiumPoseSelector } from './PremiumPoseSelector';
@@ -47,10 +47,6 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   // Estados para el sistema de monedas y cambio de outfit
   const [coins, setCoins] = useState<number>(0);
   const [loadingCoins, setLoadingCoins] = useState<boolean>(true);
-  const [showOutfitModal, setShowOutfitModal] = useState(false);
-  const [outfitPrompt, setOutfitPrompt] = useState('');
-  const [changingOutfit, setChangingOutfit] = useState(false);
-  const [outfitError, setOutfitError] = useState('');
   
   // Estado para la generación asíncrona de outfits
   const [pendingOutfitJob, setPendingOutfitJob] = useState<{ generation_id: string; prompt: string; is_free: boolean } | null>(null);
@@ -853,49 +849,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }
   };
 
-  const handleOutfitChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!outfitPrompt.trim() || changingOutfit) return;
-    
-    if (coins < 10) {
-      setOutfitError('No tienes suficientes monedas para cambiar el outfit.');
-      return;
-    }
-    
-    setChangingOutfit(true);
-    setOutfitError('');
-    
-    try {
-      const response = await fetch('/api/outfit/change', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          conversation_id: conversation.id,
-          avatar_id: avatar.id,
-          prompt: outfitPrompt.trim()
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'Error al cambiar de ropa.');
-      }
-      
-      // Encolado exitosamente
-      const job = {
-        generation_id: data.generation_id,
-        prompt: outfitPrompt.trim(),
-        is_free: false
-      };
-      
-      setPendingOutfitJob(job);
-      localStorage.setItem(`pending-outfit-${conversation.id}`, JSON.stringify(job));
-    } catch (err: any) {
-      setOutfitError(err.message || 'Error al conectar con el servidor.');
-      setChangingOutfit(false);
-    }
-  };
+
 
   const handlePoseChange = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1481,15 +1435,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             <span className="text-amber-400 font-bold">🪙</span>
           </button>
 
-          {/* Botón de cambio de outfit para móvil (oculto en lg) */}
-          <button
-            type="button"
-            onClick={() => setShowOutfitModal(true)}
-            title="Cambiar outfit (10 monedas)"
-            className="lg:hidden p-1.5 md:p-2.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg md:rounded-xl transition-all border border-primary/20 flex items-center justify-center cursor-pointer"
-          >
-            <Shirt className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          </button>
+
 
           {/* Botón de cambio de pose para móvil (oculto en lg) */}
           <button
@@ -1617,14 +1563,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             </div>
             {/* Botones de acciones para escritorio */}
             <div className="absolute top-4 right-4 flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={() => setShowOutfitModal(true)}
-                title="Cambiar outfit de forma manual (10 monedas)"
-                className="bg-primary/30 hover:bg-primary/50 text-primary backdrop-blur-md p-2.5 rounded-full border border-primary/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-primary/20 flex items-center justify-center cursor-pointer"
-              >
-                <Shirt className="w-5 h-5" />
-              </button>
+
               <button
                 type="button"
                 onClick={() => setShowPoseModal(true)}
@@ -1921,146 +1860,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         </div>
       </div>
 
-      {/* Modal de Cambio de Outfit Manual */}
-      {showOutfitModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto glass-morphism rounded-3xl border border-primary/30 p-6 md:p-8 text-center shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {/* Adornos de fondo */}
-            <div className="absolute -top-10 -left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
-            <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl" />
-            
-            {/* Botón de cerrar */}
-            {!changingOutfit && (
-              <button 
-                onClick={() => { setShowOutfitModal(false); setOutfitPrompt(''); setOutfitError(''); }}
-                className="absolute top-4 right-4 text-muted-foreground hover:text-white transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            )}
 
-            {changingOutfit ? (
-              <div className="py-8 flex flex-col items-center justify-center space-y-6">
-                <div className="relative w-20 h-20 flex items-center justify-center">
-                  <div className="absolute inset-0 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-                  <Shirt className="w-8 h-8 text-primary animate-pulse" />
-                  <Sparkles className="w-4 h-4 text-amber-400 absolute top-0 right-0 animate-bounce" />
-                </div>
-                <div className="space-y-2">
-                  <h4 className="text-xl font-bold text-white tracking-wide">
-                    Diseñando nueva ropa...
-                  </h4>
-                  <p className="text-sm text-white/60 max-w-xs mx-auto animate-pulse">
-                    Nuestra modista de IA está confeccionando el look. Esto tomará unos segundos.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleOutfitChange} className="space-y-6">
-                {/* Icono de percha */}
-                <div className="w-16 h-16 bg-primary/15 rounded-2xl flex items-center justify-center mx-auto border border-primary/30">
-                  <Shirt className="w-8 h-8 text-primary" />
-                </div>
-
-                {/* Título */}
-                <div className="space-y-1">
-                  <h3 className="text-2xl font-bold text-white tracking-tight">
-                    Cambiar Look de {avatar.name}
-                  </h3>
-                  <p className="text-white/60 text-xs md:text-sm">
-                    Personaliza la ropa de tu avatar. Cada cambio cuesta <span className="text-amber-400 font-semibold">10 monedas</span>.
-                  </p>
-                </div>
-
-                {/* Saldo de monedas actual en el modal */}
-                <div className="flex items-center justify-between bg-white/5 border border-white/10 px-4 py-2.5 rounded-2xl text-xs md:text-sm">
-                  <span className="text-white/60">Tu saldo actual:</span>
-                  <div className="flex items-center gap-1 font-bold">
-                    <span className="gold-gradient">{coins}</span>
-                    <span className="text-amber-400">🪙</span>
-                  </div>
-                </div>
-
-                {coins < 10 ? (
-                  <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4 space-y-4 text-center">
-                    <p className="text-xs text-destructive-foreground font-semibold leading-relaxed">
-                      No tienes suficientes monedas para realizar esta acción (Costo: 10 🪙).
-                    </p>
-                    <a
-                      href="/dashboard/billing"
-                      className="premium-button inline-flex w-full py-3 rounded-xl font-bold text-xs justify-center items-center gap-2 shadow-lg"
-                    >
-                      Obtener monedas / Plan Pro <Zap className="w-4 h-4 text-black fill-current" />
-                    </a>
-                  </div>
-                ) : (
-                  <div className="space-y-4 text-left">
-                    <label className="text-xs font-bold text-white/80 uppercase tracking-wider block ml-1">
-                      ¿Qué ropa quieres que use?
-                    </label>
-                    <textarea
-                      value={outfitPrompt}
-                      onChange={(e) => setOutfitPrompt(e.target.value)}
-                      placeholder="Ej. Un vestido largo de gala rojo, un bikini deportivo en la playa, ropa casual con jeans y polera blanca..."
-                      required
-                      rows={3}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 outline-none transition-all placeholder:text-muted-foreground/40 text-sm text-white resize-none"
-                    />
-
-                    {/* Ejemplos de prompts rápidos */}
-                    <div className="space-y-1.5">
-                      <span className="text-[10px] text-white/50 font-semibold uppercase tracking-wider ml-1">Sugerencias rápidas:</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {[
-                          'Un vestido elegante de noche negro',
-                          'Traje de baño de dos piezas en la piscina',
-                          'Ropa deportiva ajustada en el gimnasio',
-                          'Outfit casual de primavera con jeans y blusa'
-                        ].map((suggestion, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => setOutfitPrompt(suggestion)}
-                            className="text-[11px] text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 rounded-lg px-2.5 py-1.5 transition-colors cursor-pointer"
-                          >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {outfitError && (
-                  <p className="text-xs text-destructive font-semibold text-center animate-pulse">
-                    {outfitError}
-                  </p>
-                )}
-
-                {/* Botones de acción */}
-                <div className="flex gap-3">
-                  <button 
-                    type="button"
-                    onClick={() => { setShowOutfitModal(false); setOutfitPrompt(''); setOutfitError(''); }}
-                    className="flex-1 py-3.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white/70 transition-colors text-sm font-semibold cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  {coins >= 10 && (
-                    <button 
-                      type="submit"
-                      disabled={!outfitPrompt.trim() || changingOutfit}
-                      className="flex-1 premium-button py-3.5 rounded-xl text-primary-foreground font-bold text-sm shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-transform flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:scale-100"
-                    >
-                      Cambiar Outfit (-10 🪙)
-                    </button>
-                  )}
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Modal de Cambio de Pose y Expresión */}
       {showPoseModal && (
