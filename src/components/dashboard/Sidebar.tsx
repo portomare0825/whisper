@@ -121,6 +121,12 @@ export default function Sidebar() {
             const checkPending = async (isInitial = false) => {
               try {
                 const res = await fetch('/api/avatars/pending');
+                if (res.status === 401 || res.status === 403) {
+                  if (intervalId) {
+                    clearInterval(intervalId);
+                  }
+                  return;
+                }
                 if (!res.ok) return;
                 const data = await res.json();
                 
