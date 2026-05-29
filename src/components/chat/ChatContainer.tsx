@@ -52,6 +52,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   
   // Estado para la generación asíncrona de outfits
   const [pendingOutfitJob, setPendingOutfitJob] = useState<{ generation_id: string; prompt: string; is_free: boolean } | null>(null);
+  const [changingOutfit, setChangingOutfit] = useState(false);
+  const [showOutfitModal, setShowOutfitModal] = useState(false);
+  const [outfitPrompt, setOutfitPrompt] = useState('');
+  const [outfitError, setOutfitError] = useState('');
   
   // Estados para el cambio de Pose y Expresión (Premium)
   const [showPoseModal, setShowPoseModal] = useState(false);
