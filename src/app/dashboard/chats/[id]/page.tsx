@@ -43,8 +43,14 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
     }
   }
 
-  // 1. Obtener la información del Avatar
-  const { data: avatar } = await supabase
+  // 1. Obtener la información del Avatar usando privilegios Service Role (Admin) para evitar problemas de RLS si el creador privatiza el avatar
+  const { createClient } = await import('@supabase/supabase-js');
+  const adminSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
+  const { data: avatar } = await adminSupabase
     .from('avatars')
     .select('*')
     .eq('id', resolvedParams.id)

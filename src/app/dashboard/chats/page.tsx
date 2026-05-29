@@ -21,8 +21,15 @@ export default async function ChatsIndexPage() {
     return null;
   }
 
+  // Crear cliente Supabase con privilegios Service Role (Admin) para evitar problemas de RLS si el creador privatiza el avatar
+  const { createClient } = await import('@supabase/supabase-js');
+  const adminSupabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   // Obtener todas las conversaciones del usuario junto con la info del avatar
-  const { data: conversations } = await supabase
+  const { data: conversations } = await adminSupabase
     .from('conversations')
     .select(`
       id,
