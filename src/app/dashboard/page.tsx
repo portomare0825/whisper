@@ -20,11 +20,29 @@ export default async function DashboardPage() {
 
   const { data: { user } } = await supabase.auth.getUser();
   
-  // Obtener avatares propios o públicos aprobados (con sus calificaciones)
+  // 1. Obtener IDs de avatares con los que el usuario ya tiene conversaciones activas para que no desaparezcan
+  let activeAvatarIds: string[] = [];
+  if (user) {
+    const { data: activeConvos } = await supabase
+      .from('conversations')
+      .select('avatar_id')
+      .eq('user_id', user.id);
+    if (activeConvos) {
+      activeAvatarIds = activeConvos.map((c: any) => c.avatar_id).filter(Boolean);
+    }
+  }
+
+  // 2. Construir la condición OR para la consulta de avatares
+  let orCondition = `user_id.eq.${user?.id},and(visibility.eq.public,moderation_status.eq.approved)`;
+  if (activeAvatarIds.length > 0) {
+    orCondition += `,id.in.(${activeAvatarIds.join(',')})`;
+  }
+
+  // Obtener avatares propios, públicos aprobados o aquellos con conversaciones activas del usuario (con sus calificaciones)
   const { data: avatars } = await supabase
     .from('avatars')
     .select('*, avatar_ratings(rating)')
-    .or(`user_id.eq.${user?.id},and(visibility.eq.public,moderation_status.eq.approved)`)
+    .or(orCondition)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });
 
