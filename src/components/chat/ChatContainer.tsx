@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders } from 'lucide-react';
+import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders, Archive } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { PremiumPoseSelector } from './PremiumPoseSelector';
@@ -24,6 +24,8 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [isFalImage, setIsFalImage] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showClearModal, setShowClearModal] = useState(false);
+  const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -1361,6 +1363,40 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }
   };
 
+  const handleArchiveChat = async () => {
+    if (archiving) return;
+    try {
+      setArchiving(true);
+
+      const response = await fetch('/api/chat/archive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          avatar_id: avatar.id,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al archivar la conversación');
+      }
+
+      setMessages([]);
+      setCurrentImage(avatar.base_image_url);
+      setIsFalImage(false);
+      setShowArchiveModal(false);
+      
+    } catch (err: any) {
+      console.error('Error al archivar chat:', err);
+      alert(`No se pudo archivar el chat: ${err.message}`);
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Cabecera del Chat (Unificada Premium) */}
@@ -1498,6 +1534,14 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             {novelMode ? <BookOpen className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <MessageSquare className="w-3.5 h-3.5 md:w-4 md:h-4" />}
           </button>
 
+          <button
+            type="button"
+            onClick={() => setShowArchiveModal(true)}
+            title="Archivar chat y conservar recuerdos"
+            className="p-1.5 md:p-2.5 bg-white/5 hover:bg-white/10 hover:text-amber-400 text-white/70 rounded-lg md:rounded-xl transition-all border border-white/5 cursor-pointer"
+          >
+            <Archive className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </button>
           <button
             type="button"
             onClick={() => setShowClearModal(true)}
@@ -2349,6 +2393,42 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 className="flex-1 px-4 py-3 bg-white text-black hover:bg-white/90 rounded-xl font-bold transition-colors disabled:opacity-50"
               >
                 {sending ? 'Limpiando...' : 'Sí, limpiar todo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Archivado de Chat */}
+      {showArchiveModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-popover border border-white/10 rounded-3xl p-6 md:p-8 max-w-md w-full shadow-2xl relative glass-morphism border-amber-500/30">
+            <button 
+              onClick={() => setShowArchiveModal(false)}
+              className="absolute top-4 right-4 text-white/50 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="w-16 h-16 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+              <Archive className="w-8 h-8 text-amber-400 animate-pulse" />
+            </div>
+            <h3 className="text-2xl font-bold text-center text-white mb-2">¿Archivar Chat?</h3>
+            <p className="text-white/60 text-center mb-6 text-sm">
+              Esta acción guardará permanentemente todos los recuerdos, hitos, hechos clave y resúmenes de lo conversado en la memoria histórica de {avatar.name}. Luego se limpiará el chat visual de la pantalla para empezar de cero, ¡sin que pierda su personalidad ni olvide nada de lo que han vivido!
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowArchiveModal(false)}
+                className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-xl font-medium transition-colors border border-white/10 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleArchiveChat}
+                disabled={archiving}
+                className="flex-1 px-4 py-3 bg-amber-500 text-black hover:bg-amber-400 font-bold rounded-xl transition-all shadow-lg active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {archiving ? 'Consolidando...' : 'Sí, archivar recuerdos'}
               </button>
             </div>
           </div>
