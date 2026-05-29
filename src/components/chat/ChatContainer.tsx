@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders, Archive } from 'lucide-react';
+import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders, Archive, Shirt } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { PremiumPoseSelector } from './PremiumPoseSelector';
