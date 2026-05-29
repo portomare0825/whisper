@@ -77,7 +77,7 @@ export async function POST(req: Request) {
                 text: `Analiza detalladamente esta foto de avatar. Genera un perfil creativo completo y localiza el rostro principal.
                 Debes responder ÚNICAMENTE con un objeto JSON válido con la siguiente estructura (todas las respuestas de texto en español):
                 {
-                  "name": "Un nombre atractivo en español (ej. Camila, Valeria, Lucas) que encaje con la apariencia de la foto.",
+                  "name": "Genera un nombre extremadamente atractivo, original y con gran frescura y variedad en español (evita absolutamente clichés típicos de siempre como Camila, Valeria, Lucas o Sofía). Puedes sugerir nombres modernos, elegantes, exóticos, clásicos recuperados o con un toque de fantasía que encajen a la perfección con la etnia, estilo y rasgos visuales del avatar en la foto (ejemplo: Aitana, Dante, Kenzo, Bianca, Amira, Gael, Elio, Ainhoa, Liam, Kayla, etc.).",
                   "personality": "Una descripción muy atractiva de su personalidad y rasgos de comportamiento (mínimo 2 líneas).",
                   "physical_description": "Calcula y describe explícitamente tres cosas: 1) Edad aproximada en años, 2) Contextura física (ej. delgada, curvilínea, robusta, atlética) y 3) Tamaño/Estatura estimada (ej. pequeña, alta, mediana). PROHIBIDO usar palabras como 3D, dibujo, ilustración, avatar o animación. Descríbelo como si fuera un humano real.",
                   "system_prompt": "Instrucciones de comportamiento detalladas (3-4 líneas) escritas en segunda persona para guiar a la IA.",
