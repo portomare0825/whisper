@@ -41,14 +41,16 @@ export default function NewAvatarPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Obtener ranuras adicionales del perfil y monedas
+      // 1. Obtener ranuras adicionales del perfil, monedas e is_admin
       const { data: profile } = await supabase
         .from('profiles')
-        .select('extra_avatar_slots, coins')
+        .select('extra_avatar_slots, coins, is_admin')
         .eq('id', user.id)
         .maybeSingle();
       const extraSlotsVal = profile?.extra_avatar_slots || 0;
       const coinsVal = profile?.coins || 0;
+      const isAdminVal = !!profile?.is_admin;
+      
       setUserCoins(coinsVal);
       setExtraSlots(extraSlotsVal);
 
@@ -64,7 +66,11 @@ export default function NewAvatarPage() {
 
       let baseSlotsLimit = 1; // Gratuito por defecto
       let pName = 'Gratuito';
-      if (isPremium && subscription) {
+      
+      if (isAdminVal) {
+        baseSlotsLimit = 999999;
+        pName = 'Administrador';
+      } else if (isPremium && subscription) {
         if (subscription.plan_type === 'pro') {
           baseSlotsLimit = 15; // Mensual Pro
           pName = 'Mensual Pro';
@@ -85,6 +91,7 @@ export default function NewAvatarPage() {
           }
         }
       }
+      
       setBaseLimit(baseSlotsLimit);
       setPlanName(pName);
 
@@ -98,7 +105,7 @@ export default function NewAvatarPage() {
       const countVal = count || 0;
       setAvatarCount(countVal);
 
-      if (countVal >= totalSlotsLimit) {
+      if (!isAdminVal && countVal >= totalSlotsLimit) {
         setLimitReached(true);
       } else {
         setLimitReached(false);
@@ -262,7 +269,7 @@ export default function NewAvatarPage() {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      if (count && count >= totalSlotsLimit) {
+      if (!isAdmin && count && count >= totalSlotsLimit) {
         throw new Error(`Has alcanzado tu límite máximo de ${totalSlotsLimit} avatares activos. Por favor, actualiza tu plan o adquiere ranuras adicionales para expandirlo.`);
       }
 

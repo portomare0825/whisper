@@ -22,15 +22,25 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   if (!user) return notFound();
 
   let isPremium = false;
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .select('*')
-    .eq('user_id', user.id)
-    .eq('status', 'active')
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
     .maybeSingle();
 
-  if (subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date())) {
+  if (profile?.is_admin) {
     isPremium = true;
+  } else {
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date())) {
+      isPremium = true;
+    }
   }
 
   // 1. Obtener la información del Avatar

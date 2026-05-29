@@ -18,23 +18,35 @@ export default async function SettingsPage() {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  // Validar si el usuario es premium consultando la tabla subscriptions
+  // Validar si el usuario es premium consultando la tabla subscriptions o si es admin
   let isPremium = false;
   let planType = 'free';
   let expiresAt = null;
 
   if (user) {
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
       .maybeSingle();
 
-    if (subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date())) {
+    if (profile?.is_admin) {
       isPremium = true;
-      planType = subscription.plan_type || 'pro';
-      expiresAt = subscription.expires_at;
+      planType = 'admin';
+      expiresAt = null;
+    } else {
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      if (subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date())) {
+        isPremium = true;
+        planType = subscription.plan_type || 'pro';
+        expiresAt = subscription.expires_at;
+      }
     }
   }
 

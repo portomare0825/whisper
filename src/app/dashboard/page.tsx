@@ -51,17 +51,29 @@ export default async function DashboardPage() {
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 
-  // Validar si el usuario es premium consultando la tabla subscriptions
+  // Validar si el usuario es premium consultando la tabla subscriptions o si es administrador
   let isPremium = false;
+  let isSystemAdmin = false;
   if (user) {
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('status', 'active')
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('is_admin')
+      .eq('id', user.id)
       .maybeSingle();
 
-    isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+    if (profile?.is_admin) {
+      isPremium = true;
+      isSystemAdmin = true;
+    } else {
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
+    }
   }
 
   return (
@@ -98,7 +110,7 @@ export default async function DashboardPage() {
           </div>
           <div className="min-w-0">
             <p className="text-[10px] md:text-sm text-muted-foreground leading-none truncate">Plan Actual</p>
-            <p className="text-base md:text-2xl font-bold mt-1 md:mt-1.5 leading-none">{isPremium ? 'Pro' : 'Gratuito'}</p>
+            <p className="text-base md:text-2xl font-bold mt-1 md:mt-1.5 leading-none">{isSystemAdmin ? 'Administrador' : (isPremium ? 'Pro' : 'Gratuito')}</p>
           </div>
         </div>
       </div>
