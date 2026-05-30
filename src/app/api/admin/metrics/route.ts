@@ -93,7 +93,9 @@ export async function GET() {
       { count: totalMessages },
       { data: dbSizeResult },
       { data: financialResult },
-      falBalanceData
+      falBalanceData,
+      { count: totalTickets },
+      { count: usedTickets }
     ] = await Promise.all([
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', startOfToday),
@@ -105,7 +107,9 @@ export async function GET() {
       supabaseAdmin.from('messages').select('*', { count: 'exact', head: true }),
       supabaseAdmin.rpc('get_database_size'),
       supabaseAdmin.rpc('get_admin_financials'),
-      fetchFalBalance()
+      fetchFalBalance(),
+      supabaseAdmin.from('tickets').select('*', { count: 'exact', head: true }),
+      supabaseAdmin.from('tickets').select('*', { count: 'exact', head: true }).eq('is_used', true)
     ]);
 
     const dbBytes = dbSizeResult && dbSizeResult[0] ? dbSizeResult[0].total_bytes : 0;
@@ -153,6 +157,11 @@ export async function GET() {
           coinsSold: coinsSold,
           coinsUsed: finData.total_coins_used,
           activeSubscribers: finData.active_subscribers
+        },
+        tickets: {
+          total: totalTickets || 0,
+          used: usedTickets || 0,
+          available: (totalTickets || 0) - (usedTickets || 0)
         },
         falBalance: falBalanceData
       }

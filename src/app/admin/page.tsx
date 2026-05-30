@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import { 
   Users, UserPlus, Activity, Database, 
   MessageSquare, UserCircle, RefreshCw, BarChart, ChevronLeft,
-  Coins, TrendingUp, UserCheck, Cpu, Wallet, AlertTriangle
+  Coins, TrendingUp, UserCheck, Cpu, Wallet, AlertTriangle, Ticket
 } from 'lucide-react';
 import { createBrowserClient } from '@supabase/ssr';
+import Link from 'next/link';
 
 interface Metrics {
   users: { total: number; today: number; week: number; month: number; activeNow: number; };
@@ -29,6 +30,11 @@ interface Metrics {
     currentBalance: number;
     currency: string;
   } | null;
+  tickets?: {
+    total: number;
+    used: number;
+    available: number;
+  };
 }
 
 export default function AdminDashboard() {
@@ -133,13 +139,22 @@ export default function AdminDashboard() {
               </h1>
             </div>
           </div>
-          <button 
-            onClick={fetchMetrics}
-            className="flex items-center gap-2 text-xs md:text-sm bg-white/5 hover:bg-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-white/10 transition-all text-slate-300"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${loading ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refrescar</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <Link 
+              href="/admin/tickets"
+              className="flex items-center gap-2 text-xs md:text-sm bg-amber-500/10 hover:bg-amber-500/20 px-3.5 py-1.5 md:px-4 md:py-2 rounded-full border border-amber-500/20 hover:border-amber-500/40 transition-all text-amber-400 font-bold shadow-lg shadow-amber-500/5 hover:shadow-amber-500/10"
+            >
+              <Ticket className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-400" />
+              <span>Tickets VIP</span>
+            </Link>
+            <button 
+              onClick={fetchMetrics}
+              className="flex items-center gap-2 text-xs md:text-sm bg-white/5 hover:bg-white/10 px-3 py-1.5 md:px-4 md:py-2 rounded-full border border-white/10 transition-all text-slate-300"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 md:w-4 md:h-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refrescar</span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -264,6 +279,77 @@ export default function AdminDashboard() {
                 valueColor="text-teal-400"
               />
               
+            </div>
+          </section>
+        )}
+
+        {/* SECCIÓN: SISTEMA DE TICKETS VIP */}
+        {metrics?.tickets && (
+          <section className="space-y-4">
+            <div className="flex items-center justify-between mb-2 px-1 mt-6">
+              <div className="flex items-center gap-2">
+                <Ticket className="w-5 h-5 text-amber-400" />
+                <h2 className="text-lg font-semibold tracking-wide">Tickets VIP & Canjes Locales</h2>
+              </div>
+              <span className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-full px-3 py-1 font-medium">
+                Ideal para Venezuela (Pago Móvil / WhatsApp)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Contenedor de Métricas del Ticket */}
+              <div className="lg:col-span-2 grid grid-cols-3 gap-3 md:gap-6">
+                <MetricCard 
+                  title="Tickets Generados" 
+                  value={metrics.tickets.total} 
+                  icon={<Ticket className="w-5 h-5 text-amber-400" />} 
+                  gradient="from-amber-500/20 to-yellow-500/5"
+                  border="border-amber-500/20"
+                  valueColor="text-amber-400"
+                />
+                <MetricCard 
+                  title="Disponibles" 
+                  value={metrics.tickets.available} 
+                  icon={<UserCheck className="w-5 h-5 text-emerald-400" />} 
+                  gradient="from-emerald-500/20 to-teal-500/5"
+                  border="border-emerald-500/20"
+                  valueColor="text-emerald-400"
+                />
+                <MetricCard 
+                  title="Canjeados" 
+                  value={metrics.tickets.used} 
+                  icon={<TrendingUp className="w-5 h-5 text-rose-400" />} 
+                  gradient="from-rose-500/20 to-pink-500/5"
+                  border="border-rose-500/20"
+                  valueColor="text-rose-400"
+                />
+              </div>
+
+              {/* Acceso Directo Premium al Administrador de Tickets */}
+              <div className="bg-gradient-to-br from-amber-500/10 via-slate-900 to-slate-950 border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group shadow-lg shadow-amber-500/5 hover:border-amber-500/50 transition-all duration-300">
+                <div className="absolute inset-0 bg-gradient-to-tr from-amber-500/5 to-transparent opacity-30 pointer-events-none" />
+                <div className="space-y-2 relative z-10">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                    <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Herramienta Administrativa</span>
+                  </div>
+                  <h3 className="text-lg font-bold text-white tracking-tight leading-tight">
+                    Generador de Boletos VIP
+                  </h3>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Crea nuevos códigos alfanuméricos con códigos QR e imágenes premium de fondo (#0f172a) listos para enviar por WhatsApp.
+                  </p>
+                </div>
+                <div className="mt-4 pt-2 relative z-10">
+                  <Link 
+                    href="/admin/tickets"
+                    className="w-full flex items-center justify-center gap-2 py-3 bg-amber-500 hover:bg-amber-400 text-black font-black text-xs rounded-xl shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30 active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <Ticket className="w-4 h-4 text-black" />
+                    <span>Entrar al Generador de Tickets</span>
+                  </Link>
+                </div>
+              </div>
             </div>
           </section>
         )}
