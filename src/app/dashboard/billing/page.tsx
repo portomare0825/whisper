@@ -100,6 +100,9 @@ export default function BillingPage() {
   // Estado y decodificador para lectura de QR desde archivo
   const [readingQR, setReadingQR] = useState<boolean>(false);
 
+  // Estado para modal de Pago Móvil
+  const [selectedPaymentPlan, setSelectedPaymentPlan] = useState<{ name: string; price: string } | null>(null);
+
   const handleUploadQRImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -407,7 +410,7 @@ export default function BillingPage() {
 
                 {plan.premium && !isCurrentPlan && (
                   <button
-                    onClick={() => handleRequestViaWhatsApp(plan.name, plan.price)}
+                    onClick={() => setSelectedPaymentPlan({ name: plan.name, price: plan.price })}
                     className="w-full py-2.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <MessageSquare className="w-3.5 h-3.5" />
@@ -519,6 +522,77 @@ export default function BillingPage() {
       <div className="flex justify-center gap-8 grayscale opacity-50">
         <span className="text-xs font-bold tracking-widest uppercase">Pagos seguros con Mercado Pago</span>
       </div>
+
+      {/* MODAL DE PAGO MÓVIL (VENEZUELA) */}
+      {selectedPaymentPlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="relative w-full max-w-sm sm:max-w-md bg-[#0f172a] border border-amber-400/30 rounded-3xl p-6 shadow-[0_0_50px_rgba(251,191,36,0.15)] space-y-5 sm:space-y-6 animate-in zoom-in-95 duration-300 text-center">
+            
+            {/* Cabecera */}
+            <div className="space-y-1">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/5">
+                <MessageSquare className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h3 className="text-xl font-extrabold text-white tracking-tight mt-3">Pago Móvil (Venezuela)</h3>
+              <p className="text-xs text-white/50">Plan seleccionado: <span className="text-amber-400 font-bold">{selectedPaymentPlan.name} (${selectedPaymentPlan.price} USD)</span></p>
+            </div>
+
+            {/* Código QR de Pago Móvil cargado del usuario */}
+            <div className="bg-white p-2.5 rounded-2xl w-40 h-40 sm:w-48 sm:h-48 mx-auto shadow-xl border-2 border-amber-400/20 relative overflow-hidden flex items-center justify-center">
+              <img 
+                src="/pago_movil_qr.jpg" 
+                alt="Código QR Pago Móvil" 
+                className="w-full h-full object-contain"
+                onError={(e) => {
+                  (e.target as HTMLElement).style.display = 'none';
+                }}
+              />
+            </div>
+
+            {/* Datos detallados para copiar */}
+            <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-left space-y-2 text-xs sm:text-sm">
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Teléfono Pago Móvil</span>
+                <span className="font-mono font-bold text-white tracking-wide select-all">0412-0924400</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Banco Receptor</span>
+                <span className="font-bold text-white">Pago Móvil Suiche 7B</span>
+              </div>
+              <div className="flex justify-between items-center pb-1">
+                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Nota Importante</span>
+                <span className="text-xs text-amber-400/90 font-semibold text-right">Canje inmediato por WhatsApp</span>
+              </div>
+            </div>
+
+            <p className="text-[10px] text-white/40 leading-relaxed max-w-xs mx-auto">
+              💡 Escanea el código QR desde tu app bancaria o realiza el Pago Móvil. Al terminar, presiona el botón verde de abajo para abrir WhatsApp y enviarnos la captura del comprobante.
+            </p>
+
+            {/* Acciones */}
+            <div className="space-y-2.5">
+              <button
+                onClick={() => {
+                  handleRequestViaWhatsApp(selectedPaymentPlan.name, selectedPaymentPlan.price);
+                  setSelectedPaymentPlan(null);
+                }}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all"
+              >
+                <MessageSquare className="w-4 h-4 text-black" />
+                <span>Abrir WhatsApp y Enviar Capture</span>
+              </button>
+              
+              <button
+                onClick={() => setSelectedPaymentPlan(null)}
+                className="w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold border border-white/5 cursor-pointer active:scale-95 transition-all"
+              >
+                Volver a los Planes
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
