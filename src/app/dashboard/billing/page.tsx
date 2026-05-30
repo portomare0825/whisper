@@ -291,7 +291,7 @@ export default function BillingPage() {
   };
 
   const handleRequestViaWhatsApp = (planName: string, price: string) => {
-    const adminPhone = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || '584120000000'; // Número del admin
+    const adminPhone = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || '584120924400'; // Número del admin
     const emailInfo = userEmail ? ` (Registrado con: ${userEmail})` : '';
     const text = `¡Hola! Me gustaría solicitar un ticket para el "${planName}" ($${price} USD)${emailInfo}. Por favor, indícame los datos de Pago Móvil o Zelle para procesar el pago.`;
     const url = `https://wa.me/${adminPhone}?text=${encodeURIComponent(text)}`;
