@@ -103,17 +103,21 @@ export default function BillingPage() {
   // Estado para modal de Pago Móvil
   const [selectedPaymentPlan, setSelectedPaymentPlan] = useState<{ name: string; price: string } | null>(null);
 
-  // Estado para la tasa BCV (Bolívares por Dólar)
-  const [bcvRate, setBcvRate] = useState<number>(40.5); // Fallback base realista de tasa BCV
+  // Estado para la tasa BCV (Bolívares por Dólar) con soporte de variable de entorno inicial
+  const [bcvRate, setBcvRate] = useState<number>(() => {
+    const envRate = process.env.NEXT_PUBLIC_BCV_RATE;
+    return envRate ? Number(envRate) : 41.5; // Fallback base realista
+  });
 
   useEffect(() => {
     const fetchBcvRate = async () => {
+      // 1. Intentar con Open Exchange Rates API (100% CORS-friendly y pública)
       try {
-        const res = await fetch('https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv');
+        const res = await fetch('https://open.er-api.com/v6/latest/USD');
         if (res.ok) {
           const data = await res.json();
-          if (data && data.monitors && data.monitors.bcv) {
-            const price = Number(data.monitors.bcv.price);
+          if (data && data.rates && data.rates.VES) {
+            const price = Number(data.rates.VES);
             if (price > 0) {
               setBcvRate(price);
               return;
@@ -121,10 +125,10 @@ export default function BillingPage() {
           }
         }
       } catch (e) {
-        console.warn('Error al obtener tasa BCV de PyDolar:', e);
+        console.warn('Error al obtener tasa VES desde Open ER API:', e);
       }
       
-      // Fallback secundario de alta velocidad
+      // 2. Fallback con ExchangeRate-API (también con CORS habilitado)
       try {
         const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
         if (res.ok) {
@@ -137,7 +141,7 @@ export default function BillingPage() {
           }
         }
       } catch (e) {
-        console.warn('Error al obtener tasa VES de ExchangeRate:', e);
+        console.warn('Error al obtener tasa VES desde ExchangeRate API:', e);
       }
     };
 
