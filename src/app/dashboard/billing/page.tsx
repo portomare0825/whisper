@@ -626,8 +626,8 @@ export default function BillingPage() {
 
       {/* MODAL DE PAGO MÓVIL (VENEZUELA) */}
       {selectedPaymentPlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-300">
-          <div className="relative w-full max-w-sm sm:max-w-md bg-[#0f172a] border border-amber-400/30 rounded-3xl p-6 shadow-[0_0_50px_rgba(251,191,36,0.15)] space-y-5 sm:space-y-6 animate-in zoom-in-95 duration-300 text-center">
+        <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-4 bg-black/80 backdrop-blur-md overflow-y-auto animate-in fade-in duration-300">
+          <div className="relative w-full max-w-sm sm:max-w-md bg-[#0f172a] border border-amber-400/30 rounded-3xl p-5 sm:p-6 shadow-[0_0_50px_rgba(251,191,36,0.15)] space-y-5 sm:space-y-6 animate-in zoom-in-95 duration-300 text-center my-8 sm:my-0">
             
             {/* Cabecera */}
             <div className="space-y-1">
