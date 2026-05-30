@@ -112,7 +112,7 @@ export default function BillingPage() {
       // 1. Cargar jsQR dinámicamente desde el CDN si no está cargado
       if (!(window as any).jsQR) {
         const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.min.js';
         script.crossOrigin = 'anonymous';
         document.head.appendChild(script);
         
