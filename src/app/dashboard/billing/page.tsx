@@ -100,6 +100,50 @@ export default function BillingPage() {
   // Estado y decodificador para lectura de QR desde archivo
   const [readingQR, setReadingQR] = useState<boolean>(false);
 
+  // Estados para el análisis de capture con IA
+  const [analyzingReceipt, setAnalyzingReceipt] = useState<boolean>(false);
+  const [receiptDetails, setReceiptDetails] = useState<{ monto: string; referencia: string; banco: string; fecha: string } | null>(null);
+
+  const handleUploadReceiptImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setAnalyzingReceipt(true);
+    setRedeemError('');
+    setRedeemSuccess('');
+    setReceiptDetails(null);
+
+    try {
+      // Convertir archivo a base64 para mandarlo al endpoint
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Image = event.target?.result as string;
+
+        const res = await fetch('/api/payments/analyze-receipt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: base64Image })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'No se pudo analizar el comprobante.');
+        }
+
+        if (data.success && data.data) {
+          setReceiptDetails(data.data);
+          setRedeemSuccess(`🎉 ¡Capture analizado con éxito por IA! Monto: ${data.data.monto}, Ref: ${data.data.referencia}.`);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      setRedeemError(`Error al analizar capture: ${err.message}`);
+    } finally {
+      setAnalyzingReceipt(false);
+    }
+  };
+
   // Estado para modal de Pago Móvil
   const [selectedPaymentPlan, setSelectedPaymentPlan] = useState<{ name: string; price: string } | null>(null);
 
@@ -338,11 +382,22 @@ export default function BillingPage() {
     }
   };
 
-  const handleRequestViaWhatsApp = (planName: string, price: string) => {
+  const handleRequestViaWhatsApp = (planName: string, price: string, details?: typeof receiptDetails) => {
     const adminPhone = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || '584120924400'; // Número del admin
     const amountInBs = (Number(price) * bcvRate).toFixed(2);
     const emailInfo = userEmail ? ` (Registrado con: ${userEmail})` : '';
-    const text = `¡Hola! Me gustaría solicitar un boleto VIP para el "${planName}" ($${price} USD). He calculado el total de ${amountInBs} Bs por la tasa oficial BCV de hoy (${bcvRate.toFixed(2)} Bs/USD)${emailInfo}. Por favor, confírmame los datos para transferirte y procesar mi canje de inmediato.`;
+    
+    let text = `¡Hola! Me gustaría solicitar un boleto VIP para el "${planName}" ($${price} USD). He calculado el total de ${amountInBs} Bs por la tasa oficial BCV de hoy (${bcvRate.toFixed(2)} Bs/USD)${emailInfo}. Por favor, confírmame los datos para transferirte y procesar mi canje de inmediato.`;
+    
+    if (details) {
+      text = `¡Hola! Acabo de realizar el Pago Móvil para el "${planName}" ($${price} USD)${emailInfo}. Aquí están los datos de mi comprobante detectados por la IA de la aplicación:\n\n` +
+             `- 💵 Monto Pago Móvil: ${details.monto}\n` +
+             `- 🔢 Referencia: ${details.referencia}\n` +
+             `- 🏦 Banco Emisor: ${details.banco}\n` +
+             `- 📅 Fecha Operación: ${details.fecha}\n\n` +
+             `Te adjunto la captura de pantalla del recibo en este chat para tu verificación. Por favor, procésame mi boleto VIP.`;
+    }
+    
     const url = `https://wa.me/${adminPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -595,8 +650,39 @@ export default function BillingPage() {
               />
             </div>
 
+            {/* PASO 2: Subir el capture de pago obtenido del banco */}
+            <div className="border-2 border-dashed border-amber-400/25 rounded-2xl p-4 bg-white/2 hover:bg-white/5 transition-all select-none">
+              <span className="text-[10px] uppercase font-bold text-amber-400 block mb-2 tracking-wider">Paso 2: Sube tu Comprobante</span>
+              
+              <label className="flex flex-col items-center justify-center gap-2 cursor-pointer py-1.5 w-full">
+                {analyzingReceipt ? (
+                  <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+                ) : receiptDetails ? (
+                  <Check className="w-5 h-5 text-emerald-400 animate-bounce" />
+                ) : (
+                  <Camera className="w-5 h-5 text-amber-400/80 animate-pulse" />
+                )}
+                
+                <span className="text-xs font-bold text-white text-center">
+                  {analyzingReceipt ? 'Escaneando con IA...' : receiptDetails ? '¡Comprobante Analizado!' : 'Subir Capture del Pago Móvil'}
+                </span>
+                <span className="text-[9px] text-white/40 text-center">
+                  {analyzingReceipt ? 'Extrayendo datos clave...' : receiptDetails ? 'Monto y referencia detectados' : 'Nuestra IA leerá el recibo al instante'}
+                </span>
+                
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleUploadReceiptImage}
+                  className="hidden"
+                  disabled={analyzingReceipt}
+                />
+              </label>
+            </div>
+
             {/* Datos detallados para copiar */}
-            <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-left space-y-2 text-xs sm:text-sm">
+            <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-left space-y-2 text-xs sm:text-sm relative overflow-hidden">
+              <span className="text-[9px] text-white/30 uppercase font-black tracking-widest block border-b border-white/5 pb-1 mb-2">Datos de Destino</span>
               <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Total en Bolívares (BCV)</span>
                 <span className="font-bold text-amber-400 font-mono text-sm sm:text-base">{(Number(selectedPaymentPlan.price) * bcvRate).toFixed(2)} Bs</span>
@@ -617,27 +703,56 @@ export default function BillingPage() {
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Nota Importante</span>
                 <span className="text-xs text-emerald-400 font-semibold text-right">Canje inmediato por WhatsApp</span>
               </div>
+
+              {/* Si hay datos detectados por la IA, mostrarlos en pantalla */}
+              {receiptDetails && (
+                <div className="mt-4 pt-3 border-t border-amber-400/20 bg-amber-400/5 -mx-4 -mb-4 p-4 space-y-2 animate-in slide-in-from-bottom-2 duration-300">
+                  <span className="text-[9px] text-amber-400 uppercase font-black tracking-widest block border-b border-amber-400/10 pb-1 mb-1">Detectado por la IA del Portal ⚖️</span>
+                  <div className="grid grid-cols-2 gap-2 text-[11px] sm:text-xs">
+                    <div>
+                      <span className="text-white/30 block uppercase text-[9px] font-bold">Monto Detectado</span>
+                      <span className="font-bold text-white">{receiptDetails.monto}</span>
+                    </div>
+                    <div>
+                      <span className="text-white/30 block uppercase text-[9px] font-bold">Referencia / Lote</span>
+                      <span className="font-mono font-bold text-amber-400">{receiptDetails.referencia}</span>
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-white/30 block uppercase text-[9px] font-bold">Banco Emisor</span>
+                      <span className="font-bold text-white truncate block">{receiptDetails.banco}</span>
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-white/30 block uppercase text-[9px] font-bold">Fecha Operación</span>
+                      <span className="font-bold text-white">{receiptDetails.fecha}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <p className="text-[10px] text-white/40 leading-relaxed max-w-xs mx-auto">
-              💡 Escanea el código QR desde tu app bancaria o realiza el Pago Móvil. Al terminar, presiona el botón verde de abajo para abrir WhatsApp y enviarnos la captura del comprobante.
+              💡 Escanea el código QR o realiza el Pago Móvil. Sube tu capture para que la IA extraiga los datos y presiona el botón verde de abajo para enviárnoslos.
             </p>
 
             {/* Acciones */}
             <div className="space-y-2.5">
               <button
                 onClick={() => {
-                  handleRequestViaWhatsApp(selectedPaymentPlan.name, selectedPaymentPlan.price);
+                  handleRequestViaWhatsApp(selectedPaymentPlan.name, selectedPaymentPlan.price, receiptDetails);
                   setSelectedPaymentPlan(null);
+                  setReceiptDetails(null); // Limpiar para el siguiente canje
                 }}
                 className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-black font-black text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-emerald-500/20 active:scale-[0.98] transition-all"
               >
                 <MessageSquare className="w-4 h-4 text-black" />
-                <span>Abrir WhatsApp y Enviar Capture</span>
+                <span>{receiptDetails ? 'Enviar Datos y Capture por WhatsApp' : 'Abrir WhatsApp y Enviar Capture'}</span>
               </button>
               
               <button
-                onClick={() => setSelectedPaymentPlan(null)}
+                onClick={() => {
+                  setSelectedPaymentPlan(null);
+                  setReceiptDetails(null);
+                }}
                 className="w-full py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-bold border border-white/5 cursor-pointer active:scale-95 transition-all"
               >
                 Volver a los Planes
