@@ -28,10 +28,10 @@ export default function AdminTicketsPage() {
     if (!ticketRef.current || !generatedTicket) return;
     setDownloading(true);
     try {
-      // Cargar html2canvas dinámicamente desde un CDN de alta velocidad
-      if (!(window as any).html2canvas) {
+      // Cargar html-to-image dinámicamente desde un CDN de alta velocidad
+      if (!(window as any).htmlToImage) {
         const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js';
         script.crossOrigin = 'anonymous';
         document.head.appendChild(script);
         
@@ -40,20 +40,21 @@ export default function AdminTicketsPage() {
         });
       }
       
-      const html2canvas = (window as any).html2canvas;
+      const htmlToImage = (window as any).htmlToImage;
       
-      // Capturar la tarjeta con alta fidelidad y CORS activado para imágenes externas (QR)
-      const canvas = await html2canvas(ticketRef.current, {
-        backgroundColor: '#0f172a',
-        scale: 2, // Resolucion premium
-        useCORS: true,
-        logging: false
+      // Capturar la tarjeta con alta fidelidad y soporte completo para oklab/oklch mediante renderizado SVG nativo
+      const dataUrl = await htmlToImage.toPng(ticketRef.current, {
+        pixelRatio: 2, // Calidad premium súper nítida
+        style: {
+          transform: 'scale(1)',
+          transformOrigin: 'center'
+        }
       });
       
       // Descargar PNG
       const link = document.createElement('a');
       link.download = `ticket-${generatedTicket.code}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
     } catch (err) {
       console.error('Error al generar la imagen del ticket:', err);
