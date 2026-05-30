@@ -576,14 +576,14 @@ export async function POST(req: Request) {
       .eq('status', 'active')
       .maybeSingle();
 
-    const isPremium = !!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date());
-
-    // Obtener la descripción física del usuario desde su perfil
+    // Obtener la descripción física y rol de administrador del usuario desde su perfil
     const { data: profile } = await supabase
       .from('profiles')
-      .select('user_physical_description')
+      .select('user_physical_description, is_admin')
       .eq('id', conversation.user_id)
       .maybeSingle();
+
+    const isPremium = (profile?.is_admin === true) || (!!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date()));
 
     // ── CONFIGURACIÓN DE MEMORIA NARRATIVA Y PERSISTENCIA PREMIUM ──
     let semanticMemoriesSection = '';
@@ -716,6 +716,7 @@ export async function POST(req: Request) {
     ];
 
     const freeModelsFallback = [
+      { model: process.env.CHAT_MODEL || "openrouter/free", timeout: 10000 },
       { model: "meta-llama/llama-3.1-8b-instruct:free", timeout: 8000 },
       { model: "google/gemma-2-9b-it:free", timeout: 8000 },
       { model: "openrouter/free", timeout: 8000 }
@@ -977,15 +978,15 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
       for (let i = 0; i < freeModelsFallback.length; i++) {
         const { model: modelToTry, timeout } = freeModelsFallback[i];
         llmResponse = await fetchOpenRouter(modelToTry, timeout);
-        if (llmResponse.ok) {
+        if (llmResponse && llmResponse.ok) {
           console.log(`Fallback exitoso usando: ${modelToTry}`);
           const freeResult = await llmResponse.json();
           assistantContentRaw = freeResult.choices?.[0]?.message?.content || "";
           break;
         } else {
-          const errText = await llmResponse.text();
+          const errText = llmResponse ? await llmResponse.text() : "No response";
           console.warn(`Llamada fallida con ${modelToTry} (status: ${llmResponse?.status}). Error: ${errText}`);
-          lastErrorDetails = `Status: ${llmResponse.status}.`;
+          lastErrorDetails = `Status: ${llmResponse?.status || "unknown"}.`;
           llmResponse = null;
         }
       }
