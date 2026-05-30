@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, Zap, Sparkles, Star, Loader2, Ticket, MessageSquare } from 'lucide-react';
+import { Check, Zap, Sparkles, Star, Loader2, Ticket, MessageSquare, Upload, Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { createClient } from '@/lib/supabase';
 
@@ -96,6 +96,96 @@ export default function BillingPage() {
 
   // Estado para la solicitud de tickets
   const [requesting, setRequesting] = useState<boolean>(false);
+  
+  // Estado y decodificador para lectura de QR desde archivo
+  const [readingQR, setReadingQR] = useState<boolean>(false);
+
+  const handleUploadQRImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setReadingQR(true);
+    setRedeemError('');
+    setRedeemSuccess('');
+
+    try {
+      // 1. Cargar jsQR dinámicamente desde el CDN si no está cargado
+      if (!(window as any).jsQR) {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js';
+        script.crossOrigin = 'anonymous';
+        document.head.appendChild(script);
+        
+        await new Promise((resolve) => {
+          script.onload = resolve;
+        });
+      }
+
+      const jsQR = (window as any).jsQR;
+
+      // 2. Leer el archivo como DataURL
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            // Crear canvas temporal para obtener ImageData
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('No se pudo inicializar el contexto de imagen.');
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+            context.drawImage(img, 0, 0, img.width, img.height);
+
+            const imageData = context.getImageData(0, 0, img.width, img.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: 'dontInvert',
+            });
+
+            if (code && code.data) {
+              // 3. Extraer el código de la URL del QR o usar el texto directo
+              let extractedCode = code.data.trim();
+              
+              // Si es un enlace del tipo "http://.../billing?redeem=VIP-XXXX"
+              if (extractedCode.includes('?redeem=')) {
+                const urlObj = new URL(extractedCode);
+                extractedCode = urlObj.searchParams.get('redeem') || extractedCode;
+              } else if (extractedCode.includes('&redeem=')) {
+                const parts = extractedCode.split('&redeem=');
+                extractedCode = parts[1]?.split('&')[0] || extractedCode;
+              }
+
+              // Normalizar código
+              extractedCode = extractedCode.toUpperCase().trim();
+
+              setTicketCode(extractedCode);
+              setRedeemSuccess(`🎉 ¡Boleto QR detectado: ${extractedCode}! Canjeando automáticamente...`);
+              
+              // Ejecutar canje directo
+              setTimeout(() => {
+                handleRedeemTicket(extractedCode);
+              }, 1500);
+
+            } else {
+              setRedeemError('No se encontró ningún código QR legible. Asegúrate de subir la imagen premium completa del boleto donde el QR sea visible y nítido.');
+            }
+          } catch (err: any) {
+            console.error(err);
+            setRedeemError(`Error al procesar la imagen: ${err.message || err}`);
+          } finally {
+            setReadingQR(false);
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      console.error(err);
+      setRedeemError(`No se pudo cargar el decodificador QR: ${err.message || err}`);
+      setReadingQR(false);
+    }
+  };
 
   const checkSubscription = async () => {
     try {
@@ -358,16 +448,40 @@ export default function BillingPage() {
                   setRedeemSuccess('');
                 }}
                 placeholder="EJ: VIP-GOLD-PASS-XXXX"
-                disabled={redeeming}
+                disabled={redeeming || readingQR}
                 className="min-w-0 flex-1 bg-background/40 border border-white/10 rounded-xl px-3 py-2.5 md:px-4 md:py-3 outline-none focus:border-amber-400/50 text-white placeholder:text-white/20 font-mono tracking-wider text-xs md:text-sm uppercase"
               />
               <button
                 onClick={() => handleRedeemTicket()}
-                disabled={!ticketCode.trim() || redeeming}
+                disabled={!ticketCode.trim() || redeeming || readingQR}
                 className="px-4 py-2.5 md:px-6 md:py-3 bg-amber-400 hover:bg-amber-500 disabled:opacity-50 text-black font-black rounded-xl text-xs md:text-sm transition-all shadow-[0_0_20px_rgba(251,191,36,0.15)] flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
               >
                 {redeeming ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Canjear'}
               </button>
+            </div>
+            
+            {/* Lector de código QR desde archivos/galería */}
+            <div className="mt-3">
+              <label 
+                className={cn(
+                  "inline-flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white rounded-xl text-xs font-bold border border-white/10 hover:border-white/20 transition-all cursor-pointer shadow-md select-none w-full sm:w-auto justify-center",
+                  (readingQR || redeeming) && "opacity-50 pointer-events-none"
+                )}
+              >
+                {readingQR ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                ) : (
+                  <Upload className="w-4 h-4 text-amber-400 animate-pulse" />
+                )}
+                <span>{readingQR ? 'Analizando Boleto...' : 'Subir Imagen de Boleto (Lector QR)'}</span>
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handleUploadQRImage} 
+                  className="hidden" 
+                  disabled={readingQR || redeeming}
+                />
+              </label>
             </div>
             
             {/* Mensajes de Estado */}
