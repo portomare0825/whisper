@@ -611,7 +611,7 @@ export default function BillingPage() {
               </div>
               <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Banco Receptor</span>
-                <span className="font-bold text-white">Pago Móvil Suiche 7B</span>
+                <span className="font-bold text-white">0102 - Banco de Venezuela</span>
               </div>
               <div className="flex justify-between items-center pb-1">
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Nota Importante</span>
