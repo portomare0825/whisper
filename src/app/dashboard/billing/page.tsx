@@ -103,6 +103,47 @@ export default function BillingPage() {
   // Estado para modal de Pago Móvil
   const [selectedPaymentPlan, setSelectedPaymentPlan] = useState<{ name: string; price: string } | null>(null);
 
+  // Estado para la tasa BCV (Bolívares por Dólar)
+  const [bcvRate, setBcvRate] = useState<number>(40.5); // Fallback base realista de tasa BCV
+
+  useEffect(() => {
+    const fetchBcvRate = async () => {
+      try {
+        const res = await fetch('https://pydolarvenezuela-api.vercel.app/api/v1/dollar?page=bcv');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.monitors && data.monitors.bcv) {
+            const price = Number(data.monitors.bcv.price);
+            if (price > 0) {
+              setBcvRate(price);
+              return;
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error al obtener tasa BCV de PyDolar:', e);
+      }
+      
+      // Fallback secundario de alta velocidad
+      try {
+        const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.rates && data.rates.VES) {
+            const price = Number(data.rates.VES);
+            if (price > 0) {
+              setBcvRate(price);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error al obtener tasa VES de ExchangeRate:', e);
+      }
+    };
+
+    fetchBcvRate();
+  }, []);
+
   const handleUploadQRImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -295,8 +336,9 @@ export default function BillingPage() {
 
   const handleRequestViaWhatsApp = (planName: string, price: string) => {
     const adminPhone = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || '584120924400'; // Número del admin
+    const amountInBs = (Number(price) * bcvRate).toFixed(2);
     const emailInfo = userEmail ? ` (Registrado con: ${userEmail})` : '';
-    const text = `¡Hola! Me gustaría solicitar un ticket para el "${planName}" ($${price} USD)${emailInfo}. Por favor, indícame los datos de Pago Móvil o Zelle para procesar el pago.`;
+    const text = `¡Hola! Me gustaría solicitar un boleto VIP para el "${planName}" ($${price} USD). He calculado el total de ${amountInBs} Bs por la tasa oficial BCV de hoy (${bcvRate.toFixed(2)} Bs/USD)${emailInfo}. Por favor, confírmame los datos para transferirte y procesar mi canje de inmediato.`;
     const url = `https://wa.me/${adminPhone}?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
   };
@@ -552,6 +594,14 @@ export default function BillingPage() {
             {/* Datos detallados para copiar */}
             <div className="bg-white/5 border border-white/5 rounded-2xl p-4 text-left space-y-2 text-xs sm:text-sm">
               <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Total en Bolívares (BCV)</span>
+                <span className="font-bold text-amber-400 font-mono text-sm sm:text-base">{(Number(selectedPaymentPlan.price) * bcvRate).toFixed(2)} Bs</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Tasa Oficial Referencia</span>
+                <span className="font-mono text-white/80">{bcvRate.toFixed(2)} Bs/USD</span>
+              </div>
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Teléfono Pago Móvil</span>
                 <span className="font-mono font-bold text-white tracking-wide select-all">0412-0924400</span>
               </div>
@@ -561,7 +611,7 @@ export default function BillingPage() {
               </div>
               <div className="flex justify-between items-center pb-1">
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Nota Importante</span>
-                <span className="text-xs text-amber-400/90 font-semibold text-right">Canje inmediato por WhatsApp</span>
+                <span className="text-xs text-emerald-400 font-semibold text-right">Canje inmediato por WhatsApp</span>
               </div>
             </div>
 
