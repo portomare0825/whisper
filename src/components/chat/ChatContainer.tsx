@@ -1623,7 +1623,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               alt={avatar.name} 
               onClick={() => setFullScreenImage(currentImage)}
               title="Haz clic para ver a pantalla completa"
-              className={`w-full h-full cursor-zoom-in transition-transform duration-700 group-hover:scale-105 ${isFalImage ? 'object-fill' : 'object-cover'} ${(pendingOutfitJob || pendingPoseJob) ? 'opacity-65 blur-[0.5px]' : ''}`}
+              className={`w-full h-full animate-breathe cursor-zoom-in transition-transform duration-700 group-hover:scale-105 ${isFalImage ? 'object-fill' : 'object-cover'} ${(pendingOutfitJob || pendingPoseJob) ? 'opacity-65 blur-[0.5px]' : ''}`}
             />
             {pendingOutfitJob && (
               <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center p-4 pointer-events-none">
@@ -1689,7 +1689,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               <img 
                 src={currentImage} 
                 alt="Background Avatar" 
-                className={`w-full h-full opacity-60 object-top ${isFalImage ? 'object-fill' : 'object-cover'}`}
+                className={`w-full h-full animate-breathe opacity-60 object-top ${isFalImage ? 'object-fill' : 'object-cover'}`}
               />
               {/* Gradiente más suave para que el avatar se vea pero los textos sigan siendo legibles */}
               <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/50 to-black/90" />
