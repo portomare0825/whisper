@@ -177,9 +177,12 @@ export default function AvatarsListPage() {
                   </Link>
                   {isOwner && (
                     <>
-                      <button className="p-3 glass-morphism rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-colors">
+                      <Link 
+                        href={`/dashboard/avatars/${avatar.id}/edit`}
+                        className="p-3 glass-morphism rounded-xl hover:bg-white/10 text-white/60 hover:text-white transition-colors"
+                      >
                         <Edit3 className="w-4 h-4" />
-                      </button>
+                      </Link>
                       <button className="p-3 glass-morphism rounded-xl hover:bg-destructive/20 text-white/60 hover:text-destructive transition-colors">
                         <Trash2 className="w-4 h-4" />
                       </button>

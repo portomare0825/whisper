@@ -328,11 +328,15 @@ export default function NewAvatarPage() {
       }
 
       if (newAvatar) {
-        fetch('/api/avatars/generate-angles', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ avatarId: newAvatar.id })
-        }).catch(err => console.error('Error disparando generación de ángulos:', err));
+        try {
+          await fetch('/api/avatars/generate-angles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatarId: newAvatar.id })
+          });
+        } catch (err) {
+          console.error('Error disparando generación de ángulos:', err);
+        }
       }
 
       router.push('/dashboard');

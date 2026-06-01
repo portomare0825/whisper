@@ -1363,6 +1363,21 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         .eq('conversation_id', conversation.id);
         
       if (msgError) throw msgError;
+
+      // 1.5. Borrar memorias e hitos (reseteo total)
+      const { error: msError } = await supabase
+        .from('milestones')
+        .delete()
+        .eq('conversation_id', conversation.id);
+        
+      if (msError) console.warn('Error borrando hitos:', msError);
+
+      const { error: smError } = await supabase
+        .from('semantic_memories')
+        .delete()
+        .eq('conversation_id', conversation.id);
+        
+      if (smError) console.warn('Error borrando memorias semánticas:', smError);
       
       // 2. Restaurar imagen del avatar y conversación
       const { error: avatarError } = await supabase
