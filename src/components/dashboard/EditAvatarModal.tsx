@@ -85,6 +85,23 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
     }
   };
 
+  const [userCoins, setUserCoins] = useState<number>(0);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('coins, is_admin').eq('id', user.id).maybeSingle();
+        if (profile) {
+          setUserCoins(profile.coins || 0);
+          setIsAdmin(!!profile.is_admin);
+        }
+      }
+    };
+    loadProfile();
+  }, [supabase]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.personality) {
@@ -96,7 +113,11 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
       setLoading(true);
       setError(null);
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuario no autenticado");
+
       let imageUrl = avatar.base_image_url;
+      const isImageChanged = !!file;
 
       if (file) {
         // Upload new image
@@ -117,25 +138,12 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         imageUrl = publicUrl;
       }
 
-      // Consultar si el perfil del usuario actual es administrador
-      const { data: { user } } = await supabase.auth.getUser();
-      let isAdmin = false;
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', user.id)
-          .maybeSingle();
-        isAdmin = !!profile?.is_admin;
-      }
-
-      const updatedData = {
+      const updatedData: any = {
         name: formData.name,
         personality: formData.personality,
         system_prompt: formData.system_prompt,
         gender: formData.gender,
         physical_description: formData.physical_description,
-        base_image_url: imageUrl,
         face_box_x: formData.face_box_x,
         face_box_y: formData.face_box_y,
         face_box_width: formData.face_box_width,
@@ -143,6 +151,11 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         visibility: formData.visibility,
         moderation_status: formData.visibility === 'private' ? 'none' : (isAdmin ? 'approved' : 'pending'),
       };
+
+      if (isImageChanged) {
+        updatedData.base_image_url = imageUrl;
+        updatedData.current_image_url = imageUrl;
+      }
 
       const { data, error: updateError } = await supabase
         .from('avatars')
@@ -152,6 +165,19 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         .single();
 
       if (updateError) throw updateError;
+
+      if (isImageChanged) {        
+        // Disparar generación de ángulos y esperar
+        try {
+          await fetch('/api/avatars/generate-angles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatarId: avatar.id })
+          });
+        } catch (err) {
+          console.error('Error generando ángulos:', err);
+        }
+      }
 
       // Disparar notificación push de moderación en segundo plano (si requiere revisión)
       if (formData.visibility === 'public' && !isAdmin && data) {
@@ -228,6 +254,17 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
                   </label>
                 )}
               </div>
+              
+              {file && !isAdmin && (
+                <div className="bg-primary/10 border border-primary/20 text-primary text-xs p-3 rounded-xl mt-3">
+                  Has seleccionado una nueva foto. El sistema sincronizará todas las expresiones automáticamente. <strong>¡Esta actualización es gratuita!</strong>
+                </div>
+              )}
+              {file && isAdmin && (
+                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-xs p-3 rounded-xl mt-3">
+                  Has seleccionado una nueva foto. <strong>¡Modo Admin: Generación Gratuita!</strong>
+                </div>
+              )}
             </div>
 
             {/* Text Fields */}
