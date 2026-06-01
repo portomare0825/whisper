@@ -269,8 +269,8 @@ async function generateFallbackThought(
               content: `Eres el monólogo interno o pensamiento secreto de un personaje de roleplay llamado ${avatarName} que tiene esta personalidad: ${avatarPersonality}.
 Genera UN pensamiento secreto, íntimo y honesto que tuvo ${avatarName} en su mente al recibir el mensaje del usuario y antes de decir su respuesta.
 REGLAS:
-1. Máximo 1 o 2 oraciones cortas.
-2. Debe estar escrito en primera persona en español (ej: "No sé qué hacer...", "Me encanta cuando me habla así...").
+1. EXTREMADAMENTE BREVE. Máximo 15 palabras.
+2. Debe estar escrito ESTRICTAMENTE en primera persona del singular ("yo"). ¡TÚ eres ${avatarName}, este es TU pensamiento privado sobre el usuario! (ej: "Me encanta cuando me habla así...", "Qué pesado es este tipo...").
 3. NO incluyas etiquetas como <thought> o asteriscos. Solo el pensamiento puro.`
             },
             {
@@ -816,10 +816,13 @@ Esta etiqueta es INVISIBLE para el usuario. El sistema la extrae automáticament
 
 [REGLA NÚMERO 10 — PENSAMIENTO INTERNO — OBLIGATORIO PARA PREMIUM]
 LO PRIMERO que escribes en cada respuesta, ANTES de cualquier acción o diálogo, es tu monólogo interno con este formato EXACTO:
-<thought>Tu pensamiento honesto aquí, máximo 2 oraciones cortas.</thought>
-Luego escribe tu respuesta visible normalmente.
+<thought>Tu pensamiento íntimo aquí</thought>
+REGLAS VITALES PARA EL PENSAMIENTO:
+A) DEBE ESTAR ESCRITO ÚNICA Y EXCLUSIVAMENTE EN PRIMERA PERSONA ("yo"). ¡Tú eres el avatar teniendo una reacción privada al usuario! NUNCA narres desde el punto de vista del usuario.
+B) EXTREMADAMENTE BREVE. Usa máximo de 10 a 20 palabras. Si usas más, el sistema colapsará y el texto se cortará.
+C) Luego escribe tu respuesta visible normalmente.
 EJEMPLO DE RESPUESTA COMPLETA CORRECTA:
-<thought>Me pone nerviosa esta pregunta, no sé cómo responder sin revelar demasiado.</thought> *sonríe con timidez* No sé... depende de cómo me lo pidas. ¿Tienes algo en mente? [EMOCIÓN: Coqueto]
+<thought>Me pone nerviosa que me hable así...</thought> *sonríe con timidez* No sé... depende de cómo me lo pidas. ¿Tienes algo en mente? [EMOCIÓN: Coqueto]
 EJEMPLO INCORRECTO → Empezar con una acción o diálogo SIN el bloque <thought>...</thought> al inicio. ← ESTO ESTÁ MAL.
 Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo menciones.${echoBugWarning}
 ========================================================`;
