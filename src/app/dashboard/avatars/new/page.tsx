@@ -273,6 +273,10 @@ export default function NewAvatarPage() {
         throw new Error(`Has alcanzado tu límite máximo de ${totalSlotsLimit} avatares activos. Por favor, actualiza tu plan o adquiere ranuras adicionales para expandirlo.`);
       }
 
+      if (!isAdmin && userCoins < 5) {
+        throw new Error('Necesitas al menos 5 monedas para crear un avatar.');
+      }
+
       // 1. Subir imagen a Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
@@ -316,6 +320,19 @@ export default function NewAvatarPage() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ avatarId: newAvatar.id })
         }).catch(err => console.error('Error disparando notificación push:', err));
+      }
+
+      // 4. Descontar 5 monedas y disparar la generación de ángulos/emociones (Opción A)
+      if (!isAdmin) {
+        await supabase.from('profiles').update({ coins: userCoins - 5 }).eq('id', user.id);
+      }
+
+      if (newAvatar) {
+        fetch('/api/avatars/generate-angles', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ avatarId: newAvatar.id })
+        }).catch(err => console.error('Error disparando generación de ángulos:', err));
       }
 
       router.push('/dashboard');
@@ -605,7 +622,7 @@ export default function NewAvatarPage() {
           disabled={loading || analyzingImage}
           className="premium-button w-full py-4 rounded-xl text-lg font-bold flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          {loading ? 'Creando...' : 'Crear Avatar Mágico'}
+          {loading ? 'Creando...' : 'Crear Avatar Mágico (5 Monedas)'}
           <Sparkles className="w-5 h-5" />
         </button>
       </form>

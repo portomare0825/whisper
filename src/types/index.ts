@@ -8,6 +8,12 @@ export interface Avatar {
   system_prompt?: string;
   base_image_url: string;
   current_image_url?: string;
+  profile_image_url?: string;
+  back_image_url?: string;
+  emotion_happy?: string;
+  emotion_sad?: string;
+  emotion_angry?: string;
+  emotion_flirty?: string;
   voice_settings?: {
     gender?: string;
     [key: string]: any;

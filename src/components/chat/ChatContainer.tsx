@@ -467,6 +467,39 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     return () => { supabase.removeChannel(channel); };
   }, [conversation.id]);
 
+  // Efecto para cambiar la imagen del avatar dinámicamente según la emoción
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    
+    // Si el último mensaje es del avatar y tiene una emoción, actualizamos la foto
+    if (lastMsg.role === 'avatar' && lastMsg.emotion_tag) {
+      const emotion = lastMsg.emotion_tag.toLowerCase();
+      // Empezamos con la imagen que tenga el avatar, pero priorizamos la base por defecto si no hace match
+      let newImage = currentImage;
+      
+      // Mapeo de emociones detectadas por el backend a nuestras 4 emociones clave
+      if (['feliz', 'divertido', 'orgulloso'].includes(emotion)) {
+        newImage = avatar.emotion_happy || newImage;
+      } else if (['triste', 'melancólico', 'avergonzado'].includes(emotion)) {
+        newImage = avatar.emotion_sad || newImage;
+      } else if (['enojado'].includes(emotion)) {
+        newImage = avatar.emotion_angry || newImage;
+      } else if (['coqueto', 'seductor'].includes(emotion)) {
+        newImage = avatar.emotion_flirty || newImage;
+      } else {
+        // Para 'neutral', 'sorprendido', 'misterioso', 'ansioso', etc. volvemos a la base o perfil si quisiéramos
+        newImage = avatar.profile_image_url || avatar.base_image_url;
+      }
+      
+      if (newImage && newImage !== currentImage) {
+        setCurrentImage(newImage);
+        // Si no es la imagen base, asumimos que viene de fal (3:4) para ajustar el aspect ratio
+        setIsFalImage(newImage !== avatar.base_image_url);
+      }
+    }
+  }, [messages, avatar, currentImage]);
+
   useEffect(() => {
     scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
   }, [messages]);
