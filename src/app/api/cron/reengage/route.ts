@@ -15,9 +15,9 @@ async function handleReengage(req: Request) {
     const { searchParams } = new URL(req.url);
     const isDev = process.env.NODE_ENV === 'development';
     
-    // Obtener los minutos desde los query params o usar valores por defecto (1 min en dev, 15 minutos en prod)
+    // Obtener los minutos desde los query params o usar valores por defecto (1 min en dev, 180 minutos = 3 horas en prod)
     const minutesParam = searchParams.get('minutes');
-    const minutesThreshold = minutesParam ? parseInt(minutesParam, 10) : (isDev ? 1 : 15);
+    const minutesThreshold = minutesParam ? parseInt(minutesParam, 10) : (isDev ? 1 : 180);
     
     if (isNaN(minutesThreshold) || minutesThreshold <= 0) {
       return NextResponse.json({ error: 'Parámetro "minutes" inválido.' }, { status: 400 });
@@ -74,28 +74,51 @@ async function handleReengage(req: Request) {
       console.warn('Advertencia: Llaves VAPID no configuradas en .env.local. Saltando envío push.');
     }
 
-    // 4. Obtener todas las conversaciones activas
+    // Definir tamaño de lote (batch size) para no exceder los límites de tiempo del servidor
+    const batchParam = searchParams.get('batch');
+    const batchSize = batchParam ? parseInt(batchParam, 10) : 5; // Por defecto procesa 5 usuarios a la vez
+
+    // 4. Obtener todas las conversaciones activas (con updated_at para ordenar)
     const { data: conversations, error: convoError } = await adminSupabase
       .from('conversations')
-      .select('id, user_id, avatar_id');
+      .select('id, user_id, avatar_id, updated_at')
+      .order('updated_at', { ascending: false });
 
     if (convoError || !conversations) {
       throw new Error(`Error recuperando conversaciones: ${convoError?.message}`);
     }
 
-    const reengagedChats = [];
     const thresholdMs = minutesThreshold * 60 * 1000;
     const now = Date.now();
+    const thresholdDate = now - thresholdMs;
 
-    // 5. Analizar cada conversación
+    // 5. Filtrar y crear la "Cola de Procesamiento"
+    const latestConvoByUser = new Map();
     for (const convo of conversations) {
-      // Obtener el último mensaje de esta conversación
+      if (!latestConvoByUser.has(convo.user_id)) {
+        latestConvoByUser.set(convo.user_id, convo);
+      }
+    }
+    
+    // Obtener las últimas conversaciones de cada usuario que verdaderamente han superado el tiempo de inactividad
+    const inactiveConversations = Array.from(latestConvoByUser.values())
+      .filter(convo => new Date(convo.updated_at).getTime() <= thresholdDate);
+
+    // Tomar solo el lote definido para esta ejecución (efecto cola)
+    const filteredConversations = inactiveConversations.slice(0, batchSize);
+
+    const reengagedChats = [];
+
+    // 5. Analizar cada conversación filtrada
+    for (const convo of filteredConversations) {
+      // Obtener los últimos 2 mensajes de esta conversación para verificar
+      // 1) cuándo fue el último mensaje, y 2) si ya fue un mensaje de reenganche
       const { data: lastMessages, error: msgError } = await adminSupabase
         .from('messages')
         .select('*')
         .eq('conversation_id', convo.id)
         .order('created_at', { ascending: false })
-        .limit(1);
+        .limit(2);
 
       if (msgError || !lastMessages || lastMessages.length === 0) {
         continue; // Conversación vacía o error
@@ -103,7 +126,13 @@ async function handleReengage(req: Request) {
 
       const lastMessage = lastMessages[0];
 
-      // CONDICIÓN CLAVE: Haber superado el tiempo de inactividad (ahora funciona tanto si el usuario como el avatar enviaron el último mensaje)
+      // Prevenir ciclo infinito: si los últimos DOS mensajes son del avatar,
+      // probablemente ya le enviamos un mensaje de reenganche y el usuario lo ignoró.
+      if (lastMessages.length === 2 && lastMessages[0].role === 'avatar' && lastMessages[1].role === 'avatar') {
+        continue; // Saltamos para no saturar al usuario con múltiples reenganches
+      }
+
+      // CONDICIÓN CLAVE: Haber superado el tiempo de inactividad
       if (lastMessage.role === 'user' || lastMessage.role === 'avatar') {
         const lastMsgTime = new Date(lastMessage.created_at).getTime();
         const diffMs = now - lastMsgTime;
