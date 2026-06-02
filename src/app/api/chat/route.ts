@@ -594,7 +594,7 @@ export async function POST(req: Request) {
       .select('*')
       .eq('conversation_id', conversation_id)
       .order('created_at', { ascending: false })
-      .limit(10); // Capa 2: Últimos 10 mensajes
+      .limit(20); // Capa 2: Últimos 20 mensajes (aproximadamente 10 interacciones completas)
 
     if (historyError) {
       throw new Error(`Error fetching history: ${historyError.message}`);
