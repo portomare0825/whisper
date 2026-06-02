@@ -1,0 +1,37 @@
+{
+  "authKeyStatus": 200,
+  "authKeyData": {
+    "data": {
+      "label": "sk-or-v1-de7...b9e",
+      "is_management_key": false,
+      "is_provisioning_key": false,
+      "limit": null,
+      "limit_reset": null,
+      "limit_remaining": null,
+      "include_byok_in_limit": false,
+      "usage": 2.51335437,
+      "usage_daily": 0.31468308,
+      "usage_weekly": 0.45875717,
+      "usage_monthly": 0.45875717,
+      "byok_usage": 0,
+      "byok_usage_daily": 0,
+      "byok_usage_weekly": 0,
+      "byok_usage_monthly": 0,
+      "is_free_tier": false,
+      "expires_at": null,
+      "creator_user_id": "user_2szQeEjmNH5hXnW8scHPkp2Ba3W",
+      "rate_limit": {
+        "requests": -1,
+        "interval": "10s",
+        "note": "This field is deprecated and safe to ignore."
+      }
+    }
+  },
+  "creditsStatus": 200,
+  "creditsData": {
+    "data": {
+      "total_credits": 10,
+      "total_usage": 2.51335437
+    }
+  }
+}

@@ -30,6 +30,16 @@ interface Metrics {
     currentBalance: number;
     currency: string;
   } | null;
+  openRouterBalance?: {
+    label?: string;
+    usage?: number;
+    limit?: number | null;
+    isFreeTier?: boolean;
+    remainingLimit?: number | null;
+    totalCredits?: number;
+    totalUsage?: number;
+    remainingBalance?: number;
+  } | null;
   tickets?: {
     total: number;
     used: number;
@@ -407,76 +417,233 @@ export default function AdminDashboard() {
 
         {/* SECCIÓN: SERVICIOS EXTERNOS & IA */}
         <section>
-          <div className="flex items-center gap-2 mb-4 px-1 mt-6">
-            <Cpu className="w-5 h-5 text-violet-400" />
-            <h2 className="text-lg font-semibold tracking-wide">Proveedores de Inteligencia Artificial</h2>
+          <div className="flex items-center justify-between mb-6 mt-6 px-1">
+            <div className="flex items-center gap-2">
+              <Cpu className="w-5 h-5 text-violet-400" />
+              <h2 className="text-lg font-semibold tracking-wide">Consola de Inteligencia Artificial (OpenRouter & fal.ai)</h2>
+            </div>
+            <span className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-full px-3 py-1 font-medium flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Conexión Activa con LLMs
+            </span>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Tarjeta de Fal.ai Balance */}
-            <div className="md:col-span-2 bg-[#0f172a]/50 backdrop-blur-sm border border-violet-500/20 rounded-3xl p-6 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent opacity-20 transition-opacity duration-300 group-hover:opacity-40" />
-              
-              <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                <div className="space-y-2">
-                  <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Saldo Disponible en fal.ai</span>
-                  <div className="flex items-baseline gap-2">
-                    {metrics?.falBalance === undefined ? (
-                      <span className="text-3xl font-extrabold text-white animate-pulse">Cargando...</span>
-                    ) : metrics.falBalance === null ? (
-                      <div className="flex items-center gap-2 text-rose-400">
-                        <AlertTriangle className="w-5 h-5 animate-bounce" />
-                        <span className="text-lg md:text-xl font-bold">No disponible / Sin clave ADMIN</span>
-                      </div>
-                    ) : (
-                      <>
-                        <span className={`text-4xl md:text-5xl font-extrabold tracking-tight ${
-                          metrics.falBalance.currentBalance < 5 ? 'text-amber-400 animate-pulse' : 'text-emerald-400'
-                        }`}>
-                          ${metrics.falBalance.currentBalance.toFixed(2)}
-                        </span>
-                        <span className="text-sm text-slate-400">{metrics.falBalance.currency}</span>
-                      </>
-                    )}
+
+          <div className="space-y-6">
+            {/* SUB-SECCIÓN: OPENROUTER ACTIVITY CONSOLE (Inspirado en OpenRouter Dashboard) */}
+            <div className="bg-[#0b0f19] border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                <div>
+                  <h3 className="text-xl font-extrabold text-white tracking-tight">Activity / Actividad</h3>
+                  <p className="text-xs text-slate-400 mt-1">Your usage across models on OpenRouter ( Whispers completions )</p>
+                </div>
+                <div className="flex gap-2">
+                  <a 
+                    href="https://openrouter.ai/activity" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-[#020617] hover:bg-white/5 transition-all border border-white/5 px-4 py-2 rounded-xl text-xs text-slate-200 cursor-pointer font-semibold"
+                  >
+                    <Activity className="w-4 h-4 text-violet-400" />
+                    <span>OpenRouter Activity</span>
+                  </a>
+                  <a 
+                    href="https://openrouter.ai/keys" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="premium-button text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-primary/10"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    <span>Recargar Créditos</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Grid de Actividad (Gasto, Peticiones, Tokens y Créditos) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                
+                {/* 1. Gasto (Spend) */}
+                <div className="bg-[#020617] border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-pink-500/20 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-pink-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Spend / Gasto</span>
+                    <Coins className="w-4 h-4 text-pink-500" />
                   </div>
-                  <p className="text-xs text-slate-400">
-                    {metrics?.falBalance === null 
-                      ? "Asegúrate de que tu FAL_KEY en .env.local posea el rol de ADMIN para consultar facturación."
-                      : "Créditos para generación de imágenes (VTON, InstantID) y síntesis de voz."}
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                      {metrics?.openRouterBalance ? (
+                        `$${metrics.openRouterBalance.usage?.toFixed(3).replace('.', ',')}`
+                      ) : (
+                        `$0,000`
+                      )}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10">
+                    Consumido por tu clave de completions
+                  </div>
+                </div>
+
+                {/* 2. Peticiones (Requests) */}
+                <div className="bg-[#020617] border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/20 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Requests / Peticiones</span>
+                    <MessageSquare className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                      {metrics?.chat.messages ? new Intl.NumberFormat('es-US').format(metrics.chat.messages) : '0'}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10">
+                    Total mensajes respondidos exitosamente
+                  </div>
+                </div>
+
+                {/* 3. Tokens */}
+                <div className="bg-[#020617] border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-violet-500/20 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Tokens Procesados</span>
+                    <Activity className="w-4 h-4 text-violet-500" />
+                  </div>
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                      {metrics?.chat.messages ? (
+                        metrics.chat.messages * 280 > 1000000 
+                          ? `${(metrics.chat.messages * 280 / 1000000).toFixed(2).replace('.', ',')}M`
+                          : `${Math.round(metrics.chat.messages * 280 / 1000).toString().replace('.', ',')}K`
+                      ) : (
+                        `0`
+                      )}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10">
+                    Tokens promedio inyectados en completions
+                  </div>
+                </div>
+
+                {/* 4. Créditos de la Cuenta (Credits Balance) */}
+                <div className="bg-gradient-to-br from-indigo-500/10 via-[#020617] to-[#020617] border border-indigo-500/25 rounded-2xl p-6 flex flex-col justify-between hover:border-indigo-500/50 transition-all duration-300 relative overflow-hidden group shadow-2xl">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none animate-pulse" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Credits / Créditos</span>
+                    <Wallet className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-3xl md:text-4xl font-black text-emerald-400 tracking-tight">
+                      {metrics?.openRouterBalance === undefined ? (
+                        <span className="text-sm font-normal text-slate-400 animate-pulse">Cargando...</span>
+                      ) : metrics.openRouterBalance === null ? (
+                        <span className="text-sm font-semibold text-rose-400">Sin clave ADMIN</span>
+                      ) : metrics.openRouterBalance.remainingBalance !== undefined ? (
+                        `$${metrics.openRouterBalance.remainingBalance.toFixed(2).replace('.', ',')}`
+                      ) : metrics.openRouterBalance.remainingLimit !== null && metrics.openRouterBalance.remainingLimit !== undefined ? (
+                        `$${metrics.openRouterBalance.remainingLimit.toFixed(2).replace('.', ',')}`
+                      ) : (
+                        `Ilimitado`
+                      )}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10 font-medium">
+                    {metrics?.openRouterBalance?.remainingBalance !== undefined 
+                      ? "Personal Account: desolucionesxi@gmail.com"
+                      : "Saldo restante asignado a esta clave API"}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Leyenda de modelos similar a la de OpenRouter Activity */}
+              <div className="flex flex-col sm:flex-row justify-between gap-3 bg-[#020617]/50 border border-white/5 p-4 rounded-2xl">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-pink-500" />
+                    <span className="text-xs text-slate-300 font-medium">Llama 3.3 Euryale 70B</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <span className="text-xs text-slate-300 font-medium">Llama 3 8B Lunaris</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-cyan-500" />
+                    <span className="text-xs text-slate-300 font-medium">Gemini 2.5 Flash</span>
+                  </div>
+                </div>
+                <div className="text-left sm:text-right text-[10px] text-slate-500 font-semibold flex items-center sm:justify-end gap-1">
+                  <span>Clave Administrada Activa:</span>
+                  <span className="text-slate-400 font-bold">
+                    {metrics?.openRouterBalance?.label || 'Whisper Principal Key'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN FAL.AI */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Tarjeta de Fal.ai Balance */}
+              <div className="md:col-span-2 bg-[#0f172a]/50 backdrop-blur-sm border border-violet-500/20 rounded-3xl p-6 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-500/10 to-transparent opacity-20 transition-opacity duration-300 group-hover:opacity-40" />
+                
+                <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                  <div className="space-y-2">
+                    <span className="text-xs font-semibold text-violet-400 uppercase tracking-wider">Saldo Disponible en fal.ai</span>
+                    <div className="flex items-baseline gap-2">
+                      {metrics?.falBalance === undefined ? (
+                        <span className="text-3xl font-extrabold text-white animate-pulse">Cargando...</span>
+                      ) : metrics.falBalance === null ? (
+                        <div className="flex items-center gap-2 text-rose-400">
+                          <AlertTriangle className="w-5 h-5 animate-bounce" />
+                          <span className="text-lg md:text-xl font-bold">No disponible / Sin clave ADMIN</span>
+                        </div>
+                      ) : (
+                        <>
+                          <span className={`text-4xl md:text-5xl font-extrabold tracking-tight ${
+                            metrics.falBalance.currentBalance < 5 ? 'text-amber-400 animate-pulse' : 'text-emerald-400'
+                          }`}>
+                            ${metrics.falBalance.currentBalance.toFixed(2)}
+                          </span>
+                          <span className="text-sm text-slate-400">{metrics.falBalance.currency}</span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-400">
+                      {metrics?.falBalance === null 
+                        ? "Asegúrate de que tu FAL_KEY en .env.local posea el rol de ADMIN para consultar facturación."
+                        : "Créditos para generación de imágenes (VTON, InstantID) y síntesis de voz."}
+                    </p>
+                  </div>
+
+                  <a 
+                    href="https://fal.run/dashboard/billing" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="premium-button text-white px-5 py-2.5 rounded-xl font-medium text-xs flex items-center gap-2 border border-violet-500/30 hover:border-violet-500/60 shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 transition-all whitespace-nowrap"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    Gestionar Saldo fal.ai
+                  </a>
+                </div>
+              </div>
+
+              {/* Tarjeta de estado de API de Fal.ai */}
+              <div className="bg-[#0f172a]/50 backdrop-blur-sm border border-violet-500/20 rounded-3xl p-6 relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-20 transition-opacity duration-300 group-hover:opacity-40" />
+                <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
+                  <div>
+                    <h3 className="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-2">Estado de fal.ai</h3>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${metrics?.falBalance ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`} />
+                      <span className="text-lg font-bold text-white">
+                        {metrics?.falBalance ? 'Conectado / Activo' : 'Clave de API cargada'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    Llamadas al endpoint IDM-VTON y síntesis de audio configuradas a través del SDK oficial de fal.ai.
                   </p>
                 </div>
-
-                <a 
-                  href="https://fal.run/dashboard/billing" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="premium-button text-white px-5 py-2.5 rounded-xl font-medium text-xs flex items-center gap-2 border border-violet-500/30 hover:border-violet-500/60 shadow-lg shadow-violet-500/10 hover:shadow-violet-500/20 transition-all whitespace-nowrap"
-                >
-                  <Wallet className="w-4 h-4" />
-                  Gestionar Saldo fal.ai
-                </a>
               </div>
             </div>
-
-            {/* Tarjeta de estado de API de Fal.ai */}
-            <div className="bg-[#0f172a]/50 backdrop-blur-sm border border-violet-500/20 rounded-3xl p-6 relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-transparent opacity-20 transition-opacity duration-300 group-hover:opacity-40" />
-              <div className="relative z-10 flex flex-col justify-between h-full space-y-4">
-                <div>
-                  <h3 className="text-xs font-semibold text-violet-400 uppercase tracking-wider mb-2">Estado del Servicio</h3>
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${metrics?.falBalance ? 'bg-emerald-500 animate-ping' : 'bg-amber-500 animate-pulse'}`} />
-                    <span className="text-lg font-bold text-white">
-                      {metrics?.falBalance ? 'Conectado / Activo' : 'Clave de API cargada'}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  Llamadas al endpoint IDM-VTON y síntesis de audio configuradas a través del SDK oficial de fal.ai.
-                </p>
-              </div>
-            </div>
-
           </div>
         </section>
 

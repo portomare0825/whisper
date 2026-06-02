@@ -81,6 +81,106 @@ export async function GET() {
       return null;
     };
 
+    // OpenRouter API call helper with graceful fallback
+    const fetchOpenRouterBalance = async () => {
+      const openRouterKey = process.env.OPENROUTER_API_KEY;
+      if (!openRouterKey) return null;
+      
+      const logData: Record<string, any> = {};
+
+      // 1. Intentar con /api/v1/auth/key
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/auth/key', {
+          headers: {
+            'Authorization': `Bearer ${openRouterKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        logData.authKeyStatus = res.status;
+        if (res.ok) {
+          const data = await res.json();
+          logData.authKeyData = data;
+        } else {
+          logData.authKeyError = await res.text();
+        }
+      } catch (err: any) {
+        logData.authKeyException = err.message;
+      }
+
+      // 2. Intentar con /api/v1/credits
+      try {
+        const res = await fetch('https://openrouter.ai/api/v1/credits', {
+          headers: {
+            'Authorization': `Bearer ${openRouterKey}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        logData.creditsStatus = res.status;
+        if (res.ok) {
+          const data = await res.json();
+          logData.creditsData = data;
+        } else {
+          logData.creditsError = await res.text();
+        }
+      } catch (err: any) {
+        logData.creditsException = err.message;
+      }
+
+      // Escribir a scratch/openrouter_debug.log
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const logDir = path.join(process.cwd(), 'scratch');
+        if (!fs.existsSync(logDir)) {
+          fs.mkdirSync(logDir, { recursive: true });
+        }
+        fs.writeFileSync(
+          path.join(logDir, 'openrouter_debug.log'),
+          JSON.stringify(logData, null, 2)
+        );
+      } catch (e) {}
+
+      // Combinar los datos para retornar el saldo disponible
+      let label = 'Whisper Key';
+      let usage = 0;
+      let limit = null;
+      let isFreeTier = false;
+      let remainingLimit = null;
+      let totalCredits = undefined;
+      let totalUsage = undefined;
+      let remainingBalance = undefined;
+
+      if (logData.authKeyData && logData.authKeyData.data) {
+        const kd = logData.authKeyData.data;
+        label = kd.label || label;
+        usage = kd.usage || 0;
+        limit = kd.limit;
+        isFreeTier = kd.is_free_tier || false;
+        remainingLimit = kd.limit !== null ? Math.max(0, kd.limit - (kd.usage || 0)) : null;
+      }
+
+      if (logData.creditsData && logData.creditsData.data) {
+        const cd = logData.creditsData.data;
+        totalCredits = cd.total_credits;
+        totalUsage = cd.total_usage;
+        remainingBalance = Math.max(0, cd.total_credits - cd.total_usage);
+      }
+
+      // Si no tenemos créditos globales pero tenemos un límite y uso de clave, podemos estructurar
+      return {
+        label,
+        usage,
+        limit,
+        isFreeTier,
+        remainingLimit,
+        totalCredits,
+        totalUsage,
+        remainingBalance
+      };
+    };
+
     // Promesas concurrentes para máxima velocidad
     const [
       { count: totalUsers },
@@ -94,6 +194,7 @@ export async function GET() {
       { data: dbSizeResult },
       { data: financialResult },
       falBalanceData,
+      openRouterBalanceData,
       { count: totalTickets },
       { count: usedTickets }
     ] = await Promise.all([
@@ -108,6 +209,7 @@ export async function GET() {
       supabaseAdmin.rpc('get_database_size'),
       supabaseAdmin.rpc('get_admin_financials'),
       fetchFalBalance(),
+      fetchOpenRouterBalance(),
       supabaseAdmin.from('tickets').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('tickets').select('*', { count: 'exact', head: true }).eq('is_used', true)
     ]);
@@ -163,7 +265,8 @@ export async function GET() {
           used: usedTickets || 0,
           available: (totalTickets || 0) - (usedTickets || 0)
         },
-        falBalance: falBalanceData
+        falBalance: falBalanceData,
+        openRouterBalance: openRouterBalanceData
       }
     });
 
