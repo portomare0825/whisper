@@ -521,13 +521,61 @@ const ghostFewShot = [
 // ═══════════════════════════════════════════════════════════════════
 export async function POST(req: Request) {
   try {
-    const { conversation_id, message, avatar_id, is_regenerate } = await req.json();
+    const { conversation_id, message, avatar_id, is_regenerate, action, messageIds } = await req.json();
 
     // Utilizamos el Service Role Key para hacer bypass a RLS y tener acceso total a la DB
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
+
+    // Si la acción es borrar mensajes, lo manejamos aquí para evitar problemas de rutas nuevas
+    if (action === 'delete') {
+      console.log('[DELETE API] Petición recibida para eliminar messageIds:', messageIds);
+      
+      // Registrar logs en archivo de texto para depuración remota
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const logDir = path.join(process.cwd(), 'scratch');
+        if (!fs.existsSync(logDir)) {
+          fs.mkdirSync(logDir, { recursive: true });
+        }
+        const logPath = path.join(logDir, 'api_delete_debug.log');
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] Petición delete recibida. messageIds: ${JSON.stringify(messageIds)}\n`);
+      } catch (e) {
+        console.error('Error al escribir log en archivo:', e);
+      }
+
+      if (!messageIds || !Array.isArray(messageIds) || messageIds.length === 0) {
+        return NextResponse.json({ error: 'messageIds array is required' }, { status: 400 });
+      }
+
+      const { data: deletedRows, error: deleteError } = await supabase
+        .from('messages')
+        .delete()
+        .in('id', messageIds)
+        .select();
+
+      console.log('[DELETE API] Resultado de Supabase delete:', { deletedRows, deleteError });
+
+      // Registrar resultado de Supabase en archivo de texto
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const logPath = path.join(process.cwd(), 'scratch', 'api_delete_debug.log');
+        fs.appendFileSync(logPath, `[${new Date().toISOString()}] Resultado Supabase. deletedRows: ${JSON.stringify(deletedRows)}, error: ${JSON.stringify(deleteError)}\n`);
+      } catch (e) {
+        console.error('Error al escribir log en archivo:', e);
+      }
+
+      if (deleteError) {
+        console.error('[DELETE API] Error de Supabase al eliminar:', deleteError);
+        return NextResponse.json({ error: 'Error al eliminar los mensajes' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, deletedCount: deletedRows?.length || 0 });
+    }
 
     // 1. Obtener datos del avatar y conversación
     const { data: avatar, error: avatarError } = await supabase
@@ -709,10 +757,10 @@ export async function POST(req: Request) {
 
     // ── LISTA DE MODELOS CON FALLBACKS ──
     const premiumModelsFallback = [
-      { model: process.env.PREMIUM_CHAT_MODEL || "sao10k/l3.3-euryale-70b", timeout: 18000 },
-      { model: "neversleep/llama-3.1-lumimaid-70b", timeout: 12000 },
+      { model: process.env.PREMIUM_CHAT_MODEL || "sao10k/gemma-2-27b-it", timeout: 12000 },
+      { model: "anthracite-org/magnum-v2-72b", timeout: 12000 },
       { model: "sao10k/l3-lunaris-8b", timeout: 8000 },
-      { model: "neversleep/llama-3.1-lumimaid-8b", timeout: 8000 }
+      { model: "mistralai/mistral-nemo", timeout: 8000 }
     ];
 
     const freeModelsFallback = [
@@ -1003,14 +1051,20 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     let assistantContent = assistantContentRaw;
 
     // ── GUARDAR MENSAJE DEL USUARIO (solo tras éxito de la IA y si no es regeneración) ──
+    let userMessageId: string | null = null;
     if (!is_regenerate) {
-      const { error: userInsertError } = await supabase.from('messages').insert([
-        { conversation_id, role: 'user', content: message }
-      ]);
+      const { data: userData, error: userInsertError } = await supabase
+        .from('messages')
+        .insert([
+          { conversation_id, role: 'user', content: message }
+        ])
+        .select('id')
+        .single();
 
       if (userInsertError) {
         throw new Error(`Error saving user message: ${userInsertError.message}`);
       }
+      userMessageId = userData?.id || null;
     }
 
     // ── DETECCIÓN DE CENSURA para usuarios FREE (Premium ya fue filtrado en el loop) ──
@@ -1058,89 +1112,7 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
       console.log(`[DEBUG] No se detectó emoción. Infección automática por fallback: "${finalEmotionTag}"`);
     }
 
-    // 3. Procesar cambio de vestimenta (outfit change)
-    let newImageUrl = null;
-    let outfitDescription = null;
-
-    const tagRegex = /<\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>([\s\S]*?)<\s*\/\s*\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>/i;
-    const tagMatch = assistantContent.match(tagRegex);
-
-    if (tagMatch) {
-      outfitDescription = tagMatch[1].trim();
-    } else {
-      const altMatch1 = assistantContent.match(/\((?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\)/i);
-      const altMatch2 = assistantContent.match(/\[(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\]/i);
-      const altMatch3 = assistantContent.match(/=(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)(?:>|\))/i);
-      
-      if (altMatch1) outfitDescription = altMatch1[1].trim();
-      else if (altMatch2) outfitDescription = altMatch2[1].trim();
-      else if (altMatch3) outfitDescription = altMatch3[1].trim();
-    }
-
-    const PIXELAPI_KEY = process.env.PIXELAPI_KEY;
-
-    function parsePixelAPIError(status: number, errText: string): string {
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed.detail) {
-          if (typeof parsed.detail === 'object' && parsed.detail.message) {
-            let msg = parsed.detail.message;
-            if (msg.includes("recovering from a memory pressure event")) {
-              const retryMatch = msg.match(/about (\d+)s/);
-              const seconds = retryMatch ? `${retryMatch[1]} segundos` : "unos minutos";
-              return `El motor de inteligencia artificial de PixelAPI se está reiniciando temporalmente por mantenimiento técnico. Por favor, vuelve a intentarlo en aproximadamente ${seconds}. No se han descontado tus monedas del saldo.`;
-            }
-            return msg;
-          }
-          return typeof parsed.detail === 'string' ? parsed.detail : JSON.stringify(parsed.detail);
-        }
-        if (parsed.error_message) return parsed.error_message;
-        if (parsed.message) return parsed.message;
-      } catch (e) {}
-
-      if (status === 502 || status === 503) {
-        return `El proveedor de generación de imágenes está temporalmente saturado o en mantenimiento (Error ${status}). Por favor, intenta de nuevo en unos minutos. No se han descontado tus monedas.`;
-      }
-
-      return `PixelAPI respondió con status ${status}: ${errText}`;
-    }
-
-    let pendingOutfitGenerationId = null;
-
-    if (outfitDescription && PIXELAPI_KEY && PIXELAPI_KEY !== 'your_pixelapi_key_here') {
-      try {
-        const submitResponse = await fetch("https://api.pixelapi.dev/v1/image/edit", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${PIXELAPI_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            "image": avatar.base_image_url,
-            "prompt": outfitDescription.trim(),
-            "negative_prompt": "nude, naked, explicit, blur, low quality, distorted",
-          })
-        });
-
-        if (submitResponse.ok) {
-          const submitResult = await submitResponse.json();
-          pendingOutfitGenerationId = submitResult.id;
-        } else {
-          const errText = await submitResponse.text();
-          console.error(parsePixelAPIError(submitResponse.status, errText));
-        }
-      } catch (err) {
-        console.error('PixelAPI Error:', err);
-      }
-    }
-
-    // 4. Limpiar etiquetas de outfit del contenido visible
-    assistantContent = assistantContent.replace(/<\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>([\s\S]*?)<\s*\/\s*\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>/gi, '');
-    assistantContent = assistantContent.replace(/\((?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\)/gi, '');
-    assistantContent = assistantContent.replace(/\[(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)\]/gi, '');
-    assistantContent = assistantContent.replace(/=(?:outfit)[-_]?(?:change|clothing):\s*([\s\S]*?)(?:>|\))/gi, '');
-    assistantContent = assistantContent.replace(/<\\?[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?[\s\S]*/gi, '');
-    assistantContent = assistantContent.replace(/<\s*\/?\\?\s*[oO]utfit[\s_\\-]*[cC]hange(?:[\s_\\-]*[cC]lothing)?\s*>/gi, '');
+    // 3. Procesar cambio de vestimenta (outfit change) eliminado a petición del usuario.
 
     // 4.5 Convertir acciones físicas con corchetes angulares <accion> a asteriscos *accion*
     const contentBeforeConversion = assistantContent;
@@ -1162,11 +1134,16 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     if (finalEmotionTag) aiMessagePayload.emotion_tag = finalEmotionTag;
     if (finalHiddenThought && isPremium) aiMessagePayload.hidden_thought = finalHiddenThought;
 
-    const { error: aiInsertError } = await supabase.from('messages').insert([aiMessagePayload]);
+    const { data: aiData, error: aiInsertError } = await supabase
+      .from('messages')
+      .insert([aiMessagePayload])
+      .select('id')
+      .single();
 
     if (aiInsertError) {
       throw new Error(`Error saving AI message: ${aiInsertError.message}`);
     }
+    const avatarMessageId = aiData?.id || null;
 
     // ── ACTUALIZAR CONTADOR DE MENSAJES y disparar summary si es necesario ──
     const newMessageCount = (conversation.message_count || 0) + (is_regenerate ? 1 : 2); // user + avatar o solo avatar si es regeneración
@@ -1198,11 +1175,11 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     }
 
     return NextResponse.json({
+      userMessageId,
+      avatarMessageId,
       content: assistantContent,
       emotion_tag: finalEmotionTag,
-      hidden_thought: isPremium ? finalHiddenThought : null,
-      pending_outfit_generation_id: pendingOutfitGenerationId,
-      outfit_prompt: outfitDescription ? outfitDescription.trim() : null
+      hidden_thought: isPremium ? finalHiddenThought : null
     });
 
   } catch (error: any) {

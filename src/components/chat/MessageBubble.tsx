@@ -279,7 +279,7 @@ interface MessageBubbleProps {
   avatar: Avatar;
   isLast?: boolean;
   isLastUser?: boolean;
-  onEdit?: (content: string) => void;
+  onEdit?: (id: string, content: string) => void;
   onRegenerate?: () => void;
   onRetry?: (content: string, isAlreadyInDb?: boolean) => void;
   sending?: boolean;
@@ -600,8 +600,8 @@ export default function MessageBubble({
               <button
                 onClick={() => setShowThought(prev => !prev)}
                 className={cn(
-                  "p-1 rounded-full transition-colors text-violet-400 hover:bg-violet-400/10",
-                  showThought && "bg-violet-400/20"
+                  "p-1 rounded-full transition-colors text-cyan-400 hover:bg-cyan-400/10",
+                  showThought && "bg-cyan-400/20"
                 )}
                 title="Ver pensamiento oculto"
               >
@@ -614,10 +614,10 @@ export default function MessageBubble({
         {/* Pensamiento oculto (blur efecto) */}
         {isPremium && message.hidden_thought && (
           <div className={cn(
-            "mb-2 px-3 py-1.5 rounded-lg border border-violet-400/20 bg-violet-950/20 text-violet-200/80 text-[11px] italic leading-relaxed transition-all duration-500",
+            "mb-2 px-3 py-1.5 rounded-lg border border-cyan-400/30 bg-cyan-950/30 text-cyan-100/90 text-[12px] font-serif italic leading-relaxed transition-all duration-500",
             showThought ? "blur-none opacity-100" : "blur-sm opacity-50 select-none pointer-events-none"
           )}>
-            <span className="text-violet-400 not-italic font-semibold text-[9px] uppercase tracking-wider mr-2">Piensa:</span>
+            <span className="text-cyan-400 not-italic font-sans font-bold text-[9px] uppercase tracking-wider mr-2">Piensa:</span>
             {message.hidden_thought}
           </div>
         )}
@@ -680,8 +680,8 @@ export default function MessageBubble({
                     "p-1 md:p-1.5 rounded-full transition-all duration-300",
                     message.hidden_thought
                       ? showThought
-                        ? "text-violet-400 bg-violet-400/20 shadow-sm shadow-violet-400/30"
-                        : "text-violet-400 hover:bg-violet-400/10"
+                        ? "text-cyan-400 bg-cyan-400/20 shadow-sm shadow-cyan-400/30"
+                        : "text-cyan-400 hover:bg-cyan-400/10"
                       : "text-white/20 cursor-default" // dimmed si no hay thought aún
                   )}
                   title={
@@ -748,12 +748,12 @@ export default function MessageBubble({
         {/* Panel de pensamiento oculto con blur animado */}
         {isAvatar && isPremium && message.hidden_thought && (
           <div className={cn(
-            "mb-2 md:mb-3 px-2.5 py-2 rounded-lg border border-violet-400/25 bg-violet-950/20 text-violet-200/80 text-[10px] md:text-[11px] italic leading-relaxed transition-all duration-500 overflow-y-auto max-h-56 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']",
+            "mb-2 md:mb-3 px-2.5 py-2 rounded-lg border border-cyan-400/30 bg-cyan-950/30 text-cyan-100/90 text-[11px] md:text-[13px] font-serif italic leading-relaxed transition-all duration-500 overflow-y-auto max-h-56 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']",
             showThought 
               ? "blur-none opacity-100" 
               : "blur-sm opacity-40 select-none pointer-events-none"
           )}>
-            <span className="text-violet-400 not-italic font-semibold text-[8px] md:text-[9px] uppercase tracking-wider mr-1.5 block mb-0.5">
+            <span className="text-cyan-400 not-italic font-sans font-bold text-[8px] md:text-[9px] uppercase tracking-wider mr-1.5 block mb-0.5">
               💭 Piensa internamente:
             </span>
             {message.hidden_thought}
@@ -777,7 +777,7 @@ export default function MessageBubble({
               {isLastUser && onEdit && !sending && (
                 <button
                   type="button"
-                  onClick={() => onEdit?.(message.content)}
+                  onClick={() => onEdit?.(message.id, message.content)}
                   className="px-1 py-0.2 md:px-1.5 md:py-0.5 rounded hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] uppercase tracking-wider border border-white/10"
                   title="Editar esta pregunta"
                 >

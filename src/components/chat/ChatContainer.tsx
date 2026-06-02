@@ -1107,10 +1107,9 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         localStorage.setItem(`pending-outfit-${conversation.id}`, JSON.stringify(job));
       }
       
-      // La base de datos y realtime se encargarán del mensaje del AI, pero 
-      // si realtime falla, podemos agregarlo aquí también optimísticamente:
+      // Usar los IDs reales de base de datos retornados directamente por el backend
       const optimisticAiMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: result.avatarMessageId || (Date.now() + 1).toString(),
         content: result.content,
         role: 'avatar',
         created_at: new Date().toISOString(),
@@ -1119,10 +1118,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         hidden_thought: result.hidden_thought || undefined,
       } as Message;
       
-      // Solo agregamos si el contenido no está vacío y no existe ya por realtime
+      // Reemplazar el ID temporal del usuario con el real y añadir el mensaje de la IA
       setMessages(prev => {
-        const exists = prev.find(m => m.content === optimisticAiMessage.content && m.role === 'avatar');
-        return exists ? prev : [...prev, optimisticAiMessage];
+        const updated = prev.map(m => m.id === tempId && result.userMessageId ? { ...m, id: result.userMessageId } : m);
+        const exists = updated.find(m => m.content === optimisticAiMessage.content && m.role === 'avatar');
+        return exists ? updated : [...updated, optimisticAiMessage];
       });
 
     } catch (err: any) {
@@ -1137,59 +1137,42 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }
   };
 
-  const handleEditMessage = async (content: string) => {
+  const handleEditMessage = (messageId: string, content: string) => {
     setInput(content);
     
-    if (messages.length === 0) return;
+    // 1. Encontrar los IDs a borrar usando el estado actual
+    const index = messages.findIndex(m => m.id === messageId);
+    if (index === -1) return;
     
-    const lastMessage = messages[messages.length - 1];
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
-    if (lastMessage.role === 'user') {
-      // Caso A: Solo borrar el último mensaje del usuario
-      if (uuidRegex.test(lastMessage.id)) {
-        try {
-          const { error } = await supabase
-            .from('messages')
-            .delete()
-            .eq('id', lastMessage.id);
-          
-          if (error) {
-            console.warn('No se pudo borrar el mensaje del usuario de la base de datos:', error);
-          }
-        } catch (err) {
-          console.warn('Error limpiando el mensaje editado:', err);
-        }
-      }
-      setMessages(prev => prev.slice(0, -1));
-    } else if (lastMessage.role === 'avatar') {
-      // Caso B: Borrar la respuesta del avatar y el mensaje del usuario anterior
-      const secondLastMessage = messages[messages.length - 2];
-      if (secondLastMessage && secondLastMessage.role === 'user') {
-        try {
-          // Borrar mensaje del avatar si es un UUID válido
-          if (uuidRegex.test(lastMessage.id)) {
-            const { error: errAvatar } = await supabase
-              .from('messages')
-              .delete()
-              .eq('id', lastMessage.id);
-            if (errAvatar) console.warn('No se pudo borrar el mensaje del avatar:', errAvatar);
-          }
-          
-          // Borrar mensaje del usuario si es un UUID válido
-          if (uuidRegex.test(secondLastMessage.id)) {
-            const { error: errUser } = await supabase
-              .from('messages')
-              .delete()
-              .eq('id', secondLastMessage.id);
-            if (errUser) console.warn('No se pudo borrar el mensaje del usuario:', errUser);
-          }
-        } catch (err) {
-          console.warn('Error limpiando mensajes al editar:', err);
-        }
-        setMessages(prev => prev.slice(0, -2));
-      }
+    const idsToDelete = [messages[index].id];
+    // Si el siguiente mensaje es del avatar, también lo borramos
+    if (index + 1 < messages.length && messages[index + 1].role === 'avatar') {
+      idsToDelete.push(messages[index + 1].id);
     }
+    
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validIds = idsToDelete.filter(id => uuidRegex.test(id));
+    
+    // 2. Disparar el borrado en background fuera del setState
+    if (validIds.length > 0) {
+      fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', messageIds: validIds })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) console.error('Error del servidor al borrar:', data.error);
+      })
+      .catch(err => console.error('Error de red al borrar mensajes:', err));
+    }
+    
+    // 3. Actualizar la UI cortando hasta el índice
+    setMessages(prev => {
+      const idx = prev.findIndex(m => m.id === messageId);
+      if (idx === -1) return prev;
+      return prev.slice(0, idx);
+    });
 
     // Enfocar el input de texto del chat
     setTimeout(() => {
@@ -1249,7 +1232,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       }
       
       const optimisticAiMessage: Message = {
-        id: Date.now().toString(),
+        id: result.avatarMessageId || Date.now().toString(),
         content: result.content,
         role: 'avatar',
         created_at: new Date().toISOString(),
@@ -1288,17 +1271,16 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastMessage.id);
         
         if (isUuid) {
-          const { error } = await supabase
-            .from('messages')
-            .delete()
-            .eq('id', lastMessage.id);
-            
-          if (error) {
-            console.warn('No se pudo borrar el mensaje del avatar por ID UUID:', error);
-          }
+          // Usar la API Route para borrar con privilegios Service Role (bypass RLS)
+          await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'delete', messageIds: [lastMessage.id] })
+          }).catch(err => console.warn('Error borrando mensaje avatar:', err));
         } else {
           // Si no es un UUID válido (todavía es un ID optimista temporal),
-          // intentamos borrarlo de la base de datos haciendo match por contenido y conversación
+          // intentamos borrarlo de la base de datos haciendo match por contenido y conversación.
+          // Nota: Con la sincronización directa de IDs en handleSend esto no debería ocurrir.
           const { error } = await supabase
             .from('messages')
             .delete()
