@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/reengage?batch=15",
-      "schedule": "0 8 * * *"
-    }
-  ]
-}
+{}
