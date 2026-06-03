@@ -270,13 +270,15 @@ export default function Sidebar() {
           <img src="/icon-192.png" alt="Logo" className="w-8 h-8 rounded-lg shadow-[0_0_15px_rgba(212,175,55,0.4)]" />
           <h2 className="text-xl font-bold gold-gradient tracking-tight">Whisper</h2>
         </div>
-        <button
-          onClick={() => setIsOpen(true)}
-          className="p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          aria-label="Abrir menú"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setIsOpen(true)}
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            aria-label="Abrir menú"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        )}
       </header>
 
       {/* Backdrop en Móvil */}

@@ -104,7 +104,7 @@ export default async function DashboardPage() {
         </div>
         <Link 
           href="/dashboard/avatars/new"
-          className="premium-button px-6 py-3 rounded-xl font-bold flex items-center gap-2 group"
+          className="premium-button px-6 py-3 rounded-xl font-bold hidden md:flex items-center gap-2 group"
         >
           <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
           Crear Avatar
