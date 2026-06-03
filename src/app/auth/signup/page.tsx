@@ -44,7 +44,7 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
         <div className="w-full max-w-md glass-morphism p-8 rounded-3xl text-center space-y-6">
           <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
             <Mail className="w-8 h-8 text-primary" />
@@ -58,7 +58,7 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-transparent flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(212,175,55,0.05),transparent_50%)]" />
       
       <div className="w-full max-w-md space-y-8 glass-morphism p-8 rounded-3xl relative z-10 border-white/10 shadow-2xl">

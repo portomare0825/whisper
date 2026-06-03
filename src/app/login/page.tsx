@@ -11,6 +11,7 @@ function LoginContent() {
   const searchParams = useSearchParams();
   const nextParam = searchParams.get('next') || '/dashboard';
   const supabase = createClient();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -57,10 +58,8 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(212,175,55,0.05),transparent_50%)]" />
-      
-      <div className="w-full max-w-md space-y-8 glass-morphism p-8 rounded-3xl relative z-10 border-white/10 shadow-2xl">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-transparent">
+      <div className="w-full max-w-md space-y-8 glass-morphism p-8 rounded-3xl relative z-10 border border-white/10 shadow-2xl backdrop-blur-xl bg-slate-950/40">
         <div className="text-center space-y-4">
           <div className="flex justify-center">
             <img src="/icon-192.png" alt="Logo" className="w-16 h-16 rounded-2xl shadow-[0_0_20px_rgba(212,175,55,0.4)]" />
@@ -79,7 +78,7 @@ function LoginContent() {
               <input
                 type="email"
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 focus:border-primary outline-none transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-4 focus:border-primary outline-none transition-all text-white placeholder-slate-500"
                 placeholder="tu@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -99,7 +98,7 @@ function LoginContent() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-12 focus:border-primary outline-none transition-all"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-12 pr-12 focus:border-primary outline-none transition-all text-white placeholder-slate-500"
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -135,15 +134,15 @@ function LoginContent() {
           </button>
         </form>
 
-        <div className="relative py-4">
+        <div className="relative py-2">
           <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-white/10"></div></div>
-          <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">O continúa con</span></div>
+          <div className="relative flex justify-center text-xs uppercase"><span className="bg-transparent px-2 text-muted-foreground">O continúa con</span></div>
         </div>
 
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full glass-morphism py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-white/5 transition-colors font-medium border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full glass-morphism py-3 rounded-xl flex items-center justify-center gap-3 hover:bg-white/5 transition-colors font-medium border-white/20 disabled:opacity-50 disabled:cursor-not-allowed text-white"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
@@ -170,7 +169,7 @@ function LoginContent() {
           {loading ? 'Redirigiendo...' : 'Google'}
         </button>
 
-        <p className="text-center text-sm text-muted-foreground pt-4">
+        <p className="text-center text-sm text-muted-foreground pt-2">
           ¿No tienes cuenta? <Link href="/auth/signup" className="text-primary hover:underline font-bold">Regístrate gratis</Link>
         </p>
       </div>

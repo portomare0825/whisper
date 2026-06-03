@@ -19,7 +19,7 @@ export default async function LandingPage({
     redirect(`/auth/callback?code=${code}&next=${next}`);
   }
   return (
-    <div className="min-h-screen bg-background text-foreground selection:bg-primary/30">
+    <div className="min-h-screen bg-transparent text-foreground selection:bg-primary/30">
       {/* Hero Section */}
       <header className="relative h-screen flex flex-col items-center justify-center overflow-hidden border-b border-white/5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(212,175,55,0.1),transparent_50%)]" />

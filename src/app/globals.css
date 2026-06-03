@@ -30,7 +30,12 @@
     @apply border-white/10;
   }
   body {
-    @apply bg-background text-foreground;
+    background-image: linear-gradient(to bottom, rgba(2, 6, 23, 0.94), rgba(2, 6, 23, 0.88), rgba(2, 6, 23, 0.65)), url('/whisper_avatar_bg_neon.png');
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+    background-color: #020617;
+    @apply text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
