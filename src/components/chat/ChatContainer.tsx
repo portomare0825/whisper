@@ -310,6 +310,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const appearanceFileInputRef = useRef<HTMLInputElement>(null);
+  const supabase = createClient();
   const handleOpenWardrobe = async () => {
     setShowWardrobeModal(true);
     setLoadingWardrobe(true);
