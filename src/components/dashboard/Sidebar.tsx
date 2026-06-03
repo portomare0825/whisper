@@ -43,6 +43,7 @@ function playSynthBell() {
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const isChatDetailRoute = pathname.startsWith('/dashboard/chats/') && pathname !== '/dashboard/chats';
   const [isOpen, setIsOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
@@ -367,6 +368,67 @@ export default function Sidebar() {
             Revisar
           </button>
         </div>
+      )}
+      {/* Barra de Navegación Inferior para Móvil (Opción 2) */}
+      {!isChatDetailRoute && (
+        <nav className="fixed bottom-0 left-0 right-0 h-16 bg-[#020617]/95 backdrop-blur-md border-t border-white/5 flex justify-around items-center px-4 z-40 md:hidden pb-safe">
+          {/* Item 1: Dashboard */}
+          <Link
+            href="/dashboard"
+            className={cn(
+              "flex flex-col items-center justify-center w-12 h-12 transition-all",
+              pathname === '/dashboard' ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <Home className="w-5 h-5" />
+            <span className="text-[9px] font-medium mt-1">Inicio</span>
+          </Link>
+
+          {/* Item 2: Chats */}
+          <Link
+            href="/dashboard/chats"
+            className={cn(
+              "flex flex-col items-center justify-center w-12 h-12 transition-all",
+              pathname === '/dashboard/chats' ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="text-[9px] font-medium mt-1">Chats</span>
+          </Link>
+
+          {/* Item 3: Botón de Acción Central (Nuevo Avatar) */}
+          <Link
+            href="/dashboard/avatars/new"
+            className="flex flex-col items-center justify-center w-14 h-14 bg-gradient-to-tr from-amber-500 to-yellow-400 text-black rounded-full -translate-y-4 shadow-lg shadow-amber-500/30 border-4 border-[#020617] active:scale-95 transition-all"
+            aria-label="Nuevo Avatar"
+          >
+            <PlusCircle className="w-6 h-6" />
+          </Link>
+
+          {/* Item 4: Suscripción */}
+          <Link
+            href="/dashboard/billing"
+            className={cn(
+              "flex flex-col items-center justify-center w-12 h-12 transition-all",
+              pathname === '/dashboard/billing' ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <CreditCard className="w-5 h-5" />
+            <span className="text-[9px] font-medium mt-1">VIP</span>
+          </Link>
+
+          {/* Item 5: Ajustes */}
+          <Link
+            href="/dashboard/settings"
+            className={cn(
+              "flex flex-col items-center justify-center w-12 h-12 transition-all",
+              pathname === '/dashboard/settings' ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            <Settings className="w-5 h-5" />
+            <span className="text-[9px] font-medium mt-1">Ajustes</span>
+          </Link>
+        </nav>
       )}
     </>
   );
