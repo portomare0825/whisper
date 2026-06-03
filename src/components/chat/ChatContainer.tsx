@@ -71,7 +71,6 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [showWardrobeModal, setShowWardrobeModal] = useState(false);
   const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
   const [loadingWardrobe, setLoadingWardrobe] = useState(false);
-  const [outfitToDelete, setOutfitToDelete] = useState<{ id: string; imageUrl: string } | null>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   
   // Estados para el efecto de rasgado de papel ("Paper Tear") y Ultra Pantalla Completa
