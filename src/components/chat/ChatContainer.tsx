@@ -67,10 +67,6 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [poseOutfitHint, setPoseOutfitHint] = useState('');
   const [isUltraFullScreen, setIsUltraFullScreen] = useState(false);
   
-  // Estados para el Vestuario (Galería)
-  const [showWardrobeModal, setShowWardrobeModal] = useState(false);
-  const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
-  const [loadingWardrobe, setLoadingWardrobe] = useState(false);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   
   // Estados para el efecto de rasgado de papel ("Paper Tear") y Ultra Pantalla Completa
@@ -229,91 +225,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }
   };
 
-  const handleSelectWardrobeImage = async (imageUrl: string) => {
-    if (sending) return;
-    try {
-      setSending(true);
 
-      // 1. Actualizar Supabase (avatar y conversación) con la nueva imagen del vestuario
-      const { error: avatarError } = await supabase
-        .from('avatars')
-        .update({ current_image_url: imageUrl })
-        .eq('id', avatar.id);
-        
-      if (avatarError) throw avatarError;
-      
-      const { error: convoError } = await supabase
-        .from('conversations')
-        .update({ current_avatar_image_url: imageUrl })
-        .eq('id', conversation.id);
-        
-      if (convoError) throw convoError;
-      
-      // 2. Actualizar estados locales para reflejar el cambio de inmediato
-      setCurrentImage(imageUrl);
-      setIsFalImage(true); // Las imágenes del vestuario provienen de Fal.ai y son 3:4
-      
-      // 3. Cerrar modales de manera limpia
-      setFullScreenImage(null);
-      setShowWardrobeModal(false);
-    } catch (err: any) {
-      console.error('Error al aplicar la imagen del vestuario:', err);
-      alert(`No se pudo aplicar la imagen: ${err.message}`);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleDeleteWardrobeImage = async (imageId: string, imageUrl: string) => {
-    if (sending) return;
-    
-    try {
-      setSending(true);
-
-      // 1. Eliminar de Supabase llamando al API route (para saltar RLS si es necesario)
-      const response = await fetch('/api/outfit/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageId }),
-      });
-      
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Error al eliminar');
-      
-      // 2. Si la imagen borrada era la que estaba de fondo/avatar en el chat, restaurar a la imagen base
-      if (currentImage === imageUrl) {
-        const { error: avatarError } = await supabase
-          .from('avatars')
-          .update({ current_image_url: avatar.base_image_url })
-          .eq('id', avatar.id);
-          
-        if (avatarError) throw avatarError;
-        
-        const { error: convoError } = await supabase
-          .from('conversations')
-          .update({ current_avatar_image_url: avatar.base_image_url })
-          .eq('id', conversation.id);
-          
-        if (convoError) throw convoError;
-        
-        setCurrentImage(avatar.base_image_url);
-        setIsFalImage(false);
-      }
-      
-      // 3. Actualizar la lista local de la galería de vestuario
-      setWardrobeImages(prev => prev.filter(img => img.id !== imageId));
-      
-      // 4. Cerrar el zoom si la imagen que estaba abierta es la eliminada
-      if (fullScreenImage === imageUrl) {
-        setFullScreenImage(null);
-      }
-    } catch (err: any) {
-      console.error('Error al eliminar la imagen del vestuario:', err);
-      alert(`No se pudo eliminar la imagen: ${err.message}`);
-    } finally {
-      setSending(false);
-    }
-  };
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const appearanceFileInputRef = useRef<HTMLInputElement>(null);
@@ -872,21 +784,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     setTouchEnd(null);
   };
 
-  const handleOpenWardrobe = async () => {
-    setShowWardrobeModal(true);
-    setLoadingWardrobe(true);
-    try {
-      const response = await fetch(`/api/outfit/history?avatar_id=${avatar.id}`);
-      const data = await response.json();
-      if (data.outfits) {
-        setWardrobeImages(data.outfits);
-      }
-    } catch (err) {
-      console.error('Error fetching wardrobe:', err);
-    } finally {
-      setLoadingWardrobe(false);
-    }
-  };
+
 
 
 
@@ -1516,16 +1414,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
           >
             <Smile className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
-          
-           {/* Botón de Galería/Vestuario */}
-          <button
-            type="button"
-            onClick={handleOpenWardrobe}
-            title="Ver Galería de Outfits"
-            className="p-1.5 md:p-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg md:rounded-xl transition-all border border-amber-500/20 flex items-center justify-center cursor-pointer"
-          >
-            <ImageIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
-          </button>
+
 
           {/* Selector de visualización de avatar */}
           <button
@@ -1650,14 +1539,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
               >
                 <Smile className="w-5 h-5" />
               </button>
-              <button
-                type="button"
-                onClick={handleOpenWardrobe}
-                title="Ver Galería de Outfits"
-                className="bg-amber-500/30 hover:bg-amber-500/50 text-amber-500 backdrop-blur-md p-2.5 rounded-full border border-amber-500/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-amber-500/20 flex items-center justify-center cursor-pointer"
-              >
-                <ImageIcon className="w-5 h-5" />
-              </button>
+
             </div>
           </div>
         )}
@@ -2323,32 +2205,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 >
                   <Download className="w-5 h-5" />
                 </a>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleSelectWardrobeImage(fullScreenImage);
-                  }}
-                  title="Usar como Fondo de Chat"
-                  className="w-12 h-12 bg-primary text-black hover:bg-primary/95 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
-                >
-                  <Send className="w-5 h-5 pl-0.5" />
-                </button>
-                {(() => {
-                  const outfit = wardrobeImages.find(img => img.image_url === fullScreenImage);
-                  if (!outfit) return null;
-                  return (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOutfitToDelete({ id: outfit.id, imageUrl: outfit.image_url });
-                      }}
-                      title="Eliminar permanentemente"
-                      className="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  );
-                })()}
+
               </div>
             )}
             </div>
@@ -2356,46 +2213,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         );
       })()}
 
-      {/* Modal de Confirmación de Borrado de Outfit */}
-      {outfitToDelete && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
-          <div className="bg-popover border border-white/10 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative glass-morphism border-primary/30">
-            <button 
-              onClick={() => setOutfitToDelete(null)}
-              className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors bg-white/5 p-1.5 rounded-full hover:bg-white/10 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
-              <Trash2 className="w-8 h-8 text-red-500" />
-            </div>
-            <h3 className="text-xl font-bold text-center text-white mb-2 tracking-tight">¿Descartar Look?</h3>
-            <p className="text-white/60 text-center text-sm mb-6">
-              Este look de {avatar.name} se eliminará de forma definitiva de tu vestuario privado. Esta acción no se puede deshacer.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setOutfitToDelete(null)}
-                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-white/10"
-              >
-                Conservar
-              </button>
-              <button
-                onClick={async () => {
-                  if (outfitToDelete) {
-                    await handleDeleteWardrobeImage(outfitToDelete.id, outfitToDelete.imageUrl);
-                    setOutfitToDelete(null);
-                  }
-                }}
-                disabled={sending}
-                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-red-600/10 active:scale-95 disabled:opacity-50"
-              >
-                {sending ? 'Eliminando...' : 'Sí, eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Modal de Confirmación de Limpieza de Chat */}
       {showClearModal && (
