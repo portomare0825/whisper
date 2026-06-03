@@ -46,7 +46,6 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
 
     if (params.complexion) {
       if (params.complexion === 'delgada' || params.complexion === 'atletica') {
-        // Cambiamos completamente el enfoque a vocabulario de 'alta costura' para que no sea censurado
         complexionModifiers = "fashion model figure, tall and thin physique, elegant body shape, flat stomach, ";
       } else if (params.complexion === 'curvilinea') {
         complexionModifiers = "voluptuous, hourglass figure, beautiful soft curves, well-proportioned, ";
@@ -56,31 +55,29 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
     }
 
     if (complexionModifiers) {
-      // Inyectar justo después del "photorealistic" o al inicio del prompt
       finalPrompt = `${complexionModifiers}${params.basePrompt}`;
     }
 
-    // Si el usuario elige activamente cambiar su cuerpo (a robusta, delgada, etc),
-    // OMITIMOS la descripción física de la base de datos para que la IA no se confunda
-    // (Ej. si en la BD dice "delgada" pero el usuario quiere verla "robusta").
     const isForcingDifferentBody = params.complexion && params.complexion !== 'promedio';
 
     if (params.physicalDescription && !isForcingDifferentBody) {
-      // Solo inyectamos la fisionomía base de la BD si el usuario escoge la complexión "Normal"
       finalPrompt = `Detailed human physical appearance: ${params.physicalDescription}. ${finalPrompt}`;
     }
 
-    // Añadimos texturas de piel ultra realistas y parámetros de cámara para destruir el efecto "plástico"
-    // Usamos términos más agresivos para forzar la estética no-digital
-    const skinDetails = "EXTREMELY RAW photography, highly detailed real human skin, macro shot of skin texture, visible pores, subtle skin blemishes, freckles, fine peach fuzz, unretouched, imperfect natural skin, shot on 85mm DSLR, ";
+    // Forzar encuadre de tres cuartos (de rodillas para arriba) en la primera posición del prompt
+    const framingPrefix = "A realistic three-quarter length shot of a person standing, visible from the knees up, full body crop from knees up, standing gracefully, cinematic lighting, professional fashion editorial photography, ";
     
-    // Aseguramos que Flux rechace de plano cualquier intento de dibujar en estilo 3D o "plástico"
-    finalPrompt = `${skinDetails} absolutely no 3D rendering, no digital art, strictly real life human photography, ${finalPrompt}`;
+    // Quitar la palabra "portrait" de cualquier prompt base
+    let cleanBasePrompt = params.basePrompt.replace(/portrait/gi, 'three-quarter shot').trim();
 
-    console.log('Generando Pose Premium con InstantID. Prompt final:', finalPrompt);
+    // Detalles de piel de altísima calidad (ultra realistas al hacer zoom/ampliar) pero sin usar "macro shot" ni lentes cerrados que causan primeros planos
+    const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, subtle skin blemishes, freckles, fine peach fuzz, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 50mm lens, ";
+    
+    finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}`;
 
-    // 2. Llamada a Fal.ai usando el endpoint de InstantID o Flux-ControlNet
-    // Usamos el endpoint de Flux PuLID que ofrece mejor text-to-image y mantención del rostro (evita caras tipo carnet)
+    console.log('Generando Pose Premium con InstantID (PuLID 16:9). Prompt final:', finalPrompt);
+
+    // 2. Llamada a Fal.ai usando el endpoint de Flux PuLID
     const response = await fetch('https://fal.run/fal-ai/flux-pulid', {
       method: 'POST',
       headers: {
@@ -90,7 +87,7 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
       body: JSON.stringify({
         reference_image_url: params.faceImageUrl,    // Imagen del rostro a inyectar
         prompt: finalPrompt,
-        image_size: "portrait_4_3",
+        image_size: "portrait_16_9",
         sync_mode: true,
         enable_safety_checker: false                 // Evitamos las imágenes negras por falsos positivos
       })
