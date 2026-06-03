@@ -6,14 +6,6 @@ export interface EstiloPremium {
   prompt_base: string;
 }
 
-export interface EstiloPremium {
-  id: string;
-  nombre: string;
-  miniatura: string;
-  imagen_plantilla: string;
-  prompt_base: string;
-}
-
 export const ESTILOS_PREMIUM: EstiloPremium[] = [
   {
     id: "suite_lujo_ny",
@@ -27,7 +19,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Playa VIP al Atardecer",
     miniatura: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1080&q=80",
-    prompt_base: "masterpiece, 8k resolution, hyperrealistic shot, posing gracefully on a tropical beach at sunset, wearing luxury summer fashion, soft waves reflecting orange sunlight, golden hour lighting"
+    prompt_base: "masterpiece, 8k resolution, professional fashion photography, three-quarter length shot showing from the knees up, posing on a tropical beach at sunset, wearing an elegant luxury designer swimsuit, cinematic lighting, golden hour, soft orange sunset glow"
   },
   {
     id: "estudio_glamour",
@@ -76,7 +68,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Seducción en la Piscina",
     miniatura: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=1080&q=80",
-    prompt_base: "masterpiece, 8k resolution, hyperrealistic night photography, wet skin, posing elegantly emerging from a luxury infinity pool, wearing a luxury designer swimsuit, glowing neon pool lights, extremely attractive"
+    prompt_base: "masterpiece, 8k resolution, professional night photography, three-quarter length shot showing from the knees up, posing next to a luxury infinity pool, wearing a chic designer one-piece swimsuit, wet skin, cinematic night lighting, glowing neon pool reflections, soft ambient luxury backlight"
   },
   {
     id: "cuero_motocicleta",
@@ -153,7 +145,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Diosa en la Arena",
     miniatura: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=1080&q=80",
-    prompt_base: "masterpiece, 8k resolution, tropical paradise photography, posing gracefully on white sand, wet skin with sand particles, wearing elegant designer swimwear, bright vibrant sunny lighting, crystal clear beach background"
+    prompt_base: "masterpiece, 8k resolution, professional fashion editorial photography, three-quarter length shot showing from the knees up, posing gracefully standing on white sand beach, wearing an elegant designer one-piece swimsuit, bright cinematic sunny lighting, crystal clear turquoise ocean background"
   },
   {
     id: "angel_oscuridad",
