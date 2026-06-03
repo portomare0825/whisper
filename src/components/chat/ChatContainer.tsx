@@ -67,6 +67,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [poseOutfitHint, setPoseOutfitHint] = useState('');
   const [isUltraFullScreen, setIsUltraFullScreen] = useState(false);
   
+  // Estados para la Galería de Poses
+  const [showWardrobeModal, setShowWardrobeModal] = useState(false);
+  const [wardrobeImages, setWardrobeImages] = useState<any[]>([]);
+  const [loadingWardrobe, setLoadingWardrobe] = useState(false);
+  const [outfitToDelete, setOutfitToDelete] = useState<{ id: string; imageUrl: string } | null>(null);
   const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
   
   // Estados para el efecto de rasgado de papel ("Paper Tear") y Ultra Pantalla Completa
@@ -227,9 +232,100 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
 
 
+  const handleSelectWardrobeImage = async (imageUrl: string) => {
+    if (sending) return;
+    try {
+      setSending(true);
+
+      const { error: avatarError } = await supabase
+        .from('avatars')
+        .update({ current_image_url: imageUrl })
+        .eq('id', avatar.id);
+        
+      if (avatarError) throw avatarError;
+      
+      const { error: convoError } = await supabase
+        .from('conversations')
+        .update({ current_avatar_image_url: imageUrl })
+        .eq('id', conversation.id);
+        
+      if (convoError) throw convoError;
+      
+      setCurrentImage(imageUrl);
+      setIsFalImage(true);
+      
+      setFullScreenImage(null);
+      setShowWardrobeModal(false);
+    } catch (err: any) {
+      console.error('Error al aplicar la pose:', err);
+      alert(`No se pudo aplicar la pose: ${err.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleDeleteWardrobeImage = async (imageId: string, imageUrl: string) => {
+    if (sending) return;
+    try {
+      setSending(true);
+
+      const response = await fetch('/api/outfit/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageId }),
+      });
+      
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Error al eliminar');
+      
+      if (currentImage === imageUrl) {
+        const { error: avatarError } = await supabase
+          .from('avatars')
+          .update({ current_image_url: avatar.base_image_url })
+          .eq('id', avatar.id);
+          
+        if (avatarError) throw avatarError;
+        
+        const { error: convoError } = await supabase
+          .from('conversations')
+          .update({ current_avatar_image_url: avatar.base_image_url })
+          .eq('id', conversation.id);
+          
+        if (convoError) throw convoError;
+        
+        setCurrentImage(avatar.base_image_url);
+        setIsFalImage(false);
+      }
+      
+      setWardrobeImages(prev => prev.filter(img => img.id !== imageId));
+      if (fullScreenImage === imageUrl) {
+        setFullScreenImage(null);
+      }
+    } catch (err: any) {
+      console.error('Error al eliminar la pose:', err);
+      alert(`No se pudo eliminar la pose: ${err.message}`);
+    } finally {
+      setSending(false);
+    }
+  };
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const appearanceFileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
+  const handleOpenWardrobe = async () => {
+    setShowWardrobeModal(true);
+    setLoadingWardrobe(true);
+    try {
+      const response = await fetch(`/api/outfit/history?avatar_id=${avatar.id}`);
+      const data = await response.json();
+      if (data.outfits) {
+        setWardrobeImages(data.outfits);
+      }
+    } catch (err) {
+      console.error('Error fetching pose gallery:', err);
+    } finally {
+      setLoadingWardrobe(false);
+    }
+  };
   const router = useRouter();
 
   const handleAppearancePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -518,7 +614,28 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!fullScreenImage) return;
-      if (e.key === 'Escape') {
+      
+      const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
+      if (!carouselUrls.includes(fullScreenImage)) {
+        carouselUrls.unshift(fullScreenImage);
+      }
+      
+      if (carouselUrls.length <= 1) return;
+      
+      const currentIndex = carouselUrls.indexOf(fullScreenImage);
+      if (currentIndex === -1) return;
+      
+      if (e.key === 'ArrowLeft') {
+        const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
+        setPrevImage(fullScreenImage);
+        setTearDirection('left');
+        setFullScreenImage(carouselUrls[prevIndex]);
+      } else if (e.key === 'ArrowRight') {
+        const nextIndex = (currentIndex + 1) % carouselUrls.length;
+        setPrevImage(fullScreenImage);
+        setTearDirection('right');
+        setFullScreenImage(carouselUrls[nextIndex]);
+      } else if (e.key === 'Escape') {
         setFullScreenImage(null);
         setIsUltraFullScreen(false);
       }
@@ -526,7 +643,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [fullScreenImage]);
+  }, [fullScreenImage, wardrobeImages, prevImage]);
 
   // Limpiar imagen anterior después de la animación de cortina de cristal
   useEffect(() => {
@@ -1394,6 +1511,16 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             <Smile className="w-3.5 h-3.5 md:w-4 md:h-4" />
           </button>
 
+          {/* Botón de Galería de Poses */}
+          <button
+            type="button"
+            onClick={handleOpenWardrobe}
+            title="Ver Historial de Poses"
+            className="p-1.5 md:p-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg md:rounded-xl transition-all border border-amber-500/20 flex items-center justify-center cursor-pointer"
+          >
+            <ImageIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </button>
+
 
           {/* Selector de visualización de avatar */}
           <button
@@ -1517,6 +1644,15 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 className="bg-primary/30 hover:bg-primary/50 text-primary backdrop-blur-md p-2.5 rounded-full border border-primary/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-primary/20 flex items-center justify-center cursor-pointer"
               >
                 <Smile className="w-5 h-5" />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleOpenWardrobe}
+                title="Ver Historial de Poses"
+                className="bg-amber-500/30 hover:bg-amber-500/50 text-amber-500 backdrop-blur-md p-2.5 rounded-full border border-amber-500/40 transition-all duration-300 hover:scale-110 shadow-lg hover:shadow-amber-500/20 flex items-center justify-center cursor-pointer"
+              >
+                <ImageIcon className="w-5 h-5" />
               </button>
 
             </div>
@@ -1801,6 +1937,91 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
 
 
+      {/* Modal de la Galería de Poses */}
+      {showWardrobeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-300">
+          <div className="relative w-full h-[100dvh] md:h-[85vh] max-w-4xl flex flex-col overflow-hidden glass-morphism rounded-none md:rounded-3xl border-0 md:border border-primary/30 shadow-none md:shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
+            {/* Header del modal */}
+            <div className="flex-shrink-0 p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-between">
+              <div>
+                <h3 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <ImageIcon className="w-6 h-6 text-primary" />
+                  Galería de Poses de {avatar.name}
+                </h3>
+                <p className="text-white/60 text-sm mt-1">
+                  Tu historial privado de poses generadas para este avatar.
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowWardrobeModal(false)}
+                className="p-2 text-muted-foreground hover:text-white transition-colors cursor-pointer bg-white/5 rounded-full hover:bg-white/10"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido desplazable */}
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+              {loadingWardrobe ? (
+                <div className="flex flex-col items-center justify-center h-full space-y-4">
+                  <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+                  <p className="text-white/60 text-sm font-medium animate-pulse">Abriendo galería...</p>
+                </div>
+              ) : wardrobeImages.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full space-y-4 text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
+                    <Smile className="w-8 h-8 text-white/30" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold">La galería está vacía</h4>
+                    <p className="text-white/50 text-sm max-w-sm mt-1">Aún no has generado poses para este avatar. Usa el botón de la carita feliz para cambiar su pose.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {wardrobeImages.map((img) => (
+                    <div 
+                      key={img.id} 
+                      className="group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-white/10 hover:border-primary/50 transition-all duration-300 shadow-md"
+                      onClick={() => setFullScreenImage(img.image_url)}
+                    >
+                      <img 
+                        src={img.image_url} 
+                        alt="Pose" 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSelectWardrobeImage(img.image_url);
+                          }}
+                          title="Restaurar esta Pose"
+                          className="w-10 h-10 bg-primary text-black hover:bg-primary/95 hover:scale-110 active:scale-95 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
+                        >
+                          <Send className="w-5 h-5 pl-0.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOutfitToDelete({ id: img.id, imageUrl: img.image_url });
+                          }}
+                          title="Eliminar pose permanentemente"
+                          className="w-10 h-10 bg-red-600 hover:bg-red-700 text-white hover:scale-110 active:scale-95 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal de Cambio de Pose y Expresión */}
       {showPoseModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
@@ -1831,8 +2052,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
 
       {fullScreenImage && (() => {
-        const carouselUrls = [fullScreenImage];
-        const currentIndex = 0;
+        const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
+        if (!carouselUrls.includes(fullScreenImage)) {
+          carouselUrls.unshift(fullScreenImage);
+        }
+        const currentIndex = carouselUrls.indexOf(fullScreenImage);
         
         return (
           <>
@@ -2097,6 +2321,32 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 >
                   <Download className="w-5 h-5" />
                 </a>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelectWardrobeImage(fullScreenImage);
+                  }}
+                  title="Aplicar Pose"
+                  className="w-12 h-12 bg-primary text-black hover:bg-primary/95 rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+                >
+                  <Send className="w-5 h-5 pl-0.5" />
+                </button>
+                {(() => {
+                  const outfit = wardrobeImages.find(img => img.image_url === fullScreenImage);
+                  if (!outfit) return null;
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOutfitToDelete({ id: outfit.id, imageUrl: outfit.image_url });
+                      }}
+                      title="Eliminar pose permanentemente"
+                      className="w-12 h-12 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-all duration-200 cursor-pointer"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  );
+                })()}
 
               </div>
             )}
@@ -2106,6 +2356,47 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       })()}
 
 
+
+      {/* Modal de Confirmación de Borrado de Pose */}
+      {outfitToDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-popover border border-white/10 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative glass-morphism border-primary/30">
+            <button 
+              onClick={() => setOutfitToDelete(null)}
+              className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors bg-white/5 p-1.5 rounded-full hover:bg-white/10 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-white mb-2 tracking-tight">¿Eliminar Pose?</h3>
+            <p className="text-white/60 text-center text-sm mb-6">
+              Esta pose de {avatar.name} se eliminará de forma definitiva de tu galería privada. Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setOutfitToDelete(null)}
+                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-white/10"
+              >
+                Conservar
+              </button>
+              <button
+                onClick={async () => {
+                  if (outfitToDelete) {
+                    await handleDeleteWardrobeImage(outfitToDelete.id, outfitToDelete.imageUrl);
+                    setOutfitToDelete(null);
+                  }
+                }}
+                disabled={sending}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-red-600/10 active:scale-95 disabled:opacity-50"
+              >
+                {sending ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Confirmación de Limpieza de Chat */}
       {showClearModal && (
