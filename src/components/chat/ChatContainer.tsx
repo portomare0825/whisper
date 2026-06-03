@@ -518,28 +518,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!fullScreenImage) return;
-      
-      const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
-      if (!carouselUrls.includes(fullScreenImage)) {
-        carouselUrls.unshift(fullScreenImage);
-      }
-      
-      if (carouselUrls.length <= 1) return;
-      
-      const currentIndex = carouselUrls.indexOf(fullScreenImage);
-      if (currentIndex === -1) return;
-      
-      if (e.key === 'ArrowLeft') {
-        const prevIndex = (currentIndex - 1 + carouselUrls.length) % carouselUrls.length;
-        setPrevImage(fullScreenImage);
-        setTearDirection('left');
-        setFullScreenImage(carouselUrls[prevIndex]);
-      } else if (e.key === 'ArrowRight') {
-        const nextIndex = (currentIndex + 1) % carouselUrls.length;
-        setPrevImage(fullScreenImage);
-        setTearDirection('right');
-        setFullScreenImage(carouselUrls[nextIndex]);
-      } else if (e.key === 'Escape') {
+      if (e.key === 'Escape') {
         setFullScreenImage(null);
         setIsUltraFullScreen(false);
       }
@@ -547,7 +526,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [fullScreenImage, wardrobeImages, prevImage]);
+  }, [fullScreenImage]);
 
   // Limpiar imagen anterior después de la animación de cortina de cristal
   useEffect(() => {
@@ -1849,98 +1828,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         </div>
       )}
 
-      {/* Modal del Vestuario (Galería) */}
-      {showWardrobeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-300">
-          <div className="relative w-full h-[100dvh] md:h-[85vh] max-w-4xl flex flex-col overflow-hidden glass-morphism rounded-none md:rounded-3xl border-0 md:border border-primary/30 shadow-none md:shadow-[0_0_50px_rgba(212,175,55,0.15)] animate-in scale-in duration-300">
-            {/* Header del modal */}
-            <div className="flex-shrink-0 p-6 border-b border-white/10 bg-white/5 backdrop-blur-sm flex items-center justify-between">
-              <div>
-                <h3 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-                  <ImageIcon className="w-6 h-6 text-primary" />
-                  Vestuario de {avatar.name}
-                </h3>
-                <p className="text-white/60 text-sm mt-1">
-                  Tu colección privada de outfits generados.
-                </p>
-              </div>
-              <button 
-                onClick={() => setShowWardrobeModal(false)}
-                className="p-2 text-muted-foreground hover:text-white transition-colors cursor-pointer bg-white/5 rounded-full hover:bg-white/10"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
 
-            {/* Contenido desplazable */}
-            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
-              {loadingWardrobe ? (
-                <div className="flex flex-col items-center justify-center h-full space-y-4">
-                  <Sparkles className="w-8 h-8 text-primary animate-pulse" />
-                  <p className="text-white/60 text-sm font-medium animate-pulse">Abriendo el armario...</p>
-                </div>
-              ) : wardrobeImages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full space-y-4 text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center border border-white/10">
-                    <Shirt className="w-8 h-8 text-white/30" />
-                  </div>
-                  <div>
-                    <h4 className="text-white font-bold">El vestuario está vacío</h4>
-                    <p className="text-white/50 text-sm max-w-sm mt-1">Aún no has generado nuevos looks para este avatar. Usa el botón de la percha para crear uno nuevo.</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {wardrobeImages.map((img) => (
-                    <div 
-                      key={img.id} 
-                      className="group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer border border-white/10 hover:border-primary/50 transition-all duration-300 shadow-md"
-                      onClick={() => setFullScreenImage(img.image_url)}
-                    >
-                      <img 
-                        src={img.image_url} 
-                        alt="Outfit" 
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        loading="lazy"
-                      />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleSelectWardrobeImage(img.image_url);
-                          }}
-                          title="Usar como fondo del chat"
-                          className="w-10 h-10 bg-primary text-black hover:bg-primary/95 hover:scale-110 active:scale-95 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
-                        >
-                          <Send className="w-5 h-5 pl-0.5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOutfitToDelete({ id: img.id, imageUrl: img.image_url });
-                          }}
-                          title="Eliminar permanentemente"
-                          className="w-10 h-10 bg-red-600 hover:bg-red-700 text-white hover:scale-110 active:scale-95 rounded-full flex items-center justify-center shadow-lg transition-all duration-200 cursor-pointer"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Modal de Imagen a Pantalla Completa */}
       {fullScreenImage && (() => {
-        const carouselUrls = wardrobeImages.map((img: any) => img.image_url);
-        if (!carouselUrls.includes(fullScreenImage)) {
-          carouselUrls.unshift(fullScreenImage);
-        }
-        const currentIndex = carouselUrls.indexOf(fullScreenImage);
+        const carouselUrls = [fullScreenImage];
+        const currentIndex = 0;
         
         return (
           <>
