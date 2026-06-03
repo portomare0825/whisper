@@ -9,10 +9,10 @@
       "limit_reset": null,
       "limit_remaining": null,
       "include_byok_in_limit": false,
-      "usage": 2.51335437,
-      "usage_daily": 0.31468308,
-      "usage_weekly": 0.45875717,
-      "usage_monthly": 0.45875717,
+      "usage": 2.57246018,
+      "usage_daily": 0.01052888,
+      "usage_weekly": 0.51786298,
+      "usage_monthly": 0.51786298,
       "byok_usage": 0,
       "byok_usage_daily": 0,
       "byok_usage_weekly": 0,
@@ -31,7 +31,7 @@
   "creditsData": {
     "data": {
       "total_credits": 10,
-      "total_usage": 2.51335437
+      "total_usage": 2.57246018
     }
   }
 }
