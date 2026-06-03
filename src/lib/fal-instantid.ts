@@ -89,7 +89,8 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
         prompt: finalPrompt,
         image_size: "portrait_16_9",
         sync_mode: true,
-        enable_safety_checker: false                 // Evitamos las imágenes negras por falsos positivos
+        enable_safety_checker: false,                // Evitamos las imágenes negras por falsos positivos
+        disable_safety_checker: true                 // Desactiva explícitamente el filtro en algunas variantes del endpoint de Fal
       })
     });
 
