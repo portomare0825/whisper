@@ -246,6 +246,8 @@ export async function submitFalPoseWithFaceSwap(params: {
         body: JSON.stringify({
           base_image_url: newPoseImageUrl, // Imagen destino con la pose libre
           swap_image_url: params.baseImage, // Rostro fuente del avatar
+          enable_safety_checker: false,
+          disable_safety_checker: true
         }),
       }
     );
