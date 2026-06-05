@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
       const results = await Promise.allSettled(
         GENERATIONS.map(async (gen) => {
-          const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+          const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
           
           const endpoint = useInstantId ? 'https://fal.run/fal-ai/instantid' : 'https://fal.run/fal-ai/flux-pulid';
           
