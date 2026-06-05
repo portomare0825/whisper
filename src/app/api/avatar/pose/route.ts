@@ -84,7 +84,35 @@ export async function POST(req: Request) {
     });
 
 
-    // 6. Iniciar la generación usando FLUX Inpainting para mantener el rostro intacto al 100%
+    // --- Migración a RunPod Serverless si está configurado ---
+    const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
+    if (RUNPOD_ENDPOINT_ID) {
+      const { queueRunPodJob } = await import('@/lib/runpod');
+      try {
+        const inputPayload = {
+          face_image_url: avatar.base_image_url,
+          prompt: finalPrompt,
+          negative_prompt: "cartoon, 3d, painting, illustration, anime, sketch, low quality, worst quality, blurry, deformed face, bad eyes",
+          image_size: "portrait_4_3",
+          identity_strength: 0.8,
+          adapter_strength: 0.8
+        };
+
+        const job = await queueRunPodJob(inputPayload);
+        console.log(`[Avatar-Pose] Job encolado en RunPod (${pose}): ${job.id}`);
+
+        return NextResponse.json({
+          success: true,
+          status: 'queued',
+          generation_id: job.id
+        });
+      } catch (runpodErr: any) {
+        console.error('Error encolando en RunPod para avatar/pose:', runpodErr);
+        return NextResponse.json({ error: `Fallo al encolar en RunPod: ${runpodErr.message}` }, { status: 502 });
+      }
+    }
+
+    // 6. Iniciar la generación usando FLUX Inpainting para mantener el rostro intacto al 100% (Fallback clásico)
     // Si no hay máscara, cae en el fallback de pose y face swap oficial
     const { submitFalPoseWithFaceSwap } = await import('@/lib/fal-inpainting');
     

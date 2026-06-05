@@ -62,8 +62,109 @@ export async function POST(req: Request) {
     let newImageUrl: string;
     let currentCost = OUTFIT_CHANGE_COST;
 
-    // 5. Consultar según el proveedor (detectado por el formato del ID)
-    if (generation_id.startsWith('fal_')) {
+    const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
+    const RUNPOD_API_KEY = process.env.RUNPOD_API_KEY;
+
+    // 5. Consultar según el proveedor
+    if (RUNPOD_ENDPOINT_ID && RUNPOD_API_KEY && !generation_id.startsWith('fal_')) {
+      console.log(`[Outfit-Status] Consultando estado del job ${generation_id} en RunPod...`);
+      const pollResponse = await fetch(`https://api.runpod.ai/v1/${RUNPOD_ENDPOINT_ID}/status/${generation_id}`, {
+        headers: {
+          'Authorization': `Bearer ${RUNPOD_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!pollResponse.ok) {
+        const errText = await pollResponse.text();
+        return NextResponse.json({ error: `Error en RunPod API: ${pollResponse.statusText} (${errText})` }, { status: 502 });
+      }
+
+      const jobData = await pollResponse.json();
+      const status = jobData.status;
+
+      if (status === 'IN_QUEUE' || status === 'IN_PROGRESS') {
+        return NextResponse.json({ status: 'queued' });
+      }
+
+      if (status === 'FAILED') {
+        return NextResponse.json({
+          error: `La generación falló en RunPod: ${jobData.error || 'Error desconocido'}`
+        }, { status: 422 });
+      }
+
+      if (status !== 'COMPLETED') {
+        return NextResponse.json({ status: 'queued' });
+      }
+
+      // Procesar output (URL o Base64)
+      const output = jobData.output;
+      let base64Data: string | undefined;
+      let imageUrl: string | undefined;
+
+      if (output?.message && typeof output.message === 'string') {
+        if (output.message.startsWith('data:image/')) {
+          base64Data = output.message.split(',')[1];
+        } else if (output.message.startsWith('http://') || output.message.startsWith('https://')) {
+          imageUrl = output.message;
+        } else {
+          base64Data = output.message;
+        }
+      } else if (output?.image_url) {
+        imageUrl = output.image_url;
+      } else if (output?.images?.[0]?.url) {
+        imageUrl = output.images[0].url;
+      } else if (output?.images?.[0]) {
+        imageUrl = output.images[0];
+      } else if (typeof output === 'string') {
+        if (output.startsWith('http://') || output.startsWith('https://')) {
+          imageUrl = output;
+        } else if (output.startsWith('data:image/')) {
+          base64Data = output.split(',')[1];
+        } else {
+          base64Data = output;
+        }
+      }
+
+      if (!imageUrl && !base64Data) {
+        return NextResponse.json({ error: 'RunPod no devolvió una imagen válida en el output' }, { status: 422 });
+      }
+
+      let imgBlob: Blob;
+      if (base64Data) {
+        console.log('[Outfit-Status] Decodificando Base64 desde RunPod...');
+        const buffer = Buffer.from(base64Data, 'base64');
+        imgBlob = new Blob([buffer], { type: 'image/jpeg' });
+      } else {
+        console.log(`[Outfit-Status] Descargando imagen de RunPod: ${imageUrl}`);
+        const imgResponse = await fetch(imageUrl!);
+        if (!imgResponse.ok) {
+          throw new Error(`Fallo al descargar la imagen de RunPod (${imgResponse.status})`);
+        }
+        imgBlob = await imgResponse.blob();
+      }
+
+      // Subir a Supabase Storage
+      const timestamp = Date.now();
+      const fileName = `${userId}/${avatar_id}_outfit_${timestamp}.jpg`;
+      console.log(`[Outfit-Status] Subiendo look a Supabase Storage: ${fileName}`);
+      
+      const { error: uploadError } = await adminSupabase.storage
+        .from('avatars')
+        .upload(fileName, imgBlob, { contentType: 'image/jpeg', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = adminSupabase.storage.from('avatars').getPublicUrl(fileName);
+      newImageUrl = publicUrl;
+
+      // Detectar si el job provino de un pose_change (premium) para ajustar costo
+      // (Podemos inferir que es pose change si no viene prompt de ropa, o por convención de costo)
+      const isPoseStyle = prompt.toLowerCase().includes('pose:') || prompt.toLowerCase().includes('emoción:');
+      if (isPoseStyle) {
+        currentCost = 15;
+      }
+    } else if (generation_id.startsWith('fal_')) {
       const falResult = checkFalVTONStatus({ generationId: generation_id, prompt });
 
       if (falResult.status === 'failed') {
