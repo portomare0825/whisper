@@ -19,7 +19,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Playa VIP al Atardecer",
     miniatura: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1080&q=80",
-    prompt_base: "masterpiece, 8k resolution, professional fashion photography, three-quarter length shot showing from the knees up, posing on a tropical beach at sunset, wearing elegant designer resort swimwear, luxury beachwear, cinematic lighting, golden hour, soft orange sunset glow"
+    prompt_base: "masterpiece, 8k resolution, professional fashion photography, three-quarter length shot showing from the knees up, posing on a tropical beach at sunset, wearing an elegant designer summer resort dress, luxury beachwear, cinematic lighting, golden hour, soft orange sunset glow"
   },
   {
     id: "estudio_glamour",
@@ -68,7 +68,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Seducción en la Piscina",
     miniatura: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=1080&q=80",
-    prompt_base: "masterpiece, 8k resolution, professional night photography, three-quarter length shot showing from the knees up, posing next to a luxury infinity pool, wearing an elegant luxury designer one-piece swimsuit, glowing skin, cinematic night lighting, glowing neon pool reflections, soft ambient luxury backlight"
+    prompt_base: "masterpiece, 8k resolution, professional night photography, three-quarter length shot showing from the knees up, posing next to a luxury infinity pool, wearing an elegant luxury designer summer resort dress, glowing skin, cinematic night lighting, glowing neon pool reflections, soft ambient luxury backlight"
   },
   {
     id: "cuero_motocicleta",
