@@ -102,7 +102,7 @@ export async function POST(req: Request) {
 
       try {
         const inputPayload = {
-          face_image_url: avatar.base_image_url,
+          face_image: avatar.base_image_url,
           prompt: finalPrompt,
           negative_prompt: "cartoon, 3d, painting, illustration, anime, sketch, low quality, worst quality, blurry, deformed face, bad eyes",
           image_size: "portrait_4_3",
