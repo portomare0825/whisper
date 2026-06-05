@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { queueRunPodJob } from '@/lib/runpod';
 
 // Lista de generaciones a realizar (con parámetros ajustados para forzar expresiones)
 const GENERATIONS = [
@@ -38,16 +39,58 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Faltan datos base para generar ángulos' }, { status: 400 });
     }
 
+    // Si RunPod está configurado, usamos la ejecución asíncrona con webhooks
+    const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
+    const APP_WEBHOOK_URL = process.env.APP_WEBHOOK_URL;
+
+    if (RUNPOD_ENDPOINT_ID && APP_WEBHOOK_URL) {
+      console.log(`[Generate-Angles] Usando RunPod Serverless asíncrono para avatar: ${avatarId}`);
+      try {
+        await Promise.all(
+          GENERATIONS.map(async (gen) => {
+            const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+            
+            // Construimos la URL de webhook enviando el contexto en query parameters
+            const webhookUrl = `${APP_WEBHOOK_URL.replace(/\/$/, '')}/api/webhook/runpod?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+            
+            // Payload de entrada para el worker de RunPod
+            const inputPayload = {
+              face_image_url: avatar.base_image_url,
+              prompt: finalPrompt,
+              negative_prompt: "cartoon, 3d, painting, illustration, anime, sketch, low quality, worst quality, blurry, deformed face, bad eyes",
+              image_size: "portrait_4_3",
+              identity_strength: gen.id_weight || 0.85,
+              adapter_strength: 0.8,
+              key: gen.key // Opcional: pasar la llave al worker
+            };
+
+            const job = await queueRunPodJob(inputPayload, webhookUrl);
+            console.log(`[Generate-Angles] Job encolado en RunPod para ${gen.key}: ${job.id}`);
+          })
+        );
+
+        return NextResponse.json({
+          success: true,
+          message: 'Generación iniciada con éxito en RunPod Serverless (los resultados se recibirán vía webhook).'
+        }, { status: 202 });
+      } catch (runpodErr: any) {
+        console.error('[Generate-Angles] Error iniciando jobs en RunPod:', runpodErr);
+        return NextResponse.json({ error: `Fallo al encolar en RunPod: ${runpodErr.message}` }, { status: 500 });
+      }
+    }
+
+    // Fallback: Si no está configurado RunPod, usamos fal.ai de forma síncrona
+    console.log('[Generate-Angles] RunPod no configurado. Usando fallback síncrono de Fal.ai.');
     const FAL_KEY = process.env.FAL_KEY;
     if (!FAL_KEY) {
       return NextResponse.json({ error: 'FAL_KEY no configurada' }, { status: 500 });
     }
 
     try {
-      console.log(`[Generate-Angles] Iniciando generación para avatar: ${avatarId}`);
+      console.log(`[Generate-Angles] Iniciando generación con Fal.ai para avatar: ${avatarId}`);
       
       const useInstantId = process.env.USE_INSTANT_ID !== 'false';
-      console.log(`[Generate-Angles] Usando modelo: ${useInstantId ? 'fal-ai/instant-id' : 'fal-ai/flux-pulid'}`);
+      console.log(`[Generate-Angles] Usando modelo de Fal.ai: ${useInstantId ? 'fal-ai/instantid' : 'fal-ai/flux-pulid'}`);
 
       const results = await Promise.allSettled(
         GENERATIONS.map(async (gen) => {
@@ -138,7 +181,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Error interno en generación' }, { status: 500 });
     }
 
-    // Responder cuando todo haya terminado
     return NextResponse.json({ success: true, message: 'Procesamiento completado' }, { status: 200 });
   } catch (err: any) {
     console.error('Error en generate-angles (main):', err);
