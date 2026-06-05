@@ -53,7 +53,7 @@ export async function POST(req: Request) {
         GENERATIONS.map(async (gen) => {
           const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
           
-          const endpoint = useInstantId ? 'https://fal.run/fal-ai/instant-id' : 'https://fal.run/fal-ai/flux-pulid';
+          const endpoint = useInstantId ? 'https://fal.run/fal-ai/instantid' : 'https://fal.run/fal-ai/flux-pulid';
           
           const bodyPayload = useInstantId ? {
             face_image_url: avatar.base_image_url,
