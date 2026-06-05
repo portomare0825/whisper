@@ -95,7 +95,9 @@ export async function submitFalVTON(params: {
         },
         body: JSON.stringify({
           prompt: garmentPrompt,
-          sync_mode: true
+          sync_mode: true,
+          enable_safety_checker: false,
+          disable_safety_checker: true
         }),
       }
     );
@@ -150,6 +152,8 @@ export async function submitFalVTON(params: {
           human_image_url: params.humanImageUrl,
           garment_image_url: garmentImageUrl,
           description: params.description.trim(),
+          enable_safety_checker: false,
+          disable_safety_checker: true
         }),
       }
     );

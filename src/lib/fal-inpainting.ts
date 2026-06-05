@@ -70,6 +70,8 @@ export async function submitFalInpainting(params: {
       negative_prompt: negativePrompt,
       num_inference_steps: 30,
       guidance_scale: 3.5,
+      enable_safety_checker: false,
+      disable_safety_checker: true
     };
 
     // Si la imagen viene como base64 (data URL), Fal.ai la procesa igual.
@@ -190,7 +192,9 @@ export async function submitFalPoseWithFaceSwap(params: {
             width: 576,
             height: 1024
           },
-          sync_mode: true
+          sync_mode: true,
+          enable_safety_checker: false,
+          disable_safety_checker: true
         }),
       }
     );
