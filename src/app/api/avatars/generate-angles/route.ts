@@ -45,25 +45,42 @@ export async function POST(req: Request) {
 
     try {
       console.log(`[Generate-Angles] Iniciando generación para avatar: ${avatarId}`);
+      
+      const useInstantId = process.env.USE_INSTANT_ID !== 'false';
+      console.log(`[Generate-Angles] Usando modelo: ${useInstantId ? 'fal-ai/instant-id' : 'fal-ai/flux-pulid'}`);
+
       const results = await Promise.allSettled(
         GENERATIONS.map(async (gen) => {
           const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
           
-          const response = await fetch('https://fal.run/fal-ai/flux-pulid', {
+          const endpoint = useInstantId ? 'https://fal.run/fal-ai/instant-id' : 'https://fal.run/fal-ai/flux-pulid';
+          
+          const bodyPayload = useInstantId ? {
+            face_image_url: avatar.base_image_url,
+            prompt: finalPrompt,
+            negative_prompt: "cartoon, 3d, painting, illustration, anime, sketch, low quality, worst quality, blurry, deformed face, bad eyes",
+            image_size: "portrait_4_3",
+            sync_mode: true,
+            enable_safety_checker: false,
+            identity_strength: gen.id_weight || 0.85,
+            adapter_strength: 0.8
+          } : {
+            reference_image_url: avatar.base_image_url,
+            prompt: finalPrompt,
+            image_size: "portrait_4_3",
+            sync_mode: true,
+            enable_safety_checker: false,
+            id_weight: gen.id_weight || 1.0,
+            start_step: gen.start_step || 0
+          };
+
+          const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
               'Authorization': `Key ${FAL_KEY}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-              reference_image_url: avatar.base_image_url,
-              prompt: finalPrompt,
-              image_size: "portrait_4_3",
-              sync_mode: true,
-              enable_safety_checker: false,
-              id_weight: gen.id_weight || 1.0,
-              start_step: gen.start_step || 0
-            })
+            body: JSON.stringify(bodyPayload)
           });
 
           if (!response.ok) {
