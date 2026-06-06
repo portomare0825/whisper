@@ -648,6 +648,8 @@ export default function AdminDashboard() {
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
                     Llamadas al endpoint IDM-VTON y síntesis de audio configuradas a través del SDK oficial de fal.ai.
+                  </p>
+                </div>
               </div>
             </div>
 
