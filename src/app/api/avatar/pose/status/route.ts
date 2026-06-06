@@ -4,6 +4,38 @@ import { checkFalInpaintingStatus } from '@/lib/fal-inpainting';
 
 const POSE_CHANGE_COST = 10;
 
+async function saveImageToSupabase(imageUrl: string, userId: string, avatarId: string, supabaseClient: any): Promise<string> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) throw new Error(`Fallo al descargar imagen del CDN: ${response.statusText}`);
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    
+    const contentType = response.headers.get('content-type') || 'image/webp';
+    const ext = contentType.split('/')[1] || 'webp';
+    
+    const fileName = `${userId}/${avatarId}_pose_${Date.now()}.${ext}`;
+    
+    const { error: uploadError } = await supabaseClient.storage
+      .from('avatars')
+      .upload(fileName, buffer, {
+        contentType,
+        upsert: true
+      });
+      
+    if (uploadError) throw uploadError;
+    
+    const { data: { publicUrl } } = supabaseClient.storage
+      .from('avatars')
+      .getPublicUrl(fileName);
+      
+    return publicUrl;
+  } catch (err) {
+    console.error('Error al guardar la imagen en Supabase Storage, usando CDN original como fallback:', err);
+    return imageUrl;
+  }
+}
+
 // Mapeos en español para los mensajes narrativos en el chat
 const EMOTION_DESCRIPTIONS: Record<string, string> = {
   smiling: 'sonriendo alegremente',
@@ -88,7 +120,8 @@ export async function POST(req: Request) {
         }, { status: 500 });
       }
 
-      newImageUrl = repResult.imageUrl;
+      // Descargar y guardar de forma persistente en Supabase Storage
+      newImageUrl = await saveImageToSupabase(repResult.imageUrl, userId, avatar_id, adminSupabase);
     } else {
       // 3. Consultar el estado del trabajo de Fal.ai FLUX Inpainting
       const falResult = await checkFalInpaintingStatus({ generationId: generation_id });
@@ -109,7 +142,8 @@ export async function POST(req: Request) {
         }, { status: 500 });
       }
 
-      newImageUrl = falResult.imageUrl;
+      // Descargar y guardar de forma persistente en Supabase Storage
+      newImageUrl = await saveImageToSupabase(falResult.imageUrl, userId, avatar_id, adminSupabase);
     }
 
     // 4. Si no es gratuito, validar monedas y cobrar
