@@ -105,7 +105,8 @@ export async function submitReplicateVTON(params: {
       method: "POST",
       headers: {
         "Authorization": `Token ${REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Prefer": "wait"
       },
       body: JSON.stringify({
         input: {
@@ -125,21 +126,24 @@ export async function submitReplicateVTON(params: {
     let fluxData = await fluxResponse.json();
     let garmentImageUrl: string | undefined;
 
-    // Esperar de forma síncrona a que termine Schnell (tarda 2-4 segs)
-    let attempts = 0;
-    while (attempts < 15 && fluxData.status !== 'succeeded' && fluxData.status !== 'failed') {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${fluxData.id}`, {
-        headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
-      });
-      if (pollResponse.ok) {
-        fluxData = await pollResponse.json();
-      }
-      attempts++;
-    }
-
     if (fluxData.status === 'succeeded' && fluxData.output) {
       garmentImageUrl = Array.isArray(fluxData.output) ? fluxData.output[0] : fluxData.output;
+    } else {
+      // Fallback si por alguna razón no se completó síncronamente
+      let attempts = 0;
+      while (attempts < 10 && fluxData.status !== 'succeeded' && fluxData.status !== 'failed') {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${fluxData.id}`, {
+          headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
+        });
+        if (pollResponse.ok) {
+          fluxData = await pollResponse.json();
+        }
+        attempts++;
+      }
+      if (fluxData.status === 'succeeded' && fluxData.output) {
+        garmentImageUrl = Array.isArray(fluxData.output) ? fluxData.output[0] : fluxData.output;
+      }
     }
 
     if (!garmentImageUrl) {
