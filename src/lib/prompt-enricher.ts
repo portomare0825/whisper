@@ -33,6 +33,41 @@ export function translatePhysicalDescriptionToEnglish(text: string): string {
   
   // Diccionario de traducción español -> inglés robusto para rasgos físicos
   const dict: Record<string, string> = {
+    // Estatura (Height)
+    'estatura mediana': 'medium height',
+    'estatura promedio': 'average height',
+    'estatura normal': 'average height',
+    'altura mediana': 'medium height',
+    'altura promedio': 'average height',
+    'estatura baja': 'short height, petite stature',
+    'altura baja': 'short height, petite stature',
+    'bajita': 'petite height',
+    'estatura alta': 'tall stature',
+    'altura alta': 'tall stature',
+    'alta': 'tall',
+
+    // Senos / Pecho / Busto (Breasts / Bust / Chest)
+    'senos pequeños y firmes': 'petite and firm breasts',
+    'senos chicos y firmes': 'petite and firm breasts',
+    'senos pequeños': 'small breasts, petite bust',
+    'senos chicos': 'small breasts, petite bust',
+    'busto pequeño': 'small breasts, petite bust',
+    'busto chico': 'small breasts, petite bust',
+    'pecho pequeño': 'small breasts, petite bust',
+    'pecho chico': 'small breasts, petite bust',
+    'senos medianos': 'medium-sized breasts',
+    'busto mediano': 'average size breasts',
+    'pecho mediano': 'average size breasts',
+    'senos grandes': 'large breasts, ample bust',
+    'busto grande': 'large breasts, ample bust',
+    'pecho grande': 'large breasts, ample bust',
+    'busto voluptuoso': 'large voluptuous breasts',
+    'senos voluptuosos': 'large voluptuous breasts',
+    'senos': 'breasts',
+    'busto': 'bust',
+    'pecho': 'chest',
+    'bubis': 'breasts',
+
     // Cabello - Frases específicas compuestas primero para evitar sustituciones parciales erróneas
     'cabello castaño oscuro': 'dark brown hair',
     'cabello castano oscuro': 'dark brown hair',
@@ -112,6 +147,9 @@ export function translatePhysicalDescriptionToEnglish(text: string): string {
     'atlética': 'athletic',
     'atletico': 'athletic',
     'atlético': 'athletic',
+    'robusta': 'robust figure',
+    'gordita': 'chubby',
+    'rellenita': 'plump',
     'hermosa': 'beautiful',
     'hermoso': 'beautiful',
     'joven': 'young woman',
