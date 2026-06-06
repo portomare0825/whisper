@@ -1,4 +1,5 @@
 import { Buffer } from 'buffer';
+import { translatePhysicalDescriptionToEnglish, enrichOutfitPrompt } from './prompt-enricher';
 
 const REPLICATE_API_TOKEN = process.env.REPLICATE_API_TOKEN;
 
@@ -37,13 +38,20 @@ export async function submitReplicatePose(params: {
     }
 
     const isForcingDifferentBody = params.complexion && params.complexion !== 'promedio';
-    if (params.physicalDescription && !isForcingDifferentBody) {
-      finalPrompt = `Detailed human physical appearance: ${params.physicalDescription}. ${finalPrompt}`;
+    
+    // Traducir descripción física a inglés para consistencia de color de piel/cabello/ojos
+    const physicalEng = params.physicalDescription
+      ? translatePhysicalDescriptionToEnglish(params.physicalDescription)
+      : '';
+
+    if (physicalEng && !isForcingDifferentBody) {
+      finalPrompt = `A beautiful young woman with ${physicalEng.trim()}. ${finalPrompt}`;
     }
 
-    const framingPrefix = "A realistic three-quarter length shot of a person standing, visible from the knees up, full body crop from knees up, standing gracefully, cinematic lighting, professional fashion editorial photography, ";
+    // Encuadre nítido desde las rodillas hacia arriba mostrando rostro y cuerpo (sin la palabra crop)
+    const framingPrefix = "A high-quality three-quarter length fashion photograph of a beautiful young woman standing, visible from the knees up, showing her face, head, shoulders, torso and legs, looking directly at the camera, posing gracefully, cinematic lighting, professional studio photography, ";
     let cleanBasePrompt = params.prompt.replace(/portrait/gi, 'three-quarter shot').trim();
-    const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 50mm lens, ";
+    const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 50mm lens, ultra high resolution, 8k, extremely sharp details, ";
     
     finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}`;
 
@@ -65,7 +73,9 @@ export async function submitReplicatePose(params: {
           id_weight: 1.0,
           start_step: 4,
           true_cfg: 1.0,
-          num_steps: 20
+          num_steps: 24, // Incrementar pasos para mejor nitidez
+          output_format: "webp",
+          output_quality: 100 // Calidad máxima lossless-like
         }
       })
     });
@@ -92,14 +102,24 @@ export async function submitReplicateVTON(params: {
   humanImageUrl: string;
   description: string;
   category?: string;
+  physicalDescription?: string;
 }): Promise<{ success: boolean; generationId?: string; error?: string }> {
   if (!REPLICATE_API_TOKEN) {
     return { success: false, error: 'REPLICATE_API_TOKEN no configurada en el servidor' };
   }
 
   try {
-    // Combinamos el prompt de ropa con la pose y estilo seguro.
-    const prompt = `A RAW realistic photograph of a young woman, smiling politely, wearing a detailed ${params.description.trim()}, standing in a beautifully styled modern room, photorealistic, professional clean lighting, three-quarter length shot, sharp focus, real skin texture`;
+    // Traducir y enriquecer la descripción de la ropa a inglés
+    const cleanDescription = await enrichOutfitPrompt(params.description);
+
+    // Traducir descripción física a inglés para respetar color de piel/ojos/pelo del avatar
+    const physicalEng = params.physicalDescription
+      ? translatePhysicalDescriptionToEnglish(params.physicalDescription)
+      : '';
+    const physicalSection = physicalEng ? `with ${physicalEng.trim()},` : '';
+
+    // Combinamos el prompt de ropa con la pose y estilo seguro, forzando rodillas hacia arriba y cara visible
+    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} visible from the knees up, showing her head, face, upper body, torso and legs, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, standing in a beautifully styled modern room, photorealistic, professional clean lighting, three-quarter length shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details`;
 
     console.log('[Replicate] Generando VTON en un paso rápido con Flux PuLID. Prompt:', prompt);
 
@@ -119,7 +139,9 @@ export async function submitReplicateVTON(params: {
           id_weight: 1.0,
           start_step: 4,
           true_cfg: 1.0,
-          num_steps: 20
+          num_steps: 24, // Incrementar pasos para mejor nitidez
+          output_format: "webp",
+          output_quality: 100 // Calidad máxima lossless-like
         }
       })
     });

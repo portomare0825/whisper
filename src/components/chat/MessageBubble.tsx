@@ -1,6 +1,6 @@
 'use client';
 
-import { Volume2, Square, RefreshCw, Edit3, Brain, EyeOff } from 'lucide-react';
+import { Volume2, Square, RefreshCw, Edit3, Brain, EyeOff, Trash2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { Message, Avatar } from '@/types';
@@ -282,6 +282,7 @@ interface MessageBubbleProps {
   onEdit?: (id: string, content: string) => void;
   onRegenerate?: () => void;
   onRetry?: (content: string, isAlreadyInDb?: boolean) => void;
+  onDelete?: (id: string) => void;
   sending?: boolean;
   isPremium?: boolean;
   novelMode?: boolean;
@@ -301,6 +302,7 @@ export default function MessageBubble({
   onEdit,
   onRegenerate,
   onRetry,
+  onDelete,
   sending = false,
   isPremium = false,
   novelMode = false,
@@ -542,6 +544,15 @@ export default function MessageBubble({
           )}
           {/* Botones de acción en modo novela */}
           <div className="flex items-center gap-1 ml-auto">
+            {onDelete && (
+              <button
+                onClick={() => onDelete(message.id)}
+                className="p-1 rounded-full hover:bg-white/10 text-white/25 hover:text-red-400 transition-colors"
+                title="Eliminar mensaje"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
             {isLast && onRegenerate && !sending && (
               <button
                 onClick={onRegenerate}
@@ -663,6 +674,15 @@ export default function MessageBubble({
               )}
             </div>
             <div className="flex items-center gap-1 md:gap-1.5">
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(message.id)}
+                  className="p-1 md:p-1.5 rounded-full hover:bg-white/10 text-white/25 hover:text-red-400 transition-colors"
+                  title="Eliminar mensaje"
+                >
+                  <Trash2 className="w-3 h-3 md:w-3.5 md:h-3.5" />
+                </button>
+              )}
               {isLast && onRegenerate && !sending && (
                 <button
                   onClick={onRegenerate}
@@ -774,6 +794,17 @@ export default function MessageBubble({
         )}>
           {!isAvatar && (
             <div className="flex items-center gap-1 md:gap-2 mr-auto">
+              {onDelete && (
+                <button
+                  type="button"
+                  onClick={() => onDelete(message.id)}
+                  className="px-1 py-0.2 md:px-1.5 md:py-0.5 rounded hover:bg-white/10 text-white/35 hover:text-red-400 transition-all flex items-center gap-0.5 md:gap-1 text-[8px] md:text-[9px] uppercase tracking-wider border border-white/10"
+                  title="Eliminar mensaje"
+                >
+                  <Trash2 className="w-2.5 h-2.5 md:w-3 md:h-3" />
+                  <span>Eliminar</span>
+                </button>
+              )}
               {isLastUser && onEdit && !sending && (
                 <button
                   type="button"

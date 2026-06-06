@@ -288,3 +288,50 @@ function getFallbackPrompt(params: {
   
   return `${framingPrefix}, ${physical}${emotionPrompt}, wearing ${clothing}`;
 }
+
+export async function enrichOutfitPrompt(description: string): Promise<string> {
+  const openrouterKey = process.env.OPENROUTER_API_KEY;
+  if (!openrouterKey || !description.trim()) {
+    return description;
+  }
+
+  const systemInstruction = `
+    You are a professional fashion photographer translator.
+    Your task is to translate a description of clothing/outfit from Spanish to English, and enrich it to sound like a high-fashion editorial description.
+    Keep it concise (maximum 15 words).
+    Return ONLY the English description, with no quotes or introduction.
+  `.trim();
+
+  try {
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openrouterKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'AvatarChat Pro'
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: description }
+        ],
+        temperature: 0.3,
+        max_tokens: 50
+      })
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content?.trim();
+      if (content) {
+        return content.replace(/^["']|["']$/g, '');
+      }
+    }
+  } catch (error) {
+    console.error('Error translating outfit prompt:', error);
+  }
+  return description;
+}
+

@@ -1177,6 +1177,30 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }, 50);
   };
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!window.confirm('¿Eliminar este mensaje?')) return;
+    
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isUuid = uuidRegex.test(messageId);
+    
+    // UI optimista: borrar localmente de inmediato
+    setMessages(prev => prev.filter(m => m.id !== messageId));
+    
+    if (isUuid) {
+      try {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', messageIds: [messageId] })
+        });
+        const data = await response.json();
+        if (data.error) console.error('Error al borrar mensaje en base de datos:', data.error);
+      } catch (err) {
+        console.error('Error de red al borrar mensaje:', err);
+      }
+    }
+  };
+
   const handleRetry = async (userMessageText: string, isRegenerate = false) => {
     if (sending) return;
     setSending(true);
@@ -1695,6 +1719,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                   onEdit={handleEditMessage}
                   onRegenerate={handleRegenerate}
                   onRetry={handleRetry}
+                  onDelete={handleDeleteMessage}
                   sending={sending}
                   isPremium={isPremium}
                   novelMode={novelMode}

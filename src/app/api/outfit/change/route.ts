@@ -127,6 +127,7 @@ export async function POST(req: Request) {
         const repResult = await submitReplicateVTON({
           humanImageUrl: avatar.base_image_url,
           description: prompt.trim(),
+          physicalDescription: avatar.physical_description || '',
         });
 
         if (!repResult.success) {

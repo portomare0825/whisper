@@ -91,12 +91,13 @@ export async function POST(req: Request) {
       try {
         const results = await Promise.allSettled(
           GENERATIONS.map(async (gen) => {
-            const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+            const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
 
             // Encolar predicción en Replicate
             const repResult = await submitReplicatePose({
               faceImageUrl: avatar.base_image_url,
               prompt: finalPrompt,
+              physicalDescription: avatar.physical_description || undefined,
               width: 768,
               height: 1024
             });
