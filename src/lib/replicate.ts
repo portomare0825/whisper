@@ -73,7 +73,7 @@ export async function submitReplicatePose(params: {
           id_weight: 1.0,
           start_step: 4,
           true_cfg: 1.0,
-          num_steps: 24, // Incrementar pasos para mejor nitidez
+          num_steps: 20, // Limitado a 20 por validación de Replicate
           output_format: "webp",
           output_quality: 100 // Calidad máxima lossless-like
         }
@@ -139,7 +139,7 @@ export async function submitReplicateVTON(params: {
           id_weight: 1.0,
           start_step: 4,
           true_cfg: 1.0,
-          num_steps: 24, // Incrementar pasos para mejor nitidez
+          num_steps: 20, // Limitado a 20 por validación de Replicate
           output_format: "webp",
           output_quality: 100 // Calidad máxima lossless-like
         }
