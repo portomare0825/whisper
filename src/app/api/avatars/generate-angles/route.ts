@@ -86,88 +86,44 @@ export async function POST(req: Request) {
     const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
 
     if (VTON_PROVIDER === 'replicate') {
-      const { submitReplicatePose, checkReplicateStatus } = await import('@/lib/replicate');
-      console.log(`[Generate-Angles] Iniciando generación con Replicate para avatar: ${avatarId}`);
+      const { submitReplicatePose } = await import('@/lib/replicate');
+      console.log(`[Generate-Angles] Iniciando generación asíncrona con Replicate para avatar: ${avatarId}`);
       try {
-        const results = await Promise.allSettled(
+        const host = req.headers.get('host') || 'localhost:3000';
+        const protocol = host.includes('localhost') ? 'http' : 'https';
+        const baseUrl = `${protocol}://${host}`;
+
+        await Promise.all(
           GENERATIONS.map(async (gen) => {
             const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
 
-            // Encolar predicción en Replicate
+            const webhookUrl = `${baseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+
             const repResult = await submitReplicatePose({
               faceImageUrl: avatar.base_image_url,
               prompt: finalPrompt,
               physicalDescription: avatar.physical_description || undefined,
               width: 768,
               height: 1024,
-              isAngle: true
+              isAngle: true,
+              webhook: webhookUrl
             });
 
             if (!repResult.success || !repResult.generationId) {
               throw new Error(`Fallo en Replicate para ${gen.key}: ${repResult.error}`);
             }
 
-            const predictionId = repResult.generationId
-              .replace('replicate_pose_p_', '')
-              .replace('replicate_vton_p_', '')
-              .replace('replicate_p_', '')
-              .replace('replicate_', '');
-
-            let pollStatus: any = { status: 'queued' };
-            let attempts = 0;
-            while (attempts < 60 && pollStatus.status === 'queued') {
-              await new Promise(resolve => setTimeout(resolve, 1500));
-              pollStatus = await checkReplicateStatus(predictionId);
-              attempts++;
-            }
-
-            if (pollStatus.status !== 'completed' || !pollStatus.imageUrl) {
-              throw new Error(`Replicate falló o expiró para ${gen.key}: ${pollStatus.error || 'Timeout'}`);
-            }
-
-            const imageUrl = pollStatus.imageUrl;
-            const imgResponse = await fetch(imageUrl);
-            const imgBlob = await imgResponse.blob();
-            const timestamp = Date.now();
-            const fileName = `${avatar.user_id}/${avatar.id}_${gen.key}_${timestamp}.jpg`;
-
-            const { error: uploadError } = await supabase.storage
-              .from('avatars')
-              .upload(fileName, imgBlob, { contentType: 'image/jpeg', upsert: true });
-
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
-
-            return { key: gen.key, url: publicUrl };
+            console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${repResult.generationId}`);
           })
         );
 
-        const updates: Record<string, string> = {};
-        for (const result of results) {
-          if (result.status === 'fulfilled') {
-            updates[result.value.key] = result.value.url;
-          } else {
-            console.error(`[Generate-Angles] Error generando ángulo en Replicate:`, result.reason);
-          }
-        }
-
-        if (Object.keys(updates).length > 0) {
-          console.log(`[Generate-Angles] Guardando actualizaciones en DB para ${avatarId}`);
-          const { error: updateError } = await supabase
-            .from('avatars')
-            .update(updates)
-            .eq('id', avatarId);
-
-          if (updateError) {
-            console.error('[Generate-Angles] Error actualizando DB:', updateError);
-          }
-        }
-
-        return NextResponse.json({ success: true, message: 'Procesamiento completado en Replicate' }, { status: 200 });
-      } catch (bgError) {
-        console.error('[Generate-Angles] Error crítico en Replicate:', bgError);
-        return NextResponse.json({ error: 'Error interno en generación' }, { status: 500 });
+        return NextResponse.json({
+          success: true,
+          message: 'Generación iniciada con éxito en Replicate (los resultados se recibirán vía webhook).'
+        }, { status: 202 });
+      } catch (bgError: any) {
+        console.error('[Generate-Angles] Error crítico al encolar en Replicate:', bgError);
+        return NextResponse.json({ error: `Fallo al iniciar generación: ${bgError.message}` }, { status: 500 });
       }
     }
 

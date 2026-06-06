@@ -15,6 +15,7 @@ export async function submitReplicatePose(params: {
   width?: number;
   height?: number;
   isAngle?: boolean;
+  webhook?: string;
 }): Promise<{ success: boolean; generationId?: string; error?: string }> {
   if (!REPLICATE_API_TOKEN) {
     return { success: false, error: 'REPLICATE_API_TOKEN no configurada en el servidor' };
@@ -116,7 +117,11 @@ export async function submitReplicatePose(params: {
           output_format: "webp",
           output_quality: 100, // Calidad máxima lossless-like
           negative_prompt: negativePrompt
-        }
+        },
+        ...(params.webhook ? {
+          webhook: params.webhook,
+          webhook_events_filter: ["completed"]
+        } : {})
       })
     });
 
