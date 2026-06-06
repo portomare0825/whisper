@@ -71,7 +71,8 @@ export async function submitFalInpainting(params: {
       num_inference_steps: 30,
       guidance_scale: 3.5,
       enable_safety_checker: false,
-      disable_safety_checker: true
+      disable_safety_checker: true,
+      safety_tolerance: 6
     };
 
     // Si la imagen viene como base64 (data URL), Fal.ai la procesa igual.
@@ -194,7 +195,8 @@ export async function submitFalPoseWithFaceSwap(params: {
           },
           sync_mode: true,
           enable_safety_checker: false,
-          disable_safety_checker: true
+          disable_safety_checker: true,
+          safety_tolerance: 6
         }),
       }
     );
@@ -247,7 +249,8 @@ export async function submitFalPoseWithFaceSwap(params: {
           base_image_url: newPoseImageUrl, // Imagen destino con la pose libre
           swap_image_url: params.baseImage, // Rostro fuente del avatar
           enable_safety_checker: false,
-          disable_safety_checker: true
+          disable_safety_checker: true,
+          safety_tolerance: 6
         }),
       }
     );

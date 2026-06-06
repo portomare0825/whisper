@@ -109,6 +109,7 @@ export async function POST(req: Request) {
             sync_mode: true,
             enable_safety_checker: false,
             disable_safety_checker: true,
+            safety_tolerance: 6,
             identity_strength: gen.id_weight || 0.85,
             adapter_strength: 0.8
           } : {
@@ -118,6 +119,7 @@ export async function POST(req: Request) {
             sync_mode: true,
             enable_safety_checker: false,
             disable_safety_checker: true,
+            safety_tolerance: 6,
             id_weight: gen.id_weight || 1.0,
             start_step: gen.start_step || 0
           };
