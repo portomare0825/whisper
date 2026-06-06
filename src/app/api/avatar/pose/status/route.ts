@@ -173,6 +173,7 @@ export async function POST(req: Request) {
       }
 
       newImageUrl = falResult.imageUrl;
+    }
 
     // 4. Si no es gratuito, validar monedas y cobrar
     let finalCoinsBalance = null;
