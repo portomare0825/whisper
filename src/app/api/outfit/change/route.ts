@@ -74,6 +74,58 @@ export async function POST(req: Request) {
 
 
 
+    // --- Migración a RunPod Serverless si está configurado ---
+    const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
+    if (RUNPOD_ENDPOINT_ID) {
+      const { queueRunPodJob } = await import('@/lib/runpod');
+      
+      let finalPrompt = "";
+      if (isPremium) {
+        const estilo = ESTILOS_PREMIUM.find(e => e.id === premium_style_id);
+        if (!estilo) {
+          return NextResponse.json({ error: 'Estilo premium no encontrado en el catálogo' }, { status: 400 });
+        }
+        
+        let complexionModifiers = "";
+        if (complexion) {
+          if (complexion === 'delgada' || complexion === 'atletica') {
+            complexionModifiers = "fashion model figure, tall and thin physique, elegant body shape, flat stomach, ";
+          } else if (complexion === 'curvilinea') {
+            complexionModifiers = "voluptuous, hourglass figure, beautiful soft curves, well-proportioned, ";
+          } else if (complexion === 'robusta' || complexion === 'plus-size') {
+            complexionModifiers = "plus-size model, curvy woman, full figured, beautiful thick body, ";
+          }
+        }
+        
+        finalPrompt = `A realistic three-quarter length shot, visible from the knees up, standing gracefully, cinematic lighting, ${complexionModifiers}${avatar.physical_description || ''}. The person is in the pose: ${estilo.prompt_base}. Photorealistic, 8k resolution, no 3d, no illustration, exactly the same person.`;
+      } else {
+        finalPrompt = `Highly detailed RAW photography of a person, visible from the knees up, standing gracefully, cinematic lighting, ${avatar.physical_description || ''}. The person is wearing: ${prompt.trim()}. Photorealistic, 8k resolution, no 3d, no illustration, exactly the same person.`;
+      }
+
+      try {
+        const inputPayload = {
+          face_image: avatar.base_image_url,
+          prompt: finalPrompt,
+          negative_prompt: "cartoon, 3d, painting, illustration, anime, sketch, low quality, worst quality, blurry, deformed face, bad eyes",
+          image_size: "portrait_4_3",
+          identity_strength: 0.8,
+          adapter_strength: 0.8
+        };
+
+        const job = await queueRunPodJob(inputPayload);
+        console.log(`[Outfit-Change] Job encolado en RunPod (${action}): ${job.id}`);
+
+        return NextResponse.json({
+          success: true,
+          status: 'queued',
+          generation_id: job.id
+        });
+      } catch (runpodErr: any) {
+        console.error('Error encolando en RunPod para outfit/change:', runpodErr);
+        return NextResponse.json({ error: `Fallo al encolar en RunPod: ${runpodErr.message}` }, { status: 502 });
+      }
+    }
+
     // 6. Ejecutar la acción correspondiente (Fallback clásico con fal.ai si no hay RunPod)
     if (isPremium) {
       const estilo = ESTILOS_PREMIUM.find(e => e.id === premium_style_id);

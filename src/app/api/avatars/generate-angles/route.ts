@@ -41,6 +41,47 @@ export async function POST(req: Request) {
 
 
 
+    // Si RunPod está configurado, usamos la ejecución asíncrona con webhooks
+    const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
+    const APP_WEBHOOK_URL = process.env.APP_WEBHOOK_URL;
+
+    if (RUNPOD_ENDPOINT_ID && APP_WEBHOOK_URL) {
+      console.log(`[Generate-Angles] Usando RunPod Serverless asíncrono para avatar: ${avatarId}`);
+      try {
+        const { queueRunPodJob } = await import('@/lib/runpod');
+        await Promise.all(
+          GENERATIONS.map(async (gen) => {
+            const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+            
+            // Construimos la URL de webhook enviando el contexto en query parameters
+            const webhookUrl = `${APP_WEBHOOK_URL.replace(/\/$/, '')}/api/webhook/runpod?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+            
+            // Payload de entrada para el worker de RunPod
+            const inputPayload = {
+              face_image: avatar.base_image_url,
+              prompt: finalPrompt,
+              negative_prompt: "cartoon, 3d, painting, illustration, anime, sketch, low quality, worst quality, blurry, deformed face, bad eyes",
+              image_size: "portrait_4_3",
+              identity_strength: gen.id_weight || 0.85,
+              adapter_strength: 0.8,
+              key: gen.key // Opcional: pasar la llave al worker
+            };
+
+            const job = await queueRunPodJob(inputPayload, webhookUrl);
+            console.log(`[Generate-Angles] Job encolado en RunPod para ${gen.key}: ${job.id}`);
+          })
+        );
+
+        return NextResponse.json({
+          success: true,
+          message: 'Generación iniciada con éxito en RunPod Serverless (los resultados se recibirán vía webhook).'
+        }, { status: 202 });
+      } catch (runpodErr: any) {
+        console.error('[Generate-Angles] Error iniciando jobs en RunPod:', runpodErr);
+        return NextResponse.json({ error: `Fallo al encolar en RunPod: ${runpodErr.message}` }, { status: 500 });
+      }
+    }
+
     // Fallback: Si no está configurado RunPod, usamos fal.ai de forma síncrona
     console.log('[Generate-Angles] RunPod no configurado. Usando fallback síncrono de Fal.ai.');
     const FAL_KEY = process.env.FAL_KEY;
