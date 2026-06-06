@@ -80,7 +80,7 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
     // Detalles de piel de altísima calidad (ultra realistas al hacer zoom/ampliar) pero sin usar "macro shot" ni lentes cerrados que causan primeros planos
     const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, subtle skin blemishes, freckles, fine peach fuzz, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, ";
     
-    finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}, visible from the knees up, three-quarter length shot, wide angle shot`;
+    finalPrompt = `${cleanBasePrompt}, ${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, visible from the knees up, three-quarter length shot, wide angle shot`;
 
     const negativePrompt = "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso, medium close-up, worst quality, low quality, bad anatomy, deformed body";
 

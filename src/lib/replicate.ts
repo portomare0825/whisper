@@ -87,7 +87,8 @@ export async function submitReplicatePose(params: {
         
       const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, ultra high resolution, 8k, extremely sharp details, ";
       
-      finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}, visible from the knees up, three-quarter length shot, wide angle shot`;
+      // Colocamos el prompt del escenario y vestuario al ABSOLUTO INICIO para que reciba el peso máximo de la IA
+      finalPrompt = `${cleanBasePrompt}, ${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, visible from the knees up, three-quarter length shot, wide angle shot`;
       
       // Agregamos exclusión de primeros planos al negative prompt
       negativePrompt += ", close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso, medium close-up";
@@ -187,7 +188,7 @@ export async function submitReplicateVTON(params: {
     }
 
     // Combinamos el prompt de ropa con la pose y estilo seguro, forzando rodillas hacia arriba, cara visible y cuello perfectamente integrado con fondo inteligente
-    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} ${poseWord}, visible from the knees up, showing her head, face, upper body, torso, and legs, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, ${backgroundSetting}, photorealistic, professional clean lighting, three-quarter length shot, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details, visible from the knees up, three-quarter length shot, wide angle shot`;
+    const prompt = `wearing a detailed ${cleanDescription.trim()}, ${backgroundSetting}, A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} ${poseWord}, visible from the knees up, showing her head, face, upper body, torso, and legs, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, looking directly at the camera and smiling politely, photorealistic, professional clean lighting, three-quarter length shot, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details, visible from the knees up, three-quarter length shot, wide angle shot`;
 
     console.log('[Replicate] Generando VTON en un paso rápido con Flux PuLID. Prompt:', prompt);
 
