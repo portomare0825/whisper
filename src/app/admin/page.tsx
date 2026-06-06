@@ -40,6 +40,14 @@ interface Metrics {
     totalUsage?: number;
     remainingBalance?: number;
   } | null;
+  replicateStats?: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    processing: number;
+    totalPredictTime: number;
+    estimatedCost: number;
+  } | null;
   tickets?: {
     total: number;
     used: number;
@@ -420,7 +428,7 @@ export default function AdminDashboard() {
           <div className="flex items-center justify-between mb-6 mt-6 px-1">
             <div className="flex items-center gap-2">
               <Cpu className="w-5 h-5 text-violet-400" />
-              <h2 className="text-lg font-semibold tracking-wide">Consola de Inteligencia Artificial (OpenRouter & fal.ai)</h2>
+              <h2 className="text-lg font-semibold tracking-wide">Consola de Inteligencia Artificial (OpenRouter, Fal.ai & Replicate)</h2>
             </div>
             <span className="text-xs text-slate-400 bg-white/5 border border-white/10 rounded-full px-3 py-1 font-medium flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -640,7 +648,139 @@ export default function AdminDashboard() {
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">
                     Llamadas al endpoint IDM-VTON y síntesis de audio configuradas a través del SDK oficial de fal.ai.
-                  </p>
+              </div>
+            </div>
+
+            {/* SECCIÓN REPLICATE.COM */}
+            <div className="bg-[#090d16] border border-white/5 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/5 pb-4">
+                <div>
+                  <h3 className="text-xl font-extrabold text-white tracking-tight">Replicate.com Console / Predicciones</h3>
+                  <p className="text-xs text-slate-400 mt-1">Gasto estimado, uso y tiempos de ejecución del modelo Flux PuLID & VTON</p>
+                </div>
+                <div className="flex gap-2">
+                  <a 
+                    href="https://replicate.com/predictions" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 bg-[#020617] hover:bg-white/5 transition-all border border-white/5 px-4 py-2 rounded-xl text-xs text-slate-200 cursor-pointer font-semibold"
+                  >
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    <span>Ver Predicciones en Replicate</span>
+                  </a>
+                  <a 
+                    href="https://replicate.com/account/billing" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="premium-button text-white px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-primary/10"
+                  >
+                    <Wallet className="w-4 h-4" />
+                    <span>Ver Facturación / Saldo</span>
+                  </a>
+                </div>
+              </div>
+
+              {/* Grid de Métricas de Replicate */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+                
+                {/* 1. Predicciones Totales */}
+                <div className="bg-[#020617] border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-cyan-500/20 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Predicciones Recientes</span>
+                    <Cpu className="w-4 h-4 text-cyan-500" />
+                  </div>
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                      {metrics?.replicateStats ? (
+                        metrics.replicateStats.total
+                      ) : (
+                        `0`
+                      )}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10">
+                    Predicciones en el historial reciente
+                  </div>
+                </div>
+
+                {/* 2. Predicciones Exitosas vs Fallidas */}
+                <div className="bg-[#020617] border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-emerald-500/20 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Estado (Éxito / Fallas)</span>
+                    <UserCheck className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-baseline gap-1.5">
+                      {metrics?.replicateStats ? (
+                        <>
+                          <span className="text-emerald-400">{metrics.replicateStats.succeeded}</span>
+                          <span className="text-slate-500 text-xs">/</span>
+                          <span className="text-rose-400 text-lg">{metrics.replicateStats.failed}</span>
+                        </>
+                      ) : (
+                        `0 / 0`
+                      )}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10">
+                    Completadas con éxito vs fallidas
+                  </div>
+                </div>
+
+                {/* 3. Tiempo de Cómputo */}
+                <div className="bg-[#020617] border border-white/5 rounded-2xl p-6 flex flex-col justify-between hover:border-violet-500/20 transition-all duration-300 relative overflow-hidden group shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-tr from-violet-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Tiempo de Cómputo</span>
+                    <Activity className="w-4 h-4 text-violet-500" />
+                  </div>
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-3xl md:text-4xl font-black text-white tracking-tight">
+                      {metrics?.replicateStats ? (
+                        `${metrics.replicateStats.totalPredictTime}s`
+                      ) : (
+                        `0s`
+                      )}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10">
+                    Tiempo total de predicción acumulado
+                  </div>
+                </div>
+
+                {/* 4. Gasto Estimado Acumulado */}
+                <div className="bg-gradient-to-br from-cyan-500/10 via-[#020617] to-[#020617] border border-cyan-500/25 rounded-2xl p-6 flex flex-col justify-between hover:border-cyan-500/50 transition-all duration-300 relative overflow-hidden group shadow-2xl">
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none animate-pulse" />
+                  <div className="flex justify-between items-start relative z-10">
+                    <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest">Spend / Consumo Est.</span>
+                    <Coins className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <div className="my-5 relative z-10">
+                    <h4 className="text-3xl md:text-4xl font-black text-cyan-400 tracking-tight">
+                      {metrics?.replicateStats ? (
+                        `$${metrics.replicateStats.estimatedCost.toFixed(2).replace('.', ',')}`
+                      ) : (
+                        `$0,00`
+                      )}
+                    </h4>
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-none relative z-10 font-medium">
+                    Calculado por uso de hardware en Replicate
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Nota Informativa sobre Saldo Replicate */}
+              <div className="flex flex-col sm:flex-row justify-between gap-3 bg-[#020617]/50 border border-white/5 p-4 rounded-2xl">
+                <div className="text-xs text-slate-300 font-medium leading-relaxed max-w-2xl">
+                  💡 <strong>Nota sobre el Saldo:</strong> Replicate no provee un endpoint de API para consultar el saldo disponible en tiempo real de tu cuenta. Sin embargo, tu cuenta utiliza un sistema de <strong>autorecarga automática</strong> con tarjeta de crédito asociada. Puedes ver el saldo oficial y las facturas haciendo clic en "Ver Facturación / Saldo" a la derecha.
+                </div>
+                <div className="text-left sm:text-right text-[10px] text-slate-500 font-semibold flex items-center sm:justify-end gap-1 shrink-0">
+                  <span>Modo de Pago:</span>
+                  <span className="text-emerald-400 font-bold">Auto-Recarga Activa</span>
                 </div>
               </div>
             </div>

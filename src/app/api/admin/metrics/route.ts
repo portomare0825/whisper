@@ -81,6 +81,59 @@ export async function GET() {
       return null;
     };
 
+    // Replicate API call helper with graceful fallback
+    const fetchReplicateMetrics = async () => {
+      const replicateToken = process.env.REPLICATE_API_TOKEN;
+      if (!replicateToken) return null;
+      try {
+        const res = await fetch('https://api.replicate.com/v1/predictions', {
+          headers: {
+            'Authorization': `Token ${replicateToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.results)) {
+            const results = data.results;
+            const total = results.length;
+            let succeeded = 0;
+            let failed = 0;
+            let processing = 0;
+            let totalPredictTime = 0;
+
+            results.forEach((pred: any) => {
+              if (pred.status === 'succeeded') {
+                succeeded++;
+                if (pred.metrics && typeof pred.metrics.predict_time === 'number') {
+                  totalPredictTime += pred.metrics.predict_time;
+                }
+              } else if (pred.status === 'failed' || pred.status === 'canceled') {
+                failed++;
+              } else {
+                processing++;
+              }
+            });
+
+            // Gasto estimado: supongamos $0.00115 por segundo de H100 (promedio general)
+            const estimatedCost = totalPredictTime * 0.00115;
+
+            return {
+              total,
+              succeeded,
+              failed,
+              processing,
+              totalPredictTime: Math.round(totalPredictTime),
+              estimatedCost: Number(estimatedCost.toFixed(4))
+            };
+          }
+        }
+      } catch (err) {
+        console.error("Error al obtener predicciones de Replicate:", err);
+      }
+      return null;
+    };
+
     // OpenRouter API call helper with graceful fallback
     const fetchOpenRouterBalance = async () => {
       const openRouterKey = process.env.OPENROUTER_API_KEY;
@@ -195,6 +248,7 @@ export async function GET() {
       { data: financialResult },
       falBalanceData,
       openRouterBalanceData,
+      replicateMetricsData,
       { count: totalTickets },
       { count: usedTickets }
     ] = await Promise.all([
@@ -210,6 +264,7 @@ export async function GET() {
       supabaseAdmin.rpc('get_admin_financials'),
       fetchFalBalance(),
       fetchOpenRouterBalance(),
+      fetchReplicateMetrics(),
       supabaseAdmin.from('tickets').select('*', { count: 'exact', head: true }),
       supabaseAdmin.from('tickets').select('*', { count: 'exact', head: true }).eq('is_used', true)
     ]);
@@ -266,7 +321,8 @@ export async function GET() {
           available: (totalTickets || 0) - (usedTickets || 0)
         },
         falBalance: falBalanceData,
-        openRouterBalance: openRouterBalanceData
+        openRouterBalance: openRouterBalanceData,
+        replicateStats: replicateMetricsData
       }
     });
 
