@@ -85,7 +85,7 @@ export async function submitReplicatePose(params: {
 
 /**
  * Realiza un cambio de vestuario virtual (VTON) en Replicate.com.
- * Primero genera la prenda de forma aislada y luego realiza el try-on con IDM-VTON.
+ * Utiliza Flux PuLID en un solo paso rápido para evitar límites de tiempo (Timeout) de Vercel.
  */
 export async function submitReplicateVTON(params: {
   humanImageUrl: string;
@@ -97,74 +97,12 @@ export async function submitReplicateVTON(params: {
   }
 
   try {
-    // 1. Generar la prenda de vestir por texto usando Flux Schnell en Replicate
-    console.log('[Replicate] Generando prenda de vestir con Flux Schnell para VTON:', params.description);
-    const garmentPrompt = `a professional high-quality studio product photo of ${params.description.trim()}, clothing item, flat lay or hanger, solid white background, clean catalog shot`;
+    // Combinamos el prompt de ropa con la pose y estilo seguro.
+    const prompt = `A RAW realistic photograph of a young woman, smiling politely, wearing a detailed ${params.description.trim()}, standing in a beautifully styled modern room, photorealistic, professional clean lighting, three-quarter length shot, sharp focus, real skin texture`;
 
-    const fluxResponse = await fetch("https://api.replicate.com/v1/models/black-forest-labs/flux-schnell/predictions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Token ${REPLICATE_API_TOKEN}`,
-        "Content-Type": "application/json",
-        "Prefer": "wait"
-      },
-      body: JSON.stringify({
-        input: {
-          prompt: garmentPrompt,
-          aspect_ratio: "3:4",
-          disable_safety_checker: true
-        }
-      })
-    });
+    console.log('[Replicate] Generando VTON en un paso rápido con Flux PuLID. Prompt:', prompt);
 
-    if (!fluxResponse.ok) {
-      const errBody = await fluxResponse.text();
-      console.error('[Replicate] Error en Flux Schnell al generar prenda:', errBody);
-      return { success: false, error: `Error generando prenda: ${errBody}` };
-    }
-
-    let fluxData = await fluxResponse.json();
-    let garmentImageUrl: string | undefined;
-
-    if (fluxData.status === 'succeeded' && fluxData.output) {
-      garmentImageUrl = Array.isArray(fluxData.output) ? fluxData.output[0] : fluxData.output;
-    } else {
-      // Fallback si por alguna razón no se completó síncronamente
-      let attempts = 0;
-      while (attempts < 10 && fluxData.status !== 'succeeded' && fluxData.status !== 'failed') {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        const pollResponse = await fetch(`https://api.replicate.com/v1/predictions/${fluxData.id}`, {
-          headers: { "Authorization": `Token ${REPLICATE_API_TOKEN}` }
-        });
-        if (pollResponse.ok) {
-          fluxData = await pollResponse.json();
-        }
-        attempts++;
-      }
-      if (fluxData.status === 'succeeded' && fluxData.output) {
-        garmentImageUrl = Array.isArray(fluxData.output) ? fluxData.output[0] : fluxData.output;
-      }
-    }
-
-    if (!garmentImageUrl) {
-      return { success: false, error: 'No se pudo generar la imagen aislada de la prenda de vestir' };
-    }
-
-    console.log('[Replicate] Prenda generada con éxito:', garmentImageUrl);
-
-    // 2. Realizar el Try-On con IDM-VTON en Replicate
-    console.log('[Replicate] Iniciando IDM-VTON...');
-    
-    // Mapear categoría
-    let category = params.category || "upper_body";
-    const descLower = params.description.toLowerCase();
-    if (descLower.includes("dress") || descLower.includes("robe") || descLower.includes("vestido")) {
-      category = "dresses";
-    } else if (descLower.includes("pant") || descLower.includes("skirt") || descLower.includes("jean") || descLower.includes("shorts")) {
-      category = "lower_body";
-    }
-
-    const response = await fetch("https://api.replicate.com/v1/models/cuuupid/idm-vton/predictions", {
+    const response = await fetch("https://api.replicate.com/v1/models/bytedance/flux-pulid/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Token ${REPLICATE_API_TOKEN}`,
@@ -172,18 +110,21 @@ export async function submitReplicateVTON(params: {
       },
       body: JSON.stringify({
         input: {
-          garm_img: garmentImageUrl,
-          human_img: params.humanImageUrl,
-          garment_des: params.description.trim(),
-          category: category,
-          crop: true
+          main_face_image: params.humanImageUrl,
+          prompt: prompt,
+          width: 896,
+          height: 1152,
+          id_weight: 1.0,
+          start_step: 4,
+          true_cfg: 1.0,
+          num_steps: 20
         }
       })
     });
 
     if (!response.ok) {
       const errBody = await response.text();
-      console.error('[Replicate] Error en IDM-VTON al realizar try-on:', errBody);
+      console.error('[Replicate] Error en flux-pulid VTON:', errBody);
       return { success: false, error: errBody };
     }
 
