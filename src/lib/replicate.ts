@@ -58,8 +58,23 @@ export async function submitReplicatePose(params: {
       startStep = 3;
       idWeight = 0.85;
     } else {
+      // Detección dinámica de pose para evitar contradicciones en el prompt que causen planos cerrados
+      const promptLower = finalPrompt.toLowerCase();
+      const isSitting = /\b(sitting|seated|sit|desk|chair|stool|edge of)\b/i.test(promptLower);
+      const isLying = /\b(lying|reclining|bed|sheets|sofa|couch|floor|ground|deck|relaxing)\b/i.test(promptLower);
+      const isLeaning = /\b(leaning|lean)\b/i.test(promptLower);
+      
+      let poseWord = "standing";
+      if (isSitting) {
+        poseWord = "sitting";
+      } else if (isLying) {
+        poseWord = "lying down";
+      } else if (isLeaning) {
+        poseWord = "leaning";
+      }
+
       // Encuadre nítido desde las rodillas hacia arriba mostrando rostro y cuerpo con conexión natural del cuello y hombros
-      const framingPrefix = "A high-quality three-quarter length fashion photograph of a beautiful young woman standing, visible from the knees up, showing her face, head, shoulders, torso and legs, looking directly at the camera, posing gracefully, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, cinematic lighting, on-location fashion editorial photography, ";
+      const framingPrefix = `A high-quality three-quarter length fashion photograph of a beautiful young woman ${poseWord}, visible from the knees up, showing her face, head, shoulders, torso and legs, looking directly at the camera, posing gracefully, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, cinematic lighting, on-location fashion editorial photography, `;
       
       let cleanBasePrompt = finalPrompt // Corregido para mantener la descripción física y complexión
         .replace(/portrait/gi, 'three-quarter shot showing from the knees up')
@@ -91,7 +106,7 @@ export async function submitReplicatePose(params: {
         input: {
           main_face_image: params.faceImageUrl,
           prompt: finalPrompt,
-          width: params.width || 896,
+          width: params.width || 768, // Modificado de 896 a 768 (formato 2:3 vertical más alto para forzar visualización de piernas/rodillas)
           height: params.height || 1152,
           id_weight: idWeight,
           start_step: startStep,
@@ -142,23 +157,37 @@ export async function submitReplicateVTON(params: {
       : '';
     const physicalSection = physicalEng ? `with ${physicalEng.trim()},` : '';
 
-    // Determinar fondo adecuado según la ropa solicitada
-    let backgroundSetting = "standing in a beautifully styled luxury environment";
+    // Determinar pose y fondo adecuados según la ropa solicitada para evitar contradicciones
     const descLower = cleanDescription.toLowerCase();
-    const isSwimwear = /\b(bikini|swimsuit|swimwear|monokini|trikini|one-piece|beachwear|swim|baño|bañador|tanga)\b/i.test(descLower) || /\b(bikini|swimsuit|swimwear|monokini|trikini|one-piece|beachwear|swim|baño|bañador|tanga)\b/i.test(params.description.toLowerCase());
+    const inputLower = params.description.toLowerCase();
+    const isSitting = /\b(sitting|seated|sit|desk|chair|stool|edge of)\b/i.test(descLower) || /\b(sitting|seated|sit|desk|chair|stool|edge of)\b/i.test(inputLower);
+    const isLying = /\b(lying|reclining|bed|sheets|sofa|couch|floor|ground|deck|relaxing)\b/i.test(descLower) || /\b(lying|reclining|bed|sheets|sofa|couch|floor|ground|deck|relaxing)\b/i.test(inputLower);
+    const isLeaning = /\b(leaning|lean)\b/i.test(descLower) || /\b(leaning|lean)\b/i.test(inputLower);
+
+    let poseWord = "standing";
+    if (isSitting) {
+      poseWord = "sitting";
+    } else if (isLying) {
+      poseWord = "lying down";
+    } else if (isLeaning) {
+      poseWord = "leaning";
+    }
+
+    let backgroundSetting = `posing in a beautifully styled luxury environment`;
+    const isSwimwear = /\b(bikini|swimsuit|swimwear|monokini|trikini|one-piece|beachwear|swim|baño|bañador|tanga)\b/i.test(descLower) || /\b(bikini|swimsuit|swimwear|monokini|trikini|one-piece|beachwear|swim|baño|bañador|tanga)\b/i.test(inputLower);
     
     if (isSwimwear) {
-      backgroundSetting = "standing on a luxury tropical resort beach with soft sand and palm trees, ocean in the background";
+      backgroundSetting = `posing on a luxury tropical resort beach with soft sand and palm trees, ocean in the background`;
     } else if (/\b(office|skirt|suit|desk|blouse|oficina|ejecutiva|saco|camisa)\b/i.test(descLower)) {
-      backgroundSetting = "standing in a modern high-end office penthouse overlooking the city skyline";
+      backgroundSetting = `posing in a modern high-end office penthouse overlooking the city skyline`;
     } else if (/\b(dress|gown|evening|gala|formal|vestido|coctel)\b/i.test(descLower)) {
-      backgroundSetting = "standing in a luxurious grand hotel lobby or elegant ballroom balcony at night";
+      backgroundSetting = `posing in a luxurious grand hotel lobby or elegant ballroom balcony at night`;
     } else if (/\b(street|jacket|jeans|hoodie|casual|calle|chaqueta|streetwear)\b/i.test(descLower)) {
-      backgroundSetting = "standing on a stylish European city street with beautiful architecture";
+      backgroundSetting = `posing on a stylish European city street with beautiful architecture`;
     }
 
     // Combinamos el prompt de ropa con la pose y estilo seguro, forzando rodillas hacia arriba, cara visible y cuello perfectamente integrado con fondo inteligente
-    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} standing, visible from the knees up, showing her head, face, upper body, torso, and legs, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, ${backgroundSetting}, photorealistic, professional clean lighting, three-quarter length shot, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details, visible from the knees up, three-quarter length shot, wide angle shot`;
+    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} ${poseWord}, visible from the knees up, showing her head, face, upper body, torso, and legs, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, ${backgroundSetting}, photorealistic, professional clean lighting, three-quarter length shot, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details, visible from the knees up, three-quarter length shot, wide angle shot`;
 
     console.log('[Replicate] Generando VTON en un paso rápido con Flux PuLID. Prompt:', prompt);
 
@@ -173,7 +202,7 @@ export async function submitReplicateVTON(params: {
         input: {
           main_face_image: params.humanImageUrl,
           prompt: prompt,
-          width: 896,
+          width: 768, // Modificado de 896 a 768 (formato 2:3 vertical más alto para forzar visualización de piernas/rodillas)
           height: 1152,
           id_weight: 0.78, // Reducido ligeramente a 0.78 para evitar que la cara de referencia fuerce un plano cerrado (1/4)
           start_step: 7,   // Aumentado a 7 para asegurar que el cuerpo y fondo se dibujen antes de inyectar el rostro
