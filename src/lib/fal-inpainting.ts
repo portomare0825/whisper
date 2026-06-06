@@ -107,7 +107,31 @@ export async function submitFalInpainting(params: {
       };
     }
 
-    const data = await response.json();
+    let data = await response.json();
+
+    if (data?.has_nsfw_concepts?.[0] === true) {
+      console.warn('Fal.ai detectó contenido NSFW en inpainting. Reintentando con un prompt básico seguro...');
+      const safePrompt = 'a simple casual long sleeve cotton shirt, solid color, photorealistic, clean style';
+      
+      const retryBody = {
+        ...body,
+        prompt: safePrompt
+      };
+      
+      const retryResponse = await fetch('https://fal.run/fal-ai/flux-general/inpainting', {
+        method: 'POST',
+        headers: {
+          Authorization: `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(retryBody)
+      });
+      
+      if (retryResponse.ok) {
+        data = await retryResponse.json();
+      }
+    }
+
     let generatedImageUrl: string | undefined;
 
     if (data?.images?.[0]?.url) {
@@ -215,7 +239,40 @@ export async function submitFalPoseWithFaceSwap(params: {
       };
     }
 
-    const fluxData = await fluxResponse.json();
+    let fluxData = await fluxResponse.json();
+
+    if (fluxData?.has_nsfw_concepts?.[0] === true) {
+      console.warn('Fal.ai detectó contenido NSFW en pose (Paso 1). Reintentando con un prompt básico seguro...');
+      const physicalEng = params.physicalDescription
+        ? (params.physicalDescription.toLowerCase().includes('young woman') ? params.physicalDescription : `A young woman, ${params.physicalDescription}`)
+        : "A young woman";
+      
+      const safePrompt = `A RAW realistic photograph of ${physicalEng}, smiling politely, wearing a casual long sleeve cotton shirt and blue jeans, standing in a brightly lit modern room, photorealistic, professional clean lighting, three-quarter length shot, sharp focus, real skin texture`;
+      
+      const retryResponse = await fetch('https://fal.run/fal-ai/flux/dev', {
+        method: 'POST',
+        headers: {
+          Authorization: `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: safePrompt,
+          image_size: {
+            width: 576,
+            height: 1024
+          },
+          sync_mode: true,
+          enable_safety_checker: false,
+          disable_safety_checker: true,
+          safety_tolerance: 6
+        })
+      });
+
+      if (retryResponse.ok) {
+        fluxData = await retryResponse.json();
+      }
+    }
+
     let newPoseImageUrl: string | undefined;
 
     if (fluxData?.images?.[0]?.url) {
@@ -273,7 +330,13 @@ export async function submitFalPoseWithFaceSwap(params: {
       };
     }
 
-    const swapData = await swapResponse.json();
+    let swapData = await swapResponse.json();
+    
+    if (swapData?.has_nsfw_concepts?.[0] === true) {
+      console.warn('Fal.ai detectó contenido NSFW en Face Swap (Paso 2). Usando fallback de pose sin swap.');
+      swapData = {};
+    }
+
     let finalImageUrl: string | undefined;
 
     if (swapData?.images?.[0]?.url) {

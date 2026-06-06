@@ -106,7 +106,39 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
       return { success: false, error: errorDetail };
     }
 
-    const data = await response.json();
+    let data = await response.json();
+
+    if (data?.has_nsfw_concepts?.[0] === true) {
+      console.warn('Fal.ai detectó contenido NSFW en generatePosePremium. Reintentando con un prompt conservador...');
+      const physicalEng = params.physicalDescription
+        ? (params.physicalDescription.toLowerCase().includes('young woman') ? params.physicalDescription : `A young woman, ${params.physicalDescription}`)
+        : "A young woman";
+      
+      const safePrompt = `A RAW realistic photograph of ${physicalEng}, smiling politely, wearing a casual long sleeve cotton shirt and blue jeans, standing in a brightly lit modern living room, photorealistic, professional clean lighting, three-quarter length shot, sharp focus, real skin texture`;
+      
+      console.log('Reintentando generatePosePremium con prompt seguro:', safePrompt);
+      const retryResponse = await fetch('https://fal.run/fal-ai/flux-pulid', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          reference_image_url: params.faceImageUrl,
+          prompt: safePrompt,
+          image_size: "portrait_16_9",
+          sync_mode: true,
+          enable_safety_checker: false,
+          disable_safety_checker: true,
+          safety_tolerance: 6
+        })
+      });
+
+      if (retryResponse.ok) {
+        data = await retryResponse.json();
+        console.log('Reintento completado. Resultado NSFW de reintento:', data?.has_nsfw_concepts?.[0]);
+      }
+    }
     
     let imageUrl: string | undefined;
     if (data?.images?.[0]?.url) {

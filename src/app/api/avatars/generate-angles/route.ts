@@ -9,7 +9,7 @@ const GENERATIONS = [
   { key: 'emotion_happy', promptModifier: "EXTREMELY HAPPY, LAUGHING OUT LOUD, HUGE WIDE SMILE, showing teeth, joyous expression, eyes crinkled with laughter.", start_step: 4, id_weight: 0.85 },
   { key: 'emotion_sad', promptModifier: "CRYING, DEEPLY SAD, tears streaming down face, extremely miserable, heartbreaking expression, looking down.", start_step: 4, id_weight: 0.85 },
   { key: 'emotion_angry', promptModifier: "FURIOUS, EXTREMELY ANGRY, screaming, raging, deeply furrowed brows, intense aggressive expression.", start_step: 4, id_weight: 0.85 },
-  { key: 'emotion_flirty', promptModifier: "SEDUCTIVE, FLIRTY, heavily biting lower lip, intense bedroom eyes, very alluring and suggestive expression.", start_step: 4, id_weight: 0.85 }
+  { key: 'emotion_flirty', promptModifier: "winking expression, playful wink, cute charming smile, friendly flirty look.", start_step: 4, id_weight: 0.85 }
 ];
 
 export async function POST(req: Request) {
@@ -137,7 +137,45 @@ export async function POST(req: Request) {
             throw new Error(`Error en fal.ai para ${gen.key}: ${response.status}`);
           }
 
-          const data = await response.json();
+          let data = await response.json();
+
+          if (data?.has_nsfw_concepts?.[0] === true) {
+            console.warn(`[Generate-Angles] Fal.ai detectó contenido NSFW en ángulo ${gen.key}. Reintentando con prompt seguro...`);
+            const safePrompt = `A RAW realistic photograph of a young woman, smiling politely, wearing a simple white tank top, neutral background, photorealistic, professional clean lighting, looking at the camera.`;
+            const retryResponse = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                'Authorization': `Key ${FAL_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(useInstantId ? {
+                face_image_url: avatar.base_image_url,
+                prompt: safePrompt,
+                negative_prompt: "cartoon, 3d, painting, illustration, anime, sketch, low quality, worst quality, blurry, deformed face, bad eyes",
+                image_size: "portrait_4_3",
+                sync_mode: true,
+                enable_safety_checker: false,
+                disable_safety_checker: true,
+                safety_tolerance: 6,
+                identity_strength: gen.id_weight || 0.85,
+                adapter_strength: 0.8
+              } : {
+                reference_image_url: avatar.base_image_url,
+                prompt: safePrompt,
+                image_size: "portrait_4_3",
+                sync_mode: true,
+                enable_safety_checker: false,
+                disable_safety_checker: true,
+                safety_tolerance: 6,
+                id_weight: gen.id_weight || 1.0,
+                start_step: gen.start_step || 0
+              })
+            });
+            if (retryResponse.ok) {
+              data = await retryResponse.json();
+            }
+          }
+
           let imageUrl = data?.images?.[0]?.url || data?.image?.url || data?.image;
 
           if (!imageUrl) {

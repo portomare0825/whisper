@@ -117,7 +117,31 @@ export async function submitFalVTON(params: {
       };
     }
 
-    const fluxData = await fluxResponse.json();
+    let fluxData = await fluxResponse.json();
+
+    if (fluxData?.has_nsfw_concepts?.[0] === true) {
+      console.warn('Fal.ai detectó contenido NSFW al generar la prenda. Reintentando con una prenda básica segura...');
+      const safeGarmentPrompt = `a professional high-quality studio product photo of a simple white casual short-sleeve cotton t-shirt, flat lay, solid white background`;
+      const retryFluxResponse = await fetch('https://fal.run/fal-ai/flux/schnell', {
+        method: 'POST',
+        headers: {
+          Authorization: `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt: safeGarmentPrompt,
+          sync_mode: true,
+          enable_safety_checker: false,
+          disable_safety_checker: true,
+          safety_tolerance: 6
+        })
+      });
+
+      if (retryFluxResponse.ok) {
+        fluxData = await retryFluxResponse.json();
+      }
+    }
+
     let garmentImageUrl: string | undefined;
 
     if (fluxData?.images?.[0]?.url) {
@@ -173,7 +197,30 @@ export async function submitFalVTON(params: {
       return { success: false, error: errorDetail };
     }
 
-    const data = await response.json();
+    let data = await response.json();
+
+    if (data?.has_nsfw_concepts?.[0] === true) {
+      console.warn('Fal.ai detectó contenido NSFW durante el Try-On. Reintentando con una descripción básica de camiseta blanca...');
+      const retryResponse = await fetch('https://fal.run/fal-ai/idm-vton', {
+        method: 'POST',
+        headers: {
+          Authorization: `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          human_image_url: params.humanImageUrl,
+          garment_image_url: garmentImageUrl,
+          description: "a simple white cotton t-shirt",
+          enable_safety_checker: false,
+          disable_safety_checker: true,
+          safety_tolerance: 6
+        })
+      });
+
+      if (retryResponse.ok) {
+        data = await retryResponse.json();
+      }
+    }
 
     // El output de IDM-VTON en Fal.ai es { image: { url: '...' } }
     // o puede ser directamente { image: { url: '...' }, mask: { url: '...' } }
