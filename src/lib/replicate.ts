@@ -48,8 +48,8 @@ export async function submitReplicatePose(params: {
       finalPrompt = `A beautiful young woman with ${physicalEng.trim()}. ${finalPrompt}`;
     }
 
-    // Encuadre nítido desde las rodillas hacia arriba mostrando rostro y cuerpo (sin la palabra crop)
-    const framingPrefix = "A high-quality three-quarter length fashion photograph of a beautiful young woman standing, visible from the knees up, showing her face, head, shoulders, torso and legs, looking directly at the camera, posing gracefully, cinematic lighting, professional studio photography, ";
+    // Encuadre nítido desde las rodillas hacia arriba mostrando rostro y cuerpo con conexión natural del cuello y hombros
+    const framingPrefix = "A high-quality three-quarter length fashion photograph of a beautiful young woman standing, visible from the knees up, showing her face, head, shoulders, torso and legs, looking directly at the camera, posing gracefully, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, cinematic lighting, on-location fashion editorial photography, ";
     let cleanBasePrompt = params.prompt.replace(/portrait/gi, 'three-quarter shot').trim();
     const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 50mm lens, ultra high resolution, 8k, extremely sharp details, ";
     
@@ -70,12 +70,13 @@ export async function submitReplicatePose(params: {
           prompt: finalPrompt,
           width: params.width || 896,
           height: params.height || 1152,
-          id_weight: 1.0,
+          id_weight: 0.82, // Ajustado de 1.0 a 0.82 para suavizar la fusión del rostro con el cuello y evitar el efecto "cabeza pegada/flotante"
           start_step: 4,
           true_cfg: 1.0,
           num_steps: 20, // Limitado a 20 por validación de Replicate
           output_format: "webp",
-          output_quality: 100 // Calidad máxima lossless-like
+          output_quality: 100, // Calidad máxima lossless-like
+          negative_prompt: "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, worst quality, low quality, bad anatomy, deformed body"
         }
       })
     });
@@ -118,8 +119,23 @@ export async function submitReplicateVTON(params: {
       : '';
     const physicalSection = physicalEng ? `with ${physicalEng.trim()},` : '';
 
-    // Combinamos el prompt de ropa con la pose y estilo seguro, forzando rodillas hacia arriba y cara visible
-    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} visible from the knees up, showing her head, face, upper body, torso and legs, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, standing in a beautifully styled modern room, photorealistic, professional clean lighting, three-quarter length shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details`;
+    // Determinar fondo adecuado según la ropa solicitada
+    let backgroundSetting = "standing in a beautifully styled luxury environment";
+    const descLower = cleanDescription.toLowerCase();
+    const isSwimwear = /\b(bikini|swimsuit|swimwear|monokini|trikini|one-piece|beachwear|swim|baño|bañador|tanga)\b/i.test(descLower) || /\b(bikini|swimsuit|swimwear|monokini|trikini|one-piece|beachwear|swim|baño|bañador|tanga)\b/i.test(params.description.toLowerCase());
+    
+    if (isSwimwear) {
+      backgroundSetting = "standing on a luxury tropical resort beach with soft sand and palm trees, ocean in the background";
+    } else if (/\b(office|skirt|suit|desk|blouse|oficina|ejecutiva|saco|camisa)\b/i.test(descLower)) {
+      backgroundSetting = "standing in a modern high-end office penthouse overlooking the city skyline";
+    } else if (/\b(dress|gown|evening|gala|formal|vestido|coctel)\b/i.test(descLower)) {
+      backgroundSetting = "standing in a luxurious grand hotel lobby or elegant ballroom balcony at night";
+    } else if (/\b(street|jacket|jeans|hoodie|casual|calle|chaqueta|streetwear)\b/i.test(descLower)) {
+      backgroundSetting = "standing on a stylish European city street with beautiful architecture";
+    }
+
+    // Combinamos el prompt de ropa con la pose y estilo seguro, forzando rodillas hacia arriba, cara visible y cuello perfectamente integrado con fondo inteligente
+    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} visible from the knees up, showing her head, face, upper body, torso and legs, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, ${backgroundSetting}, photorealistic, professional clean lighting, three-quarter length shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details`;
 
     console.log('[Replicate] Generando VTON en un paso rápido con Flux PuLID. Prompt:', prompt);
 
@@ -136,12 +152,13 @@ export async function submitReplicateVTON(params: {
           prompt: prompt,
           width: 896,
           height: 1152,
-          id_weight: 1.0,
+          id_weight: 0.82, // Ajustado de 1.0 a 0.82 para suavizar la fusión del rostro con el cuello y evitar el efecto "cabeza pegada/flotante"
           start_step: 4,
           true_cfg: 1.0,
           num_steps: 20, // Limitado a 20 por validación de Replicate
           output_format: "webp",
-          output_quality: 100 // Calidad máxima lossless-like
+          output_quality: 100, // Calidad máxima lossless-like
+          negative_prompt: "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, worst quality, low quality, bad anatomy, deformed body"
         }
       })
     });
