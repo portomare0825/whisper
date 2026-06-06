@@ -19,7 +19,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Playa VIP al Atardecer",
     miniatura: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1080&q=80",
-    prompt_base: "posing on a tropical beach at sunset with golden hour soft orange sunset glow, wearing an elegant designer summer resort dress, luxury beachwear, masterpiece, 8k resolution, professional fashion photography, three-quarter length shot showing from the knees up, cinematic lighting"
+    prompt_base: "posing sensually on a tropical beach at sunset with golden hour soft orange sunset glow, wearing a tiny seductive designer bikini, alluring and suggestive pose, sun-kissed glowing skin, masterpiece, 8k resolution, professional fashion photography, three-quarter length shot showing from the knees up, cinematic lighting"
   },
   {
     id: "estudio_glamour",
@@ -68,7 +68,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Seducción en la Piscina",
     miniatura: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1520052205864-92d242b3a76b?w=1080&q=80",
-    prompt_base: "posing next to a luxury infinity pool with glowing neon pool reflections and soft ambient luxury backlight, wearing an elegant luxury designer summer resort dress, glowing skin, masterpiece, 8k resolution, professional night photography, three-quarter length shot showing from the knees up, cinematic night lighting"
+    prompt_base: "posing sensually next to a luxury infinity pool with glowing neon pool reflections and soft ambient luxury backlight, wearing a seductive wet monokini swimsuit, alluring and suggestive wet hair look, glowing skin, masterpiece, 8k resolution, professional night photography, three-quarter length shot showing from the knees up, cinematic night lighting"
   },
   {
     id: "cuero_motocicleta",
@@ -124,7 +124,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Bikini en Altamar",
     miniatura: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=1080&q=80",
-    prompt_base: "relaxing on the deck of a multi-million dollar yacht with ocean breeze and beautiful blue water under bright summer lighting, wearing elegant designer resort wear fashion, masterpiece, 8k resolution, luxurious lifestyle photography"
+    prompt_base: "posing sensually on the deck of a multi-million dollar yacht with ocean breeze and beautiful blue water under bright summer lighting, wearing a tiny seductive designer bikini, alluring and suggestive pose, sun-kissed glowing skin, masterpiece, 8k resolution, luxurious lifestyle photography"
   },
   {
     id: "bata_seda_espejo",
@@ -145,7 +145,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Diosa en la Arena",
     miniatura: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?w=1080&q=80",
-    prompt_base: "posing gracefully standing on white sand beach with crystal clear turquoise ocean background, wearing an elegant designer one-piece swimsuit, bright cinematic sunny lighting, masterpiece, 8k resolution, professional fashion editorial photography, three-quarter length shot showing from the knees up"
+    prompt_base: "posing sensually lying or kneeling on a white sand beach with crystal clear turquoise ocean background, wearing a tiny skimpy designer bikini, seductive and suggestive pose, sun-kissed glowing skin, masterpiece, 8k resolution, professional fashion photography, three-quarter length shot showing from the knees up, bright cinematic sunny lighting"
   },
   {
     id: "angel_oscuridad",
@@ -215,7 +215,7 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Cascada en Selva Exótica",
     miniatura: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1080&q=80",
-    prompt_base: "posing standing in front of a majestic jungle waterfall and crystal clear pool surrounded by tropical lush green plants with soft mist and sunbeams filtering through the canopy, wearing a stylish designer emerald green monokini swimwear, masterpiece, 8k resolution, adventurous fashion editorial"
+    prompt_base: "posing sensually in front of a majestic jungle waterfall and crystal clear pool surrounded by tropical lush green plants with soft mist and sunbeams filtering through the canopy, wearing a seductive skimpy monokini swimwear, wet skin, suggestive and alluring pose, masterpiece, 8k resolution, adventurous fashion editorial"
   },
   {
     id: "cafe_parisino_vintage",
@@ -243,14 +243,14 @@ export const ESTILOS_PREMIUM: EstiloPremium[] = [
     nombre: "Piscina Infinita en Bali",
     miniatura: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=1080&q=80",
-    prompt_base: "posing relaxing in a luxurious infinity pool in Bali surrounded by lush tropical jungle and palm trees, wearing a chic designer emerald bikini, crystal clear water, tropical sunny day, cinematic reflection, masterpiece, 8k resolution, professional resort photography"
+    prompt_base: "posing sensually in a luxurious infinity pool in Bali surrounded by lush tropical jungle and palm trees, wearing a tiny seductive emerald green bikini, suggestive and alluring pose, crystal clear water, tropical sunny day, cinematic reflection, masterpiece, 8k resolution, professional resort photography"
   },
   {
     id: "yate_miami",
     nombre: "Yate de Lujo en Miami",
     miniatura: "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=400&q=80",
     imagen_plantilla: "https://images.unsplash.com/photo-1567899378494-47b22a2ae96a?w=1080&q=80",
-    prompt_base: "posing leaning on a luxury yacht deck in Miami at sunset, ocean waves and distant city skyline background, wearing a glamorous elegant white summer resort dress, golden hour warm lighting, cinematic depth of field, masterpiece, 8k resolution, luxury lifestyle photography"
+    prompt_base: "posing sensually leaning on a luxury yacht deck in Miami at sunset, ocean waves and distant city skyline background, wearing a tiny seductive designer bikini, suggestive and alluring pose, golden hour warm lighting, cinematic depth of field, masterpiece, 8k resolution, luxury lifestyle photography"
   },
   {
     id: "penthouse_tokio",
