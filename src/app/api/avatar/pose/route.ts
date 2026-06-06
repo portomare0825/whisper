@@ -88,8 +88,29 @@ export async function POST(req: Request) {
 
 
 
-    // 6. Iniciar la generación usando FLUX Inpainting para mantener el rostro intacto al 100% (Fallback clásico)
-    // Si no hay máscara, cae en el fallback de pose y face swap oficial
+    // 6. Iniciar la generación usando FLUX (Replicate o Fal.ai)
+    const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
+
+    if (VTON_PROVIDER === 'replicate') {
+      const { submitReplicatePose } = await import('@/lib/replicate');
+      console.log(`Usando generación de pose libre con Flux PuLID en Replicate para consistencia de rostro (${pose}).`);
+      const repResult = await submitReplicatePose({
+        faceImageUrl: avatar.base_image_url,
+        prompt: finalPrompt,
+        physicalDescription: physicalDescription || undefined
+      });
+
+      if (!repResult.success) {
+        return NextResponse.json({ error: repResult.error }, { status: 502 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        status: 'queued',
+        generation_id: repResult.generationId
+      });
+    }
+
     const { submitFalPoseWithFaceSwap } = await import('@/lib/fal-inpainting');
     
     console.log(`Usando generación de pose libre con FLUX Dev + Face Swap oficial de Fal.ai para consistencia absoluta del rostro (${pose}).`);

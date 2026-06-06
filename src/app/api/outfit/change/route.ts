@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import { submitFalVTON, parseFalAPIError } from '@/lib/fal-vton';
 import { generatePosePremium } from '@/lib/fal-instantid';
 import { ESTILOS_PREMIUM } from '@/lib/constants/catalog';
+import { submitReplicatePose, submitReplicateVTON } from '@/lib/replicate';
 
 const OUTFIT_CHANGE_COST = 10;
 const OUTFIT_CHANGE_PREMIUM_COST = 15;
@@ -73,34 +74,75 @@ export async function POST(req: Request) {
     }
 
 
-    // 6. Ejecutar la acción correspondiente (Fallback clásico con fal.ai si no hay RunPod)
+    // 6. Ejecutar la acción correspondiente (Replicate o Fal.ai)
+    const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
+
     if (isPremium) {
       const estilo = ESTILOS_PREMIUM.find(e => e.id === premium_style_id);
       if (!estilo) {
         return NextResponse.json({ error: 'Estilo premium no encontrado en el catálogo' }, { status: 400 });
       }
 
-      const falResult = await generatePosePremium({
-        faceImageUrl: avatar.base_image_url,
-        templatePoseUrl: estilo.imagen_plantilla,
-        basePrompt: estilo.prompt_base,
-        complexion: complexion,
-        physicalDescription: avatar.physical_description || ''
-      });
+      if (VTON_PROVIDER === 'replicate') {
+        const repResult = await submitReplicatePose({
+          faceImageUrl: avatar.base_image_url,
+          prompt: estilo.prompt_base,
+          complexion: complexion,
+          physicalDescription: avatar.physical_description || ''
+        });
 
-      if (!falResult.success) {
-        return NextResponse.json({ error: falResult.error }, { status: 502 });
+        if (!repResult.success) {
+          return NextResponse.json({ error: repResult.error }, { status: 502 });
+        }
+
+        return NextResponse.json({
+          success: true,
+          status: 'queued',
+          generation_id: repResult.generationId
+        });
+      } else {
+        const falResult = await generatePosePremium({
+          faceImageUrl: avatar.base_image_url,
+          templatePoseUrl: estilo.imagen_plantilla,
+          basePrompt: estilo.prompt_base,
+          complexion: complexion,
+          physicalDescription: avatar.physical_description || ''
+        });
+
+        if (!falResult.success) {
+          return NextResponse.json({ error: falResult.error }, { status: 502 });
+        }
+
+        return NextResponse.json({
+          success: true,
+          status: 'queued',
+          generation_id: falResult.generationId
+        });
       }
-
-      return NextResponse.json({
-        success: true,
-        status: 'queued',
-        generation_id: falResult.generationId
-      });
     }
 
     // 7. Obtener el proveedor de VTON configurado (Flujo clásico)
-    const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
+    if (VTON_PROVIDER === 'replicate') {
+      try {
+        const repResult = await submitReplicateVTON({
+          humanImageUrl: avatar.base_image_url,
+          description: prompt.trim(),
+        });
+
+        if (!repResult.success) {
+          return NextResponse.json({ error: repResult.error }, { status: 502 });
+        }
+
+        return NextResponse.json({
+          success: true,
+          status: 'queued',
+          generation_id: repResult.generationId
+        });
+      } catch (err: any) {
+        console.error('Replicate VTON Error:', err);
+        return NextResponse.json({ error: err.message }, { status: 502 });
+      }
+    }
 
     // --- Fal.ai IDM-VTON (nuevo proveedor) ---
     if (VTON_PROVIDER === 'fal') {

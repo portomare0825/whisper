@@ -82,8 +82,94 @@ export async function POST(req: Request) {
       }
     }
 
-    // Fallback: Si no está configurado RunPod, usamos fal.ai de forma síncrona
-    console.log('[Generate-Angles] RunPod no configurado. Usando fallback síncrono de Fal.ai.');
+    // Fallback: Si no está configurado RunPod, usamos Replicate o Fal.ai
+    const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
+
+    if (VTON_PROVIDER === 'replicate') {
+      const { submitReplicatePose, checkReplicateStatus } = await import('@/lib/replicate');
+      console.log(`[Generate-Angles] Iniciando generación con Replicate para avatar: ${avatarId}`);
+      try {
+        const results = await Promise.allSettled(
+          GENERATIONS.map(async (gen) => {
+            const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+
+            // Encolar predicción en Replicate
+            const repResult = await submitReplicatePose({
+              faceImageUrl: avatar.base_image_url,
+              prompt: finalPrompt,
+              width: 768,
+              height: 1024
+            });
+
+            if (!repResult.success || !repResult.generationId) {
+              throw new Error(`Fallo en Replicate para ${gen.key}: ${repResult.error}`);
+            }
+
+            const predictionId = repResult.generationId
+              .replace('replicate_pose_p_', '')
+              .replace('replicate_vton_p_', '')
+              .replace('replicate_p_', '')
+              .replace('replicate_', '');
+
+            let pollStatus: any = { status: 'queued' };
+            let attempts = 0;
+            while (attempts < 60 && pollStatus.status === 'queued') {
+              await new Promise(resolve => setTimeout(resolve, 1500));
+              pollStatus = await checkReplicateStatus(predictionId);
+              attempts++;
+            }
+
+            if (pollStatus.status !== 'completed' || !pollStatus.imageUrl) {
+              throw new Error(`Replicate falló o expiró para ${gen.key}: ${pollStatus.error || 'Timeout'}`);
+            }
+
+            const imageUrl = pollStatus.imageUrl;
+            const imgResponse = await fetch(imageUrl);
+            const imgBlob = await imgResponse.blob();
+            const timestamp = Date.now();
+            const fileName = `${avatar.user_id}/${avatar.id}_${gen.key}_${timestamp}.jpg`;
+
+            const { error: uploadError } = await supabase.storage
+              .from('avatars')
+              .upload(fileName, imgBlob, { contentType: 'image/jpeg', upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+
+            return { key: gen.key, url: publicUrl };
+          })
+        );
+
+        const updates: Record<string, string> = {};
+        for (const result of results) {
+          if (result.status === 'fulfilled') {
+            updates[result.value.key] = result.value.url;
+          } else {
+            console.error(`[Generate-Angles] Error generando ángulo en Replicate:`, result.reason);
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          console.log(`[Generate-Angles] Guardando actualizaciones en DB para ${avatarId}`);
+          const { error: updateError } = await supabase
+            .from('avatars')
+            .update(updates)
+            .eq('id', avatarId);
+
+          if (updateError) {
+            console.error('[Generate-Angles] Error actualizando DB:', updateError);
+          }
+        }
+
+        return NextResponse.json({ success: true, message: 'Procesamiento completado en Replicate' }, { status: 200 });
+      } catch (bgError) {
+        console.error('[Generate-Angles] Error crítico en Replicate:', bgError);
+        return NextResponse.json({ error: 'Error interno en generación' }, { status: 500 });
+      }
+    }
+
+    console.log('[Generate-Angles] RunPod/Replicate no configurado. Usando fallback síncrono de Fal.ai.');
     const FAL_KEY = process.env.FAL_KEY;
     if (!FAL_KEY) {
       return NextResponse.json({ error: 'FAL_KEY no configurada' }, { status: 500 });

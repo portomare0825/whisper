@@ -62,26 +62,55 @@ export async function POST(req: Request) {
 
     let newImageUrl: string;
 
-    // 3. Consultar el estado del trabajo de Fal.ai FLUX Inpainting
-    const falResult = await checkFalInpaintingStatus({ generationId: generation_id });
+    if (generation_id.startsWith('replicate_')) {
+      const { checkReplicateStatus } = await import('@/lib/replicate');
+      const predictionId = generation_id
+        .replace('replicate_pose_p_', '')
+        .replace('replicate_vton_p_', '')
+        .replace('replicate_p_', '')
+        .replace('replicate_', '');
 
-    if (falResult.status === 'in_progress' || falResult.status === 'queued') {
-      return NextResponse.json({ status: 'queued' });
+      const repResult = await checkReplicateStatus(predictionId);
+
+      if (repResult.status === 'queued') {
+        return NextResponse.json({ status: 'queued' });
+      }
+
+      if (repResult.status === 'failed') {
+        return NextResponse.json({
+          error: repResult.error || 'La generación de pose falló en Replicate'
+        }, { status: 422 });
+      }
+
+      if (!repResult.imageUrl) {
+        return NextResponse.json({
+          error: 'Replicate no devolvió una imagen de pose válida'
+        }, { status: 500 });
+      }
+
+      newImageUrl = repResult.imageUrl;
+    } else {
+      // 3. Consultar el estado del trabajo de Fal.ai FLUX Inpainting
+      const falResult = await checkFalInpaintingStatus({ generationId: generation_id });
+
+      if (falResult.status === 'in_progress' || falResult.status === 'queued') {
+        return NextResponse.json({ status: 'queued' });
+      }
+
+      if (falResult.status === 'failed') {
+        return NextResponse.json({
+          error: falResult.error || 'La generación de pose falló en los servidores de Fal.ai'
+        }, { status: 422 });
+      }
+
+      if (!falResult.imageUrl) {
+        return NextResponse.json({
+          error: 'Fal.ai no devolvió una imagen de pose válida'
+        }, { status: 500 });
+      }
+
+      newImageUrl = falResult.imageUrl;
     }
-
-    if (falResult.status === 'failed') {
-      return NextResponse.json({
-        error: falResult.error || 'La generación de pose falló en los servidores de Fal.ai'
-      }, { status: 422 });
-    }
-
-    if (!falResult.imageUrl) {
-      return NextResponse.json({
-        error: 'Fal.ai no devolvió una imagen de pose válida'
-      }, { status: 500 });
-    }
-
-    newImageUrl = falResult.imageUrl;
 
     // 4. Si no es gratuito, validar monedas y cobrar
     let finalCoinsBalance = null;

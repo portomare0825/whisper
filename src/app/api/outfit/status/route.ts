@@ -63,7 +63,37 @@ export async function POST(req: Request) {
     let currentCost = OUTFIT_CHANGE_COST;
 
     // 5. Consultar según el proveedor
-    if (generation_id.startsWith('fal_')) {
+    if (generation_id.startsWith('replicate_')) {
+      const { checkReplicateStatus } = await import('@/lib/replicate');
+      const predictionId = generation_id
+        .replace('replicate_pose_p_', '')
+        .replace('replicate_vton_p_', '')
+        .replace('replicate_p_', '')
+        .replace('replicate_', '');
+
+      const repResult = await checkReplicateStatus(predictionId);
+
+      if (repResult.status === 'queued') {
+        return NextResponse.json({ status: 'queued' });
+      }
+
+      if (repResult.status === 'failed') {
+        return NextResponse.json({
+          error: repResult.error || 'La generación de imagen falló en Replicate'
+        }, { status: 422 });
+      }
+
+      if (!repResult.imageUrl) {
+        return NextResponse.json({
+          error: 'Replicate no devolvió una imagen válida'
+        }, { status: 500 });
+      }
+
+      newImageUrl = repResult.imageUrl;
+      if (generation_id.startsWith('replicate_pose_')) {
+        currentCost = 15;
+      }
+    } else if (generation_id.startsWith('fal_')) {
       const falResult = checkFalVTONStatus({ generationId: generation_id, prompt });
 
       if (falResult.status === 'failed') {
