@@ -68,7 +68,7 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
     const framingPrefix = "A realistic three-quarter length shot of a person standing, visible from the knees up, full body crop from knees up, standing gracefully, cinematic lighting, professional fashion editorial photography, ";
     
     // Quitar la palabra "portrait" de cualquier prompt base
-    let cleanBasePrompt = params.basePrompt
+    let cleanBasePrompt = finalPrompt // Corregido para mantener la descripción física y complexión
       .replace(/portrait/gi, 'three-quarter shot showing from the knees up')
       .replace(/close-up/gi, 'three-quarter shot showing from the knees up')
       .replace(/close up/gi, 'three-quarter shot showing from the knees up')
@@ -80,9 +80,9 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
     // Detalles de piel de altísima calidad (ultra realistas al hacer zoom/ampliar) pero sin usar "macro shot" ni lentes cerrados que causan primeros planos
     const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, subtle skin blemishes, freckles, fine peach fuzz, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, ";
     
-    finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}`;
+    finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}, visible from the knees up, three-quarter length shot, wide angle shot`;
 
-    const negativePrompt = "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso, worst quality, low quality, bad anatomy, deformed body";
+    const negativePrompt = "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso, medium close-up, worst quality, low quality, bad anatomy, deformed body";
 
     console.log('Generando Pose Premium con InstantID (PuLID 16:9). Prompt final:', finalPrompt);
 
@@ -101,8 +101,8 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
         enable_safety_checker: false,                // Evitamos las imágenes negras por falsos positivos
         disable_safety_checker: true,                 // Desactiva explícitamente el filtro en algunas variantes del endpoint de Fal
         safety_tolerance: 6,
-        id_weight: 0.80,
-        start_step: 5,
+        id_weight: 0.78, // Reducido ligeramente a 0.78 para evitar que la cara de referencia fuerce un plano cerrado (1/4)
+        start_step: 7,   // Aumentado a 7 para asegurar que el cuerpo y fondo se dibujen antes de inyectar el rostro
         negative_prompt: negativePrompt
       })
     });
@@ -143,8 +143,8 @@ export async function generatePosePremium(params: GeneratePoseParams): Promise<F
           enable_safety_checker: false,
           disable_safety_checker: true,
           safety_tolerance: 6,
-          id_weight: 0.80,
-          start_step: 5,
+          id_weight: 0.78,
+          start_step: 7,
           negative_prompt: negativePrompt
         })
       });

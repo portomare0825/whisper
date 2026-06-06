@@ -49,8 +49,8 @@ export async function submitReplicatePose(params: {
       finalPrompt = `A beautiful young woman with ${physicalEng.trim()}. ${finalPrompt}`;
     }
 
-    let startStep = 5;
-    let idWeight = 0.80; // Reducido a 0.80 para una transición de cuello impecable y natural
+    let startStep = 7; // Aumentado a 7 para asegurar que el cuerpo y fondo se dibujen antes de inyectar el rostro
+    let idWeight = 0.78; // Reducido ligeramente a 0.78 para evitar que la cara de referencia fuerce un plano cerrado (1/4)
     let negativePrompt = "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, worst quality, low quality, bad anatomy, deformed body";
 
     if (params.isAngle) {
@@ -61,7 +61,7 @@ export async function submitReplicatePose(params: {
       // Encuadre nítido desde las rodillas hacia arriba mostrando rostro y cuerpo con conexión natural del cuello y hombros
       const framingPrefix = "A high-quality three-quarter length fashion photograph of a beautiful young woman standing, visible from the knees up, showing her face, head, shoulders, torso and legs, looking directly at the camera, posing gracefully, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, cinematic lighting, on-location fashion editorial photography, ";
       
-      let cleanBasePrompt = params.prompt
+      let cleanBasePrompt = finalPrompt // Corregido para mantener la descripción física y complexión
         .replace(/portrait/gi, 'three-quarter shot showing from the knees up')
         .replace(/close-up/gi, 'three-quarter shot showing from the knees up')
         .replace(/close up/gi, 'three-quarter shot showing from the knees up')
@@ -72,10 +72,10 @@ export async function submitReplicatePose(params: {
         
       const skinDetails = "EXTREMELY RAW photography, sharp focus on highly detailed real human skin texture, visible pores, unretouched, imperfect natural skin, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, ultra high resolution, 8k, extremely sharp details, ";
       
-      finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}`;
+      finalPrompt = `${framingPrefix}${skinDetails}absolutely no 3D rendering, no digital art, strictly real life human photography, ${cleanBasePrompt}, visible from the knees up, three-quarter length shot, wide angle shot`;
       
       // Agregamos exclusión de primeros planos al negative prompt
-      negativePrompt += ", close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso";
+      negativePrompt += ", close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso, medium close-up";
     }
 
     console.log('[Replicate] Encolando Flux PuLID. Prompt final:', finalPrompt);
@@ -158,7 +158,7 @@ export async function submitReplicateVTON(params: {
     }
 
     // Combinamos el prompt de ropa con la pose y estilo seguro, forzando rodillas hacia arriba, cara visible y cuello perfectamente integrado con fondo inteligente
-    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} standing, visible from the knees up, showing her head, face, upper body, torso, and legs, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, ${backgroundSetting}, photorealistic, professional clean lighting, three-quarter length shot, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details`;
+    const prompt = `A RAW realistic fashion photograph of a beautiful young woman ${physicalSection} standing, visible from the knees up, showing her head, face, upper body, torso, and legs, head naturally and seamlessly connected to neck and shoulders, neck transition looks highly natural, looking directly at the camera and smiling politely, wearing a detailed ${cleanDescription.trim()}, ${backgroundSetting}, photorealistic, professional clean lighting, three-quarter length shot, shot on high-resolution DSLR camera with 35mm lens, wide fashion photography shot, sharp focus, real skin texture, visible pores, unretouched natural skin, ultra-high resolution, 8k, extremely sharp details, visible from the knees up, three-quarter length shot, wide angle shot`;
 
     console.log('[Replicate] Generando VTON en un paso rápido con Flux PuLID. Prompt:', prompt);
 
@@ -175,13 +175,13 @@ export async function submitReplicateVTON(params: {
           prompt: prompt,
           width: 896,
           height: 1152,
-          id_weight: 0.80, // Reducido a 0.80 para una transición del cuello impecable y natural
-          start_step: 5,   // Aumentado a 5 para permitir que el modelo defina la pose 3/4 antes de inyectar el rostro
+          id_weight: 0.78, // Reducido ligeramente a 0.78 para evitar que la cara de referencia fuerce un plano cerrado (1/4)
+          start_step: 7,   // Aumentado a 7 para asegurar que el cuerpo y fondo se dibujen antes de inyectar el rostro
           true_cfg: 1.0,
           num_steps: 20, // Limitado a 20 por validación de Replicate
           output_format: "webp",
           output_quality: 100, // Calidad máxima lossless-like
-          negative_prompt: "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso, worst quality, low quality, bad anatomy, deformed body"
+          negative_prompt: "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, close-up, close up, portrait, headshot, face crop, extreme close-up, cropped head, cropped shoulders, cropped torso, medium close-up, worst quality, low quality, bad anatomy, deformed body"
         }
       })
     });
