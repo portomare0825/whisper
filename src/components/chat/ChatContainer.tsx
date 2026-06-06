@@ -187,6 +187,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   });
   const [resettingImage, setResettingImage] = useState(false);
   const [outfitToDelete, setOutfitToDelete] = useState<{ id: string; imageUrl: string } | null>(null);
+  const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
 
   const toggleShowAvatar = () => {
     setShowAvatarInChat(prev => {
@@ -1177,9 +1178,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     }, 50);
   };
 
-  const handleDeleteMessage = async (messageId: string) => {
-    if (!window.confirm('¿Eliminar este mensaje?')) return;
-    
+  const handleDeleteMessage = (messageId: string) => {
+    setMessageToDelete(messageId);
+  };
+
+  const executeDeleteMessage = async (messageId: string) => {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     const isUuid = uuidRegex.test(messageId);
     
@@ -2417,6 +2420,46 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-red-600/10 active:scale-95 disabled:opacity-50"
               >
                 {sending ? 'Eliminando...' : 'Sí, eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Confirmación de Borrado de Mensaje Individual */}
+      {messageToDelete && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-popover border border-white/10 rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl relative glass-morphism border-primary/30">
+            <button 
+              onClick={() => setMessageToDelete(null)}
+              className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors bg-white/5 p-1.5 rounded-full hover:bg-white/10 cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]">
+              <Trash2 className="w-8 h-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-bold text-center text-white mb-2 tracking-tight">¿Eliminar Mensaje?</h3>
+            <p className="text-white/60 text-center text-sm mb-6">
+              ¿Estás seguro de que deseas eliminar este mensaje? Esta acción no se puede deshacer.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setMessageToDelete(null)}
+                className="flex-1 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-white/10"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  if (messageToDelete) {
+                    await executeDeleteMessage(messageToDelete);
+                    setMessageToDelete(null);
+                  }
+                }}
+                className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer hover:shadow-red-600/10 active:scale-95"
+              >
+                Eliminar
               </button>
             </div>
           </div>
