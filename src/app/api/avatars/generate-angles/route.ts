@@ -99,7 +99,8 @@ export async function POST(req: Request) {
               prompt: finalPrompt,
               physicalDescription: avatar.physical_description || undefined,
               width: 768,
-              height: 1024
+              height: 1024,
+              isAngle: true
             });
 
             if (!repResult.success || !repResult.generationId) {
