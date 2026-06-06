@@ -49,13 +49,14 @@ export async function submitReplicatePose(params: {
 
     console.log('[Replicate] Encolando Flux PuLID. Prompt final:', finalPrompt);
 
-    const response = await fetch("https://api.replicate.com/v1/models/bytedance/flux-pulid/predictions", {
+    const response = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Token ${REPLICATE_API_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        version: "8baa7ef2255075b46f4d91cd238c21d31181b3e6a864463f967960bb0112525b",
         input: {
           main_face_image: params.faceImageUrl,
           prompt: finalPrompt,
@@ -102,13 +103,14 @@ export async function submitReplicateVTON(params: {
 
     console.log('[Replicate] Generando VTON en un paso rápido con Flux PuLID. Prompt:', prompt);
 
-    const response = await fetch("https://api.replicate.com/v1/models/bytedance/flux-pulid/predictions", {
+    const response = await fetch("https://api.replicate.com/v1/predictions", {
       method: "POST",
       headers: {
         "Authorization": `Token ${REPLICATE_API_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
+        version: "8baa7ef2255075b46f4d91cd238c21d31181b3e6a864463f967960bb0112525b",
         input: {
           main_face_image: params.humanImageUrl,
           prompt: prompt,
