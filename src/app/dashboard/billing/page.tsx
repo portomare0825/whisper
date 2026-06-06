@@ -383,7 +383,7 @@ export default function BillingPage() {
   };
 
   const handleRequestViaWhatsApp = (planName: string, price: string, details?: typeof receiptDetails) => {
-    const adminPhone = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || '584120924400'; // Número del admin
+    const adminPhone = process.env.NEXT_PUBLIC_ADMIN_WHATSAPP || '584161964975'; // Número del admin
     const amountInBs = (Number(price) * bcvRate).toFixed(2);
     const emailInfo = userEmail ? ` (Registrado con: ${userEmail})` : '';
     
@@ -693,7 +693,7 @@ export default function BillingPage() {
               </div>
               <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Teléfono Pago Móvil</span>
-                <span className="font-mono font-bold text-white tracking-wide select-all">0412-0924400</span>
+                <span className="font-mono font-bold text-white tracking-wide select-all">0416-1964975</span>
               </div>
               <div className="flex justify-between items-center border-b border-white/5 pb-2">
                 <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Banco Receptor</span>
