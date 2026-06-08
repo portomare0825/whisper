@@ -35,11 +35,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Avatar no encontrado' }, { status: 404 });
     }
 
-    if (!avatar.base_image_url || !avatar.physical_description) {
+    if (!avatar.base_image_url) {
       return NextResponse.json({ error: 'Faltan datos base para generar ángulos' }, { status: 400 });
     }
 
-
+    const physicalDesc = avatar.physical_description || 'a beautiful young person';
 
     // Si RunPod está configurado, usamos la ejecución asíncrona con webhooks
     const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
         const { queueRunPodJob } = await import('@/lib/runpod');
         await Promise.all(
           GENERATIONS.map(async (gen) => {
-            const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+            const finalPrompt = `Highly detailed RAW photography. ${physicalDesc}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
             
             // Construimos la URL de webhook enviando el contexto en query parameters
             const webhookUrl = `${APP_WEBHOOK_URL.replace(/\/$/, '')}/api/webhook/runpod?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
@@ -89,20 +89,26 @@ export async function POST(req: Request) {
       const { submitReplicatePose } = await import('@/lib/replicate');
       console.log(`[Generate-Angles] Iniciando generación asíncrona con Replicate para avatar: ${avatarId}`);
       try {
-        const host = req.headers.get('host') || 'localhost:3000';
-        const protocol = host.includes('localhost') ? 'http' : 'https';
-        const baseUrl = `${protocol}://${host}`;
+        const appWebhookUrl = process.env.APP_WEBHOOK_URL;
+        let webhookBaseUrl = '';
+        if (appWebhookUrl) {
+          webhookBaseUrl = appWebhookUrl.replace(/\/$/, '');
+        } else {
+          const host = req.headers.get('host') || 'localhost:3000';
+          const protocol = host.includes('localhost') ? 'http' : 'https';
+          webhookBaseUrl = `${protocol}://${host}`;
+        }
 
         await Promise.all(
           GENERATIONS.map(async (gen) => {
             const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
 
-            const webhookUrl = `${baseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+            const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
 
             const repResult = await submitReplicatePose({
               faceImageUrl: avatar.base_image_url,
               prompt: finalPrompt,
-              physicalDescription: avatar.physical_description || undefined,
+              physicalDescription: physicalDesc,
               width: 768,
               height: 1024,
               isAngle: true,
@@ -137,13 +143,13 @@ export async function POST(req: Request) {
       console.log(`[Generate-Angles] Iniciando generación con Fal.ai para avatar: ${avatarId}`);
       
       const useInstantId = process.env.USE_INSTANT_ID !== 'false';
-      console.log(`[Generate-Angles] Usando modelo de Fal.ai: ${useInstantId ? 'fal-ai/instantid' : 'fal-ai/flux-pulid'}`);
+      console.log(`[Generate-Angles] Usando modelo de Fal.ai: ${useInstantId ? 'fal-ai/instant-id' : 'fal-ai/flux-pulid'}`);
 
       const results = await Promise.allSettled(
         GENERATIONS.map(async (gen) => {
-          const finalPrompt = `Highly detailed RAW photography. ${avatar.physical_description}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+          const finalPrompt = `Highly detailed RAW photography. ${physicalDesc}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
           
-          const endpoint = useInstantId ? 'https://fal.run/fal-ai/instantid' : 'https://fal.run/fal-ai/flux-pulid';
+          const endpoint = useInstantId ? 'https://fal.run/fal-ai/instant-id' : 'https://fal.run/fal-ai/flux-pulid';
           
           const bodyPayload = useInstantId ? {
             face_image_url: avatar.base_image_url,

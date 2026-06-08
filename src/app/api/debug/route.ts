@@ -11,7 +11,7 @@ export async function GET() {
     // 1. Obtener columnas de la tabla avatars
     const { data: cols, error: colsError } = await supabase.rpc('execute_sql_temp', {
       sql: "SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'avatars';"
-    }).catch(err => ({ data: null, error: err }));
+    });
 
     // 2. Consultar registros de avatars
     const { data: avatars, error: avatarsError } = await supabase

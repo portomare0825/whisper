@@ -49,12 +49,12 @@ export async function POST(req: Request) {
 
     // Subir a Supabase Storage
     const timestamp = Date.now();
-    const fileName = `${userId}/${avatarId}_${key}_${timestamp}.jpg`;
+    const fileName = `${userId}/${avatarId}_${key}_${timestamp}.webp`;
     console.log(`[Replicate-Webhook] Subiendo imagen a Supabase Storage: ${fileName}`);
     
     const { error: uploadError } = await supabase.storage
       .from('avatars')
-      .upload(fileName, imgBlob, { contentType: 'image/jpeg', upsert: true });
+      .upload(fileName, imgBlob, { contentType: 'image/webp', upsert: true });
 
     if (uploadError) {
       throw uploadError;
