@@ -41,11 +41,26 @@ export async function POST(req: Request) {
 
     const physicalDesc = avatar.physical_description || 'a beautiful young person';
 
+    // Resolver la URL base del webhook de forma dinámica y tolerante a fallos
+    const host = req.headers.get('host') || '';
+    const isHostLocal = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('::1') || !host;
+    const appWebhookUrl = process.env.APP_WEBHOOK_URL;
+    
+    let webhookBaseUrl = '';
+    if (appWebhookUrl && !(appWebhookUrl.includes('localhost') && !isHostLocal)) {
+      webhookBaseUrl = appWebhookUrl.replace(/\/$/, '');
+    } else {
+      const protocol = isHostLocal ? 'http' : 'https';
+      const finalHost = host || 'localhost:3000';
+      webhookBaseUrl = `${protocol}://${finalHost}`;
+    }
+
+    console.log(`[Generate-Angles] URL base para webhooks resuelta: ${webhookBaseUrl}`);
+
     // Si RunPod está configurado, usamos la ejecución asíncrona con webhooks
     const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
-    const APP_WEBHOOK_URL = process.env.APP_WEBHOOK_URL;
 
-    if (RUNPOD_ENDPOINT_ID && APP_WEBHOOK_URL) {
+    if (RUNPOD_ENDPOINT_ID) {
       console.log(`[Generate-Angles] Usando RunPod Serverless asíncrono para avatar: ${avatarId}`);
       try {
         const { queueRunPodJob } = await import('@/lib/runpod');
@@ -54,7 +69,7 @@ export async function POST(req: Request) {
             const finalPrompt = `Highly detailed RAW photography. ${physicalDesc}. The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
             
             // Construimos la URL de webhook enviando el contexto en query parameters
-            const webhookUrl = `${APP_WEBHOOK_URL.replace(/\/$/, '')}/api/webhook/runpod?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+            const webhookUrl = `${webhookBaseUrl}/api/webhook/runpod?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
             
             // Payload de entrada para el worker de RunPod
             const inputPayload = {
@@ -89,16 +104,6 @@ export async function POST(req: Request) {
       const { submitReplicatePose } = await import('@/lib/replicate');
       console.log(`[Generate-Angles] Iniciando generación asíncrona con Replicate para avatar: ${avatarId}`);
       try {
-        const appWebhookUrl = process.env.APP_WEBHOOK_URL;
-        let webhookBaseUrl = '';
-        if (appWebhookUrl) {
-          webhookBaseUrl = appWebhookUrl.replace(/\/$/, '');
-        } else {
-          const host = req.headers.get('host') || 'localhost:3000';
-          const protocol = host.includes('localhost') ? 'http' : 'https';
-          webhookBaseUrl = `${protocol}://${host}`;
-        }
-
         await Promise.all(
           GENERATIONS.map(async (gen) => {
             const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
