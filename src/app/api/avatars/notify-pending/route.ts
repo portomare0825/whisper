@@ -116,7 +116,12 @@ export async function POST(req: Request) {
       return `${origin.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
     };
 
-    const avatarIcon = getAbsoluteUrl(avatar.current_image_url || avatar.base_image_url || '/icon-192.png');
+    const avatarIcon = getAbsoluteUrl(
+      avatar.current_image_url || 
+      avatar.profile_image_url || 
+      avatar.base_image_url || 
+      '/icon-192.png'
+    );
 
     const payload = JSON.stringify({
       title: 'Avatar Pendiente de Aprobación ⚖️',

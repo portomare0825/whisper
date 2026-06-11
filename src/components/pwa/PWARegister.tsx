@@ -7,7 +7,7 @@ export default function PWARegister() {
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
       // Registramos el sw.js en la raíz
       navigator.serviceWorker
-        .register('/sw.js')
+        .register('/sw.js?v=2')
         .then(() => {
           console.log('%c[PWA System] 📱 Service Worker registrado con éxito', 'color: #0ea5e9; font-weight: bold;');
         })

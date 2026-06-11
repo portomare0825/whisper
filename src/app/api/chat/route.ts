@@ -1310,7 +1310,13 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
               return `${origin.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
             };
 
-            const avatarIcon = getAbsoluteUrl(avatar.current_image_url || avatar.base_image_url || '/icon-192.png');
+            const avatarIcon = getAbsoluteUrl(
+               conversation.current_avatar_image_url || 
+               avatar.current_image_url || 
+               avatar.profile_image_url || 
+               avatar.base_image_url || 
+               '/icon-192.png'
+             );
 
             const pushPayload = JSON.stringify({
               title: avatar.name,
@@ -1321,6 +1327,20 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
               tag: `chat-message-${conversation_id}`,
               data: { url: `/dashboard/chats/${avatar.id}` }
             });
+
+            // Registrar los detalles del payload de notificación en un archivo de debug
+            try {
+              const fs = require('fs');
+              const path = require('path');
+              const logDir = path.join(process.cwd(), 'scratch');
+              if (!fs.existsSync(logDir)) {
+                fs.mkdirSync(logDir, { recursive: true });
+              }
+              const logPath = path.join(logDir, 'push_notification_debug.log');
+              fs.appendFileSync(logPath, `[${new Date().toISOString()}] Conversación: ${conversation_id}, Avatar: ${avatar.name}, Origin: ${origin}, AvatarIcon: ${avatarIcon}, Payload: ${pushPayload}\n`);
+            } catch (e) {
+              console.error('Error al escribir debug log de push:', e);
+            }
 
             const pushPromises = uniqueSubs.map(async (subRecord: any) => {
               try {

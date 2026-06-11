@@ -84,7 +84,7 @@ async function handleReengage(req: Request) {
     // 4. Obtener todas las conversaciones activas (con updated_at para ordenar)
     const { data: conversations, error: convoError } = await adminSupabase
       .from('conversations')
-      .select('id, user_id, avatar_id, updated_at')
+      .select('id, user_id, avatar_id, updated_at, current_avatar_image_url')
       .order('updated_at', { ascending: false });
 
     if (convoError || !conversations) {
@@ -286,7 +286,13 @@ El usuario con el que estabas chateando se ha quedado en silencio por un tiempo.
                 return `${origin.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
               };
 
-              const avatarIcon = getAbsoluteUrl(avatar.current_image_url || avatar.base_image_url || '/icon-192.png');
+              const avatarIcon = getAbsoluteUrl(
+                convo.current_avatar_image_url || 
+                avatar.current_image_url || 
+                avatar.profile_image_url || 
+                avatar.base_image_url || 
+                '/icon-192.png'
+              );
 
               const payload = JSON.stringify({
                 title: `${avatar.name} 💖`,
