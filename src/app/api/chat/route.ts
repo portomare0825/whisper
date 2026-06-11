@@ -1308,7 +1308,7 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
                 icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
                 badge: '/icon-192.png',
                 tag: `chat-message-${conversation_id}`,
-                data: { url: `/dashboard/chat/${conversation_id}` }
+                data: { url: `/dashboard/chats/${conversation_id}` }
               });
 
               const pushPromises = uniqueSubs.map(async (subRecord: any) => {
