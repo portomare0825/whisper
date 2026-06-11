@@ -1193,6 +1193,9 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     // ── OPTIMIZACIÓN: PARALELIZACIÓN DE ESCRITURAS DE BASE DE DATOS (Supabase) ──
     const dbPromises: Promise<any>[] = [];
 
+    const userMessageCreatedAt = new Date();
+    const avatarMessageCreatedAt = new Date(userMessageCreatedAt.getTime() + 100);
+
     // Guardar mensaje de usuario
     if (!is_regenerate && userMessageId) {
       dbPromises.push(
@@ -1200,7 +1203,8 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
           id: userMessageId,
           conversation_id,
           role: 'user',
-          content: message
+          content: message,
+          created_at: userMessageCreatedAt.toISOString()
         }])
       );
     }
@@ -1210,7 +1214,8 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
       id: avatarMessageId,
       conversation_id,
       role: 'avatar',
-      content: assistantContent
+      content: assistantContent,
+      created_at: avatarMessageCreatedAt.toISOString()
     };
     if (finalEmotionTag) aiMessagePayload.emotion_tag = finalEmotionTag;
     if (finalHiddenThought && isPremium) aiMessagePayload.hidden_thought = finalHiddenThought;

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders, Archive, Shirt } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
@@ -16,7 +16,28 @@ interface ChatContainerProps {
 }
 
 export default function ChatContainer({ avatar, conversation, initialMessages = [], isPremium = false }: ChatContainerProps) {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const sortMessages = (msgs: Message[]): Message[] => {
+    return [...msgs].sort((a, b) => {
+      const timeA = new Date(a.created_at).getTime();
+      const timeB = new Date(b.created_at).getTime();
+      if (timeA !== timeB) {
+        return timeA - timeB;
+      }
+      if (a.role === 'user' && b.role === 'avatar') return -1;
+      if (a.role === 'avatar' && b.role === 'user') return 1;
+      return 0;
+    });
+  };
+
+  const [messages, setMessagesState] = useState<Message[]>(() => sortMessages(initialMessages));
+
+  const setMessages = useCallback((update: Message[] | ((prev: Message[]) => Message[])) => {
+    setMessagesState(prev => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      return sortMessages(next);
+    });
+  }, []);
+
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [currentImage, setCurrentImage] = useState(conversation.current_avatar_image_url || avatar.current_image_url || avatar.base_image_url);

@@ -111,7 +111,16 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
       .order('created_at', { ascending: true });
     
     if (data) {
-      messages = data;
+      messages = [...data].sort((a: any, b: any) => {
+        const timeA = new Date(a.created_at).getTime();
+        const timeB = new Date(b.created_at).getTime();
+        if (timeA !== timeB) {
+          return timeA - timeB;
+        }
+        if (a.role === 'user' && b.role === 'avatar') return -1;
+        if (a.role === 'avatar' && b.role === 'user') return 1;
+        return 0;
+      });
     }
   }
 
