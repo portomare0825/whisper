@@ -83,11 +83,13 @@ export default function Sidebar() {
               if (Notification.permission === 'granted' && 'serviceWorker' in navigator) {
                 navigator.serviceWorker.ready.then(async (registration) => {
                   try {
-                    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+                    let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
                     if (!vapidPublicKey) {
                       console.warn('NEXT_PUBLIC_VAPID_PUBLIC_KEY no encontrada en variables de entorno.');
                       return;
                     }
+                    // Limpiar comillas que puedan venir del .env
+                    vapidPublicKey = vapidPublicKey.replace(/^["']|["']$/g, '');
 
                     // Función auxiliar para convertir VAPID Key a Uint8Array
                     const urlBase64ToUint8Array = (base64String: string) => {
