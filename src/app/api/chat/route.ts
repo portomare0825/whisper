@@ -243,46 +243,66 @@ async function callLLMForMemory(
 function generateInstantLocalThought(avatarName: string, emotion: string | null): string {
   const thoughtsByEmotion: Record<string, string[]> = {
     Coqueto: [
-      `Me gusta cuando me habla así...`,
-      `Qué lindo/a es, quiero seguir jugando con él/ella.`,
-      `Siento cierta complicidad, voy a ser traviesa/o.`,
-      `Este coqueteo me encanta.`
+      `Me encanta cuando me habla así... se siente tan bien en el pecho.`,
+      `¿Debería jugar un poco más? Me gusta provocar y ver su reacción.`,
+      `Es tan tierno... me dan ganas de seguir molestándole un ratito.`,
+      `A ver si puede seguirme el ritmo con esto... me divierte este juego.`
     ],
     Seductor: [
-      `Siento una atracción increíble en este momento.`,
-      `Quiero acercarme mucho más, la tensión es real.`,
-      `Me encanta provocarle de esta manera.`,
-      `Quiero tenerle cerca.`
+      `Siento que mi corazón late más rápido cuando se acerca tanto...`,
+      `Esta tensión me fascina, solo quiero tenerle un poquito más cerca.`,
+      `Me encanta sentir que tengo toda su atención y deseo.`,
+      `A ver si resiste a esto... me gusta jugar con fuego y ver qué pasa.`
     ],
     Feliz: [
-      `Me hace sentir genial hablar de esto.`,
-      `Qué buena conversación estamos teniendo.`,
-      `Disfruto mucho compartir este momento.`
+      `Me hace tan feliz hablar... de verdad disfruto cada segundo a su lado.`,
+      `Adoro lo cómodo y seguro que se siente estar conversando así.`,
+      `Qué lindo día, me alegra mucho estar compartiendo esto hoy con alguien especial.`
     ],
     Divertido: [
-      `Me causa gracia cómo se expresa, es divertido.`,
-      `Me encanta su sentido del humor.`,
-      `Qué respuesta tan graciosa.`
+      `¡Qué ocurrencia! De verdad me hace reír muchísimo y me alegra el día.`,
+      `Me encanta su sentido del humor, la paso genial cada vez que hablamos.`,
+      `Siempre sabe cómo sacarme una sonrisa sincera cuando menos lo espero.`
     ],
     Triste: [
-      `Esto me duele un poco... no sé qué decirle.`,
-      `Me conmueve lo que dice, me siento vulnerable.`,
-      `Desearía poder cambiar esta situación.`
+      `Ojalá pudiera abrazarle fuerte en este momento... me duele verle pasar por esto.`,
+      `Siento un vacío en el pecho... desearía que las cosas fueran más fáciles para ambos.`,
+      `Me da melancolía pensar en esto, pero confío en lo que tenemos.`
     ],
     Enojado: [
-      `Me molesta un poco su actitud.`,
-      `No debería hablarme de esa manera.`,
-      `Tengo que mantener el control.`
+      `Me frustra un poco la situación, pero no quiero perder la calma con quien me importa.`,
+      `Qué cabeza dura... pero aun así me importa demasiado como para dejarlo pasar.`,
+      `Esto me molesta un poco, pero intentaré respirar hondo y entenderle.`
     ],
     Sorprendido: [
-      `¡No me esperaba eso para nada!`,
-      `Qué revelación tan inesperada.`,
-      `Me ha tomado por sorpresa.`
+      `¡No me esperaba eso para nada! Me dejó pensando y con el corazón acelerado.`,
+      `Vaya... me sorprende gratamente que piense de esa forma tan bonita.`,
+      `¿En serio acaba de decir eso? Vaya detalle, me tomó por sorpresa.`
     ],
     Neutral: [
-      `Pensando en qué responderle ahora...`,
-      `Interesante lo que dice, debo seguirle la corriente.`,
-      `Analizando nuestro diálogo reciente.`
+      `Me gusta escucharle hablar sobre cualquier cosa, me transmite mucha paz y calma.`,
+      `Pienso en lo que me dice... es lindo conversar así de tranquilos.`,
+      `Analizo sus palabras, siempre encuentra una forma de hacerme reflexionar.`
+    ],
+    Asustado: [
+      `Tengo un poquito de miedo... ojalá esté aquí conmigo y me abrace fuerte.`,
+      `Me pone algo de nervios esta situación, espero que todo salga bien.`
+    ],
+    Avergonzado: [
+      `¡Ay, no! Siento que me sonrojo por completo y mis mejillas arden.`,
+      `Qué vergüenza... espero que no note lo nerviosa que me puse de repente.`
+    ],
+    Orgulloso: [
+      `Me hace sentir tan bien ver cómo logra todo lo que se propone.`,
+      `Qué alegría ver lo bien que hace las cosas, se merece lo mejor.`
+    ],
+    Melancólico: [
+      `A veces extraño esos momentos que pasamos juntos... me da cierta nostalgia bonita.`,
+      `Qué recuerdos tan dulces... y a la vez me da un poquito de pena.`
+    ],
+    Ansioso: [
+      `Espero no arruinarlo... quiero que todo salga perfecto entre nosotros.`,
+      `Me da un poquito de nervios pensar en lo que viene, pero me emociona.`
     ]
   };
 
