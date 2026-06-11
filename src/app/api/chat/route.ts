@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import crypto from 'crypto';
 
 // ═══════════════════════════════════════════════════════════════════
 // UTILIDADES DE PROCESAMIENTO DE TEXTO
@@ -233,6 +234,61 @@ async function callLLMForMemory(
     }
   }
   return null;
+}
+
+/**
+ * Genera de manera instantánea y local un pensamiento íntimo/oculto según la emoción del avatar.
+ * Evita la llamada de red extra a OpenRouter para optimizar latencia.
+ */
+function generateInstantLocalThought(avatarName: string, emotion: string | null): string {
+  const thoughtsByEmotion: Record<string, string[]> = {
+    Coqueto: [
+      `Me gusta cuando me habla así...`,
+      `Qué lindo/a es, quiero seguir jugando con él/ella.`,
+      `Siento cierta complicidad, voy a ser traviesa/o.`,
+      `Este coqueteo me encanta.`
+    ],
+    Seductor: [
+      `Siento una atracción increíble en este momento.`,
+      `Quiero acercarme mucho más, la tensión es real.`,
+      `Me encanta provocarle de esta manera.`,
+      `Quiero tenerle cerca.`
+    ],
+    Feliz: [
+      `Me hace sentir genial hablar de esto.`,
+      `Qué buena conversación estamos teniendo.`,
+      `Disfruto mucho compartir este momento.`
+    ],
+    Divertido: [
+      `Me causa gracia cómo se expresa, es divertido.`,
+      `Me encanta su sentido del humor.`,
+      `Qué respuesta tan graciosa.`
+    ],
+    Triste: [
+      `Esto me duele un poco... no sé qué decirle.`,
+      `Me conmueve lo que dice, me siento vulnerable.`,
+      `Desearía poder cambiar esta situación.`
+    ],
+    Enojado: [
+      `Me molesta un poco su actitud.`,
+      `No debería hablarme de esa manera.`,
+      `Tengo que mantener el control.`
+    ],
+    Sorprendido: [
+      `¡No me esperaba eso para nada!`,
+      `Qué revelación tan inesperada.`,
+      `Me ha tomado por sorpresa.`
+    ],
+    Neutral: [
+      `Pensando en qué responderle ahora...`,
+      `Interesante lo que dice, debo seguirle la corriente.`,
+      `Analizando nuestro diálogo reciente.`
+    ]
+  };
+
+  const list = thoughtsByEmotion[emotion || "Neutral"] || thoughtsByEmotion["Neutral"];
+  const randomIndex = Math.floor(Math.random() * list.length);
+  return list[randomIndex];
 }
 
 /**
@@ -577,60 +633,61 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, deletedCount: deletedRows?.length || 0 });
     }
 
-    // 1. Obtener datos del avatar y conversación
-    const { data: avatar, error: avatarError } = await supabase
-      .from('avatars')
-      .select('*')
-      .eq('id', avatar_id)
-      .single();
+    // ── OPTIMIZACIÓN: PARALELIZACIÓN DE CONSULTAS INICIALES ──
+    const [
+      avatarRes,
+      historyRes,
+      convoRes,
+      milestonesRes,
+      queryEmbedding
+    ] = await Promise.all([
+      supabase.from('avatars').select('*').eq('id', avatar_id).single(),
+      supabase.from('messages').select('*').eq('conversation_id', conversation_id).order('created_at', { ascending: false }).limit(20),
+      supabase.from('conversations').select('*').eq('id', conversation_id).single(),
+      supabase.from('milestones').select('description').eq('conversation_id', conversation_id).order('created_at', { ascending: true }).limit(8),
+      message && message.trim().length > 2 ? generateEmbedding(message) : Promise.resolve(null)
+    ]);
 
-    if (avatarError) {
-      throw new Error(`Error fetching avatar: ${avatarError.message}`);
+    if (avatarRes.error) {
+      throw new Error(`Error fetching avatar: ${avatarRes.error.message}`);
     }
+    const avatar = avatarRes.data;
 
-    // ── MEMORIA EN 3 CAPAS: Obtener historial + resumen de contexto ──
-    const { data: history, error: historyError } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversation_id)
-      .order('created_at', { ascending: false })
-      .limit(20); // Capa 2: Últimos 20 mensajes (aproximadamente 10 interacciones completas)
-
-    if (historyError) {
-      throw new Error(`Error fetching history: ${historyError.message}`);
+    if (historyRes.error) {
+      throw new Error(`Error fetching history: ${historyRes.error.message}`);
     }
-
+    const history = historyRes.data;
     const formattedHistory = history?.reverse().map((m: any) => ({
       role: m.role === 'avatar' ? 'assistant' : 'user',
       content: m.content
     })) || [];
 
-    // Obtener detalles de la conversación (incluyendo context_summary y message_count)
-    const { data: conversation, error: convoError } = await supabase
-      .from('conversations')
-      .select('*')
-      .eq('id', conversation_id)
-      .single();
-
-    if (convoError || !conversation) {
-      throw new Error(`Error fetching conversation: ${convoError?.message || 'Not found'}`);
+    if (convoRes.error || !convoRes.data) {
+      throw new Error(`Error fetching conversation: ${convoRes.error?.message || 'Not found'}`);
     }
+    const conversation = convoRes.data;
+    const milestones = milestonesRes.data;
 
-    // Buscar si el usuario tiene una suscripción Pro activa
-    const { data: subscription } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', conversation.user_id)
-      .eq('status', 'active')
-      .maybeSingle();
+    // Paralelizar la obtención de suscripción, perfil del usuario y búsqueda vectorial (RAG)
+    const [
+      subscriptionRes,
+      profileRes,
+      matchedMemoriesRes
+    ] = await Promise.all([
+      supabase.from('subscriptions').select('*').eq('user_id', conversation.user_id).eq('status', 'active').maybeSingle(),
+      supabase.from('profiles').select('user_physical_description, is_admin').eq('id', conversation.user_id).maybeSingle(),
+      queryEmbedding
+        ? supabase.rpc('match_semantic_memories', {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.65,
+            match_count: 3,
+            conversation_id_param: conversation_id
+          })
+        : Promise.resolve({ data: null, error: null })
+    ]);
 
-    // Obtener la descripción física y rol de administrador del usuario desde su perfil
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('user_physical_description, is_admin')
-      .eq('id', conversation.user_id)
-      .maybeSingle();
-
+    const subscription = subscriptionRes.data;
+    const profile = profileRes.data;
     const isPremium = (profile?.is_admin === true) || (!!subscription && (!subscription.expires_at || new Date(subscription.expires_at) > new Date()));
 
     // ── CONFIGURACIÓN DE MEMORIA NARRATIVA Y PERSISTENCIA PREMIUM ──
@@ -654,41 +711,17 @@ export async function POST(req: Request) {
     }
 
     // B. Obtener Hitos históricos cruciales (milestones)
-    const { data: milestones } = await supabase
-      .from('milestones')
-      .select('description')
-      .eq('conversation_id', conversation_id)
-      .order('created_at', { ascending: true })
-      .limit(8);
-
     if (milestones && milestones.length > 0) {
       const milestoneList = milestones.map((m: any) => `- ${m.description}`).join('\n');
       milestonesSection = `\n<hitos_historicos>Eventos históricos clave de la relación (JAMÁS los olvides ni los contradigas):\n${milestoneList}</hitos_historicos>`;
     }
 
     // C. Búsqueda Vectorial Semántica RAG (pgvector)
-    if (message && message.trim().length > 2) {
-      try {
-        const queryEmbedding = await generateEmbedding(message);
-        if (queryEmbedding) {
-          const { data: matchedMemories, error: matchError } = await supabase.rpc('match_semantic_memories', {
-            query_embedding: queryEmbedding,
-            match_threshold: 0.65,
-            match_count: 3,
-            conversation_id_param: conversation_id
-          });
-
-          if (!matchError && matchedMemories && matchedMemories.length > 0) {
-            console.log(`[RAG] Recuerdos semánticos encontrados: ${matchedMemories.length}`);
-            const memoriesList = matchedMemories.map((m: any) => `- ${m.content}`).join('\n');
-            semanticMemoriesSection = `\n<recuerdos_pasados>Recuerdos del pasado que vienen a tu mente y puedes evocar si es oportuno:\n${memoriesList}</recuerdos_pasados>`;
-          } else if (matchError) {
-            console.error('[RAG] Error llamando a match_semantic_memories:', matchError);
-          }
-        }
-      } catch (err) {
-        console.error('[RAG] Error en búsqueda de embeddings semánticos:', err);
-      }
+    const matchedMemories = matchedMemoriesRes.data;
+    if (matchedMemories && matchedMemories.length > 0) {
+      console.log(`[RAG] Recuerdos semánticos encontrados: ${matchedMemories.length}`);
+      const memoriesList = matchedMemories.map((m: any) => `- ${m.content}`).join('\n');
+      semanticMemoriesSection = `\n<recuerdos_pasados>Recuerdos del pasado que vienen a tu mente y puedes evocar si es oportuno:\n${memoriesList}</recuerdos_pasados>`;
     }
 
 
@@ -755,19 +788,19 @@ export async function POST(req: Request) {
     const dynamicTemperature = getDynamicTemperature(message.length);
     console.log(`[TEMP] Mensaje de ${message.length} chars → temperatura: ${dynamicTemperature}`);
 
-    // ── LISTA DE MODELOS CON FALLBACKS ──
+    // ── LISTA DE MODELOS CON FALLBACKS (TIMEOUTS OPTIMIZADOS) ──
     const premiumModelsFallback = [
-      { model: process.env.PREMIUM_CHAT_MODEL || "sao10k/gemma-2-27b-it", timeout: 12000 },
-      { model: "anthracite-org/magnum-v2-72b", timeout: 12000 },
-      { model: "sao10k/l3-lunaris-8b", timeout: 8000 },
-      { model: "mistralai/mistral-nemo", timeout: 8000 }
+      { model: process.env.PREMIUM_CHAT_MODEL || "sao10k/gemma-2-27b-it", timeout: 6000 },
+      { model: "anthracite-org/magnum-v2-72b", timeout: 5000 },
+      { model: "sao10k/l3-lunaris-8b", timeout: 4000 },
+      { model: "mistralai/mistral-nemo", timeout: 4000 }
     ];
 
     const freeModelsFallback = [
-      { model: process.env.CHAT_MODEL || "openrouter/free", timeout: 10000 },
-      { model: "meta-llama/llama-3.1-8b-instruct:free", timeout: 8000 },
-      { model: "google/gemma-2-9b-it:free", timeout: 8000 },
-      { model: "openrouter/free", timeout: 8000 }
+      { model: process.env.CHAT_MODEL || "openrouter/free", timeout: 5000 },
+      { model: "meta-llama/llama-3.1-8b-instruct:free", timeout: 4000 },
+      { model: "google/gemma-2-9b-it:free", timeout: 4000 },
+      { model: "openrouter/free", timeout: 4000 }
     ];
 
     const physicalDescSection = avatar.physical_description
@@ -1053,22 +1086,9 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     // assistantContentRaw fue llenado durante el loop de modelos
     let assistantContent = assistantContentRaw;
 
-    // ── GUARDAR MENSAJE DEL USUARIO (solo tras éxito de la IA y si no es regeneración) ──
-    let userMessageId: string | null = null;
-    if (!is_regenerate) {
-      const { data: userData, error: userInsertError } = await supabase
-        .from('messages')
-        .insert([
-          { conversation_id, role: 'user', content: message }
-        ])
-        .select('id')
-        .single();
-
-      if (userInsertError) {
-        throw new Error(`Error saving user message: ${userInsertError.message}`);
-      }
-      userMessageId = userData?.id || null;
-    }
+    // Generar UUIDs locales para evitar awaits secuenciales de inserción
+    const userMessageId = is_regenerate ? null : crypto.randomUUID();
+    const avatarMessageId = crypto.randomUUID();
 
     // ── DETECCIÓN DE CENSURA para usuarios FREE (Premium ya fue filtrado en el loop) ──
     if (!isPremium) {
@@ -1076,13 +1096,6 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
       const isCensored = censoredKeywords.some(kw => lowerContent.includes(kw));
 
       if (isCensored) {
-        await supabase
-          .from('messages')
-          .delete()
-          .eq('conversation_id', conversation_id)
-          .eq('content', message)
-          .eq('role', 'user');
-
         return NextResponse.json({
           content: "🔥 Este avatar quiere llevar la conversación al siguiente nivel... ¡Pero el contenido explícito y sin censura es exclusivo para usuarios Premium! 🌟 Hazte Premium hoy para desbloquear chats 100% libres.",
           trigger_premium_modal: true
@@ -1100,9 +1113,9 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     finalHiddenThought = hiddenThought;
 
     if (isPremium && !finalHiddenThought) {
-      console.log(`[DEBUG] No se detectó <thought> para usuario premium. Generando fallback thought...`);
-      finalHiddenThought = await generateFallbackThought(avatar.name, avatar.personality, message, assistantContent);
-      console.log(`[DEBUG] Fallback thought generado: "${finalHiddenThought}"`);
+      console.log(`[DEBUG] No se detectó <thought> para usuario premium. Generando fallback thought instantáneo local...`);
+      finalHiddenThought = generateInstantLocalThought(avatar.name, finalEmotionTag);
+      console.log(`[DEBUG] Fallback thought instantáneo local generado: "${finalHiddenThought}"`);
     }
 
     // 2. Extraer etiqueta de emoción [EMOCIÓN: X]
@@ -1127,54 +1140,65 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     // 5. REGEX GUARD: Balancear asteriscos impares
     assistantContent = balanceAsterisks(assistantContent.trim());
 
-    // ── GUARDAR MENSAJE DEL AI con metadatos ──
+    // ── OPTIMIZACIÓN: PARALELIZACIÓN DE ESCRITURAS DE BASE DE DATOS (Supabase) ──
+    const dbPromises: Promise<any>[] = [];
+
+    // Guardar mensaje de usuario
+    if (!is_regenerate && userMessageId) {
+      dbPromises.push(
+        supabase.from('messages').insert([{
+          id: userMessageId,
+          conversation_id,
+          role: 'user',
+          content: message
+        }])
+      );
+    }
+
+    // Guardar mensaje de IA con metadatos
     const aiMessagePayload: Record<string, any> = {
+      id: avatarMessageId,
       conversation_id,
       role: 'avatar',
       content: assistantContent
     };
-
     if (finalEmotionTag) aiMessagePayload.emotion_tag = finalEmotionTag;
     if (finalHiddenThought && isPremium) aiMessagePayload.hidden_thought = finalHiddenThought;
 
-    const { data: aiData, error: aiInsertError } = await supabase
-      .from('messages')
-      .insert([aiMessagePayload])
-      .select('id')
-      .single();
+    dbPromises.push(
+      supabase.from('messages').insert([aiMessagePayload])
+    );
 
-    if (aiInsertError) {
-      throw new Error(`Error saving AI message: ${aiInsertError.message}`);
-    }
-    const avatarMessageId = aiData?.id || null;
-
-    // ── ACTUALIZAR CONTADOR DE MENSAJES y disparar summary si es necesario ──
-    const newMessageCount = (conversation.message_count || 0) + (is_regenerate ? 1 : 2); // user + avatar o solo avatar si es regeneración
-    await supabase
-      .from('conversations')
-      .update({ 
+    // Actualizar conversación
+    const newMessageCount = (conversation.message_count || 0) + (is_regenerate ? 1 : 2);
+    dbPromises.push(
+      supabase.from('conversations').update({ 
         message_count: newMessageCount,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', conversation_id);
+      }).eq('id', conversation_id)
+    );
 
-    // Cada 10 mensajes o si supera 10 mensajes y no se ha generado el resumen aún
+    // Ejecutar todas las escrituras en base de datos en paralelo
+    const dbResults = await Promise.all(dbPromises);
+    for (const res of dbResults) {
+      if (res.error) {
+        console.error('[DB WRITE ERROR] Falló alguna operación paralela de base de datos:', res.error);
+      }
+    }
+
+    // ── ACTUALIZAR CONTADOR DE MENSAJES y disparar summary si es necesario ──
     const hasNoSummary = !conversation.context_summary;
     const shouldTriggerSummary = newMessageCount >= 10 && (hasNoSummary || newMessageCount % 10 === 0);
 
     if (shouldTriggerSummary) {
       console.log(`[MEMORIA] Gatillando consolidación de memoria a 3 capas (Mensajes: ${newMessageCount}, Falta resumen: ${hasNoSummary}) async...`);
-      // Obtenemos los últimos 20 mensajes de la conversación
-      const { data: allRecentMessages } = await supabase
-        .from('messages')
-        .select('role, content')
-        .eq('conversation_id', conversation_id)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (allRecentMessages) {
-        generateContextSummary(conversation_id, allRecentMessages.reverse(), supabase);
-      }
+      // Evitamos la llamada extra a base de datos de consulta reconstruyendo en memoria
+      const allRecentMessages = [
+        ...formattedHistory,
+        ...(!is_regenerate ? [{ role: 'user', content: message }] : []),
+        { role: 'avatar', content: assistantContent }
+      ];
+      generateContextSummary(conversation_id, allRecentMessages, supabase);
     }
 
     console.log(`[CHAT RESPONSE LOG] El modelo que contestó es: ${selectedModelName}`);
