@@ -77,6 +77,17 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Si el usuario ya tiene la pantalla del chat activa y enfocada, omitimos mostrar la notificación
+      const chatUrl = data.data?.url;
+      if (chatUrl) {
+        const isFocused = clientList.some(client => client.focused && client.url.includes(chatUrl));
+        if (isFocused) {
+          console.log('[SW] El usuario tiene el chat enfocado, omitiendo notificación push.');
+          return;
+        }
+      }
+      return self.registration.showNotification(title, options);
+    })
   );
 });
