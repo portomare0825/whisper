@@ -222,7 +222,21 @@ async function callLLMForMemory(
           response_format: jsonMode ? { type: "json_object" } : undefined,
           messages: payloadMessages
         })
-      });/**
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const content = result.choices?.[0]?.message?.content?.trim();
+        if (content) return content;
+      }
+    } catch (e) {
+      console.warn(`[MEMORY WORKER] Falló llamada con ${model}:`, e);
+    }
+  }
+  return null;
+}
+
+/**
  * Genera un pensamiento íntimo/oculto adaptado al contexto actual de la conversación
  * utilizando Gemini 1.5 Flash de forma directa para evitar latencias altas de OpenRouter.
  */
