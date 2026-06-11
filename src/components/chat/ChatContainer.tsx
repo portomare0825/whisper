@@ -1070,6 +1070,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
 
       const result = await response.json();
 
+      if (result.model_used) {
+        console.log(`%c[IA Model] Contestando con: ${result.model_used}`, 'color: #fbbf24; font-weight: bold;');
+      }
+
       if (!response.ok) {
         if (response.status === 403 && result.trigger_premium_modal) {
           setMessages(prev => prev.filter(m => m.id !== tempId));
@@ -1223,6 +1227,10 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       });
 
       const result = await response.json();
+
+      if (result.model_used) {
+        console.log(`%c[IA Model - Retry/Regenerate] Contestando con: ${result.model_used}`, 'color: #fbbf24; font-weight: bold;');
+      }
 
       if (!response.ok) {
         if (response.status === 403 && result.trigger_premium_modal) {
