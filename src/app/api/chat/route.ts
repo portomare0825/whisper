@@ -244,69 +244,163 @@ async function generateGeminiFallbackThought(
   avatarName: string,
   avatarPersonality: string,
   userMessage: string,
-  avatarResponse: string
+  avatarResponse: string,
+  emotion: string | null
 ): Promise<string> {
   const apiKey = process.env.GOOGLE_API_KEY;
-  if (!apiKey) {
-    console.warn('[FALLBACK THOUGHT] Falta GOOGLE_API_KEY.');
-    return "Qué situación tan interesante, debo seguirle la corriente...";
-  }
+  let generatedThought: string | null = null;
 
-  try {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const systemInstruction = `Eres el monólogo interno o pensamiento secreto de un personaje de roleplay llamado ${avatarName} que tiene esta personalidad: ${avatarPersonality}.
+  // 1. Intentar con Google Gemini directo (Bypass de colas, ~300ms)
+  if (apiKey) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+      const systemInstruction = `Eres el monólogo interno o pensamiento secreto de un personaje de roleplay llamado ${avatarName} que tiene esta personalidad: ${avatarPersonality}.
 Genera UN pensamiento secreto, íntimo y honesto que tuvo ${avatarName} en su mente al recibir el mensaje del usuario y antes de decir su respuesta.
 REGLAS:
 1. EXTREMADAMENTE BREVE. Entre 5 y 20 palabras.
-2. Debe estar escrito ESTRICTAMENTE en primera persona del singular ("yo"). ¡TÚ eres ${avatarName}, este es TU pensamiento privado sobre el usuario! (ej: "Me encanta cuando me habla así...", "Qué pesado es este tipo...").
+2. Debe estar escrito ESTRICTAMENTE en primera persona del singular ("yo"). ¡TÚ eres ${avatarName}, este es TU pensamiento privado sobre el usuario!
 3. NO incluyas etiquetas como <thought> o asteriscos. Solo el pensamiento puro.
 4. Sé natural, cálido y coherente con el contexto de la conversación.`;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                text: `Mensaje del usuario: "${userMessage}"\nMi respuesta visible: "${avatarResponse}"\n\nGenera mi pensamiento interno:`
-              }
-            ]
-          }
-        ],
-        systemInstruction: {
-          parts: [
-            {
-              text: systemInstruction
-            }
-          ]
-        },
-        generationConfig: {
-          maxOutputTokens: 50,
-          temperature: 0.85
-        }
-      }),
-    });
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: `Mensaje del usuario: "${userMessage}"\nMi respuesta visible: "${avatarResponse}"\n\nGenera mi pensamiento interno:` }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] },
+          generationConfig: { maxOutputTokens: 50, temperature: 0.85 }
+        }),
+      });
 
-    if (response.ok) {
-      const data = await response.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (content) {
-        return content.replace(/^["']|["']$/g, '').replace(/[*_~`]/g, ''); // Limpiar comillas y markdown
+      if (response.ok) {
+        const data = await response.json();
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (content) {
+          generatedThought = content.replace(/^["']|["']$/g, '').replace(/[*_~`]/g, '');
+        }
       }
-    } else {
-      const errText = await response.text();
-      console.warn('[FALLBACK THOUGHT] Error llamando a Gemini:', errText);
+    } catch (err) {
+      console.warn('[FALLBACK THOUGHT] Falló Gemini directo:', err);
     }
-  } catch (error) {
-    console.error('[FALLBACK THOUGHT] Excepción en generateGeminiFallbackThought:', error);
   }
 
-  return "Qué situación tan interesante, debo seguirle la corriente...";
+  // 2. Si falló, intentar con OpenRouter rápido utilizando la clave de OpenRouter existente
+  if (!generatedThought && process.env.OPENROUTER_API_KEY) {
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          temperature: 0.85,
+          max_tokens: 50,
+          messages: [
+            {
+              role: "system",
+              content: `Eres el monólogo interno o pensamiento secreto de un personaje de roleplay llamado ${avatarName} que tiene esta personalidad: ${avatarPersonality}.
+Genera UN pensamiento secreto, íntimo y honesto que tuvo ${avatarName} en su mente al recibir el mensaje del usuario y antes de decir su respuesta.
+REGLAS:
+1. EXTREMADAMENTE BREVE. Entre 5 y 20 palabras.
+2. Debe estar escrito ESTRICTAMENTE en primera persona del singular ("yo").
+3. NO incluyas etiquetas como <thought> o asteriscos. Solo el pensamiento puro.`
+            },
+            {
+              role: "user",
+              content: `Mensaje del usuario: "${userMessage}"\nMi respuesta visible: "${avatarResponse}"\n\nGenera mi pensamiento interno:`
+            }
+          ]
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        const content = result.choices?.[0]?.message?.content?.trim();
+        if (content) {
+          generatedThought = content.replace(/^["']|["']$/g, '').replace(/[*_~`]/g, '');
+        }
+      }
+    } catch (err) {
+      console.warn('[FALLBACK THOUGHT] Falló OpenRouter rápido:', err);
+    }
+  }
+
+  // 3. Si todo falló, usar el generador local de variedad para evitar repeticiones
+  if (!generatedThought) {
+    console.log('[FALLBACK THOUGHT] Usando generador local de variedad por fallo de APIs');
+    const thoughtsByEmotion: Record<string, string[]> = {
+      Coqueto: [
+        `Me encanta cuando me habla así... se siente tan bien en el pecho.`,
+        `¿Debería jugar un poco más? Me gusta provocar y ver su reacción.`,
+        `Es tan tierno... me dan ganas de seguir molestándole un ratito.`,
+        `A ver si puede seguirme el ritmo con esto... me divierte este juego.`
+      ],
+      Seductor: [
+        `Siento que mi corazón late más rápido cuando se acerca tanto...`,
+        `Esta tensión me fascina, solo quiero tenerle un poquito más cerca.`,
+        `Me encanta sentir que tengo toda su atención y deseo.`,
+        `A ver si resiste a esto... me gusta jugar con fuego y ver qué pasa.`
+      ],
+      Feliz: [
+        `Me hace tan feliz hablar... de verdad disfruto cada segundo a su lado.`,
+        `Adoro lo cómodo y seguro que se siente estar conversando así.`,
+        `Qué lindo día, me alegra mucho estar compartiendo esto hoy con alguien especial.`
+      ],
+      Divertido: [
+        `¡Qué ocurrencia! De verdad me hace reír muchísimo y me alegra el día.`,
+        `Me encanta su sentido del humor, la paso genial cada vez que hablamos.`,
+        `Siempre sabe cómo sacarme una sonrisa sincera cuando menos lo espero.`
+      ],
+      Triste: [
+        `Ojalá pudiera abrazarle fuerte en este momento... me duele verle pasar por esto.`,
+        `Siento un vacío en el pecho... desearía que las cosas fueran más fáciles para ambos.`,
+        `Me da melancolía pensar en esto, pero confío en lo que tenemos.`
+      ],
+      Enojado: [
+        `Me frustra un poco la situación, pero no quiero perder la calma con quien me importa.`,
+        `Qué cabeza dura... pero aun así me importa demasiado como para dejarlo pasar.`,
+        `Esto me molesta un poco, pero intentaré respirar hondo y entenderle.`
+      ],
+      Sorprendido: [
+        `¡No me esperaba eso para nada! Me dejó pensando y con el corazón acelerado.`,
+        `Vaya... me sorprende gratamente que piense de esa forma tan bonita.`,
+        `¿En serio acaba de decir eso? Vaya detalle, me tomó por sorpresa.`
+      ],
+      Neutral: [
+        `Me gusta escucharle hablar sobre cualquier cosa, me transmite mucha paz y calma.`,
+        `Pienso en lo que me dice... es lindo conversar así de tranquilos.`,
+        `Analizo sus palabras, siempre encuentra una forma de hacerme reflexionar.`
+      ],
+      Asustado: [
+        `Tengo un poquito de miedo... ojalá esté aquí conmigo y me abrace fuerte.`,
+        `Me pone algo de nervios esta situación, espero que todo salga bien.`
+      ],
+      Avergonzado: [
+        `¡Ay, no! Siento que me sonrojo por completo y mis mejillas arden.`,
+        `Qué vergüenza... espero que no note lo nerviosa que me puse de repente.`
+      ],
+      Orgulloso: [
+        `Me hace sentir tan bien ver cómo logra todo lo que se propone.`,
+        `Qué alegría ver lo bien que hace las cosas, se merece lo mejor.`
+      ],
+      Melancólico: [
+        `A veces extraño esos momentos que pasamos juntos... me da cierta nostalgia bonita.`,
+        `Qué recuerdos tan dulces... y a la vez me da un poquito de pena.`
+      ],
+      Ansioso: [
+        `Espero no arruinarlo... quiero que todo salga perfecto entre nosotros.`,
+        `Me da un poquito de nervios pensar en lo que viene, pero me emociona.`
+      ]
+    };
+
+    const list = thoughtsByEmotion[emotion || "Neutral"] || thoughtsByEmotion["Neutral"];
+    const randomIndex = Math.floor(Math.random() * list.length);
+    generatedThought = list[randomIndex];
+  }
+
+  return generatedThought;
 }
 
 
@@ -1062,18 +1156,7 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     let finalHiddenThought: string | null = null;
     let finalEmotionTag: string | null = null;
 
-    // 1. Extraer pensamientos ocultos <thought>...</thought>
-    const { cleanText: afterThought, hiddenThought } = extractHiddenThought(assistantContent);
-    assistantContent = afterThought;
-    finalHiddenThought = hiddenThought;
-
-    if (isPremium && !finalHiddenThought) {
-      console.log(`[DEBUG] No se detectó <thought> para usuario premium. Generando fallback thought con Gemini directo...`);
-      finalHiddenThought = await generateGeminiFallbackThought(avatar.name, avatar.personality, message, assistantContent);
-      console.log(`[DEBUG] Fallback thought con Gemini generado: "${finalHiddenThought}"`);
-    }
-
-    // 2. Extraer etiqueta de emoción [EMOCIÓN: X]
+    // 1. Extraer etiqueta de emoción [EMOCIÓN: X] primero para poder usarla en el pensamiento
     const { cleanText: afterEmotion, emotionTag } = extractEmotion(assistantContent);
     assistantContent = afterEmotion;
     finalEmotionTag = emotionTag;
@@ -1081,6 +1164,17 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     if (!finalEmotionTag) {
       finalEmotionTag = inferEmotionFromText(assistantContent);
       console.log(`[DEBUG] No se detectó emoción. Infección automática por fallback: "${finalEmotionTag}"`);
+    }
+
+    // 2. Extraer pensamientos ocultos <thought>...</thought>
+    const { cleanText: afterThought, hiddenThought } = extractHiddenThought(assistantContent);
+    assistantContent = afterThought;
+    finalHiddenThought = hiddenThought;
+
+    if (isPremium && !finalHiddenThought) {
+      console.log(`[DEBUG] No se detectó <thought> para usuario premium. Generando fallback thought con Gemini directo...`);
+      finalHiddenThought = await generateGeminiFallbackThought(avatar.name, avatar.personality, message, assistantContent, finalEmotionTag);
+      console.log(`[DEBUG] Fallback thought con Gemini generado: "${finalHiddenThought}"`);
     }
 
     // 3. Procesar cambio de vestimenta (outfit change) eliminado a petición del usuario.
