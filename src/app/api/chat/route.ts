@@ -985,6 +985,7 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     let llmResponse = null;
     let lastErrorDetails = "";
     let assistantContentRaw = "";
+    let selectedModelName = "unknown";
 
     if (isPremium) {
       // Loop con retry automático si el modelo responde con censura
@@ -1012,6 +1013,7 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
 
         // Respuesta válida y sin censura ✓
         console.log(`[PREMIUM] Chat exitoso usando: ${modelToTry}`);
+        selectedModelName = modelToTry;
         console.log(`[DEBUG RAW] Output (200 chars): ${candidateContent.slice(0, 200).replace(/\n/g, ' ')}`);
         console.log(`[DEBUG] <thought> detectado: ${/<thought>/i.test(candidateContent) ? 'SÍ \u2713' : 'NO \u2717'}`);
         console.log(`[DEBUG] [EMOCIÓN] detectado: ${/\[EMOCI/i.test(candidateContent) ? 'SÍ \u2713' : 'NO (buscar formato simple)'}`);
@@ -1031,6 +1033,7 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
         llmResponse = await fetchOpenRouter(modelToTry, timeout);
         if (llmResponse && llmResponse.ok) {
           console.log(`Fallback exitoso usando: ${modelToTry}`);
+          selectedModelName = modelToTry;
           const freeResult = await llmResponse.json();
           assistantContentRaw = freeResult.choices?.[0]?.message?.content || "";
           break;
@@ -1174,12 +1177,15 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
       }
     }
 
+    console.log(`[CHAT RESPONSE LOG] El modelo que contestó es: ${selectedModelName}`);
+
     return NextResponse.json({
       userMessageId,
       avatarMessageId,
       content: assistantContent,
       emotion_tag: finalEmotionTag,
-      hidden_thought: isPremium ? finalHiddenThought : null
+      hidden_thought: isPremium ? finalHiddenThought : null,
+      model_used: selectedModelName
     });
 
   } catch (error: any) {
