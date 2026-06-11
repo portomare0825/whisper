@@ -1274,31 +1274,56 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
             .eq('user_id', conversation.user_id);
 
           if (userSubs && userSubs.length > 0) {
-            const pushPayload = JSON.stringify({
-              title: avatar.name,
-              body: assistantContent.length > 150 ? assistantContent.slice(0, 150) + '...' : assistantContent,
-              icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
-              badge: '/icon-192.png',
-              tag: `chat-message-${conversation_id}`,
-              data: { url: `/dashboard/chat/${conversation_id}` }
-            });
+            // Filtrar duplicados por endpoint y limpiar la base de datos de manera silenciosa
+            const uniqueSubs: any[] = [];
+            const seenEndpoints = new Set<string>();
 
-            const pushPromises = userSubs.map(async (subRecord: any) => {
+            for (const subRecord of userSubs) {
               try {
                 const pushSubscription = typeof subRecord.subscription === 'string'
                   ? JSON.parse(subRecord.subscription)
                   : subRecord.subscription;
 
-                await webpush.sendNotification(pushSubscription, pushPayload);
-              } catch (err: any) {
-                // Limpiar suscripciones inválidas o caducadas (código 410 o 404)
-                if (err.statusCode === 410 || err.statusCode === 404) {
-                  await supabase.from('push_subscriptions').delete().eq('id', subRecord.id);
+                if (pushSubscription && pushSubscription.endpoint) {
+                  if (!seenEndpoints.has(pushSubscription.endpoint)) {
+                    seenEndpoints.add(pushSubscription.endpoint);
+                    uniqueSubs.push({
+                      id: subRecord.id,
+                      subscription: pushSubscription
+                    });
+                  } else {
+                    // Eliminar el duplicado sobrante de la base de datos de manera silenciosa
+                    supabase.from('push_subscriptions').delete().eq('id', subRecord.id).then();
+                  }
                 }
+              } catch (e) {
+                // Ignorar suscripciones corruptas
               }
-            });
+            }
 
-            await Promise.all(pushPromises);
+            if (uniqueSubs.length > 0) {
+              const pushPayload = JSON.stringify({
+                title: avatar.name,
+                body: assistantContent.length > 150 ? assistantContent.slice(0, 150) + '...' : assistantContent,
+                icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
+                badge: '/icon-192.png',
+                tag: `chat-message-${conversation_id}`,
+                data: { url: `/dashboard/chat/${conversation_id}` }
+              });
+
+              const pushPromises = uniqueSubs.map(async (subRecord: any) => {
+                try {
+                  await webpush.sendNotification(subRecord.subscription, pushPayload);
+                } catch (err: any) {
+                  // Limpiar suscripciones inválidas o caducadas (código 410 o 404)
+                  if (err.statusCode === 410 || err.statusCode === 404) {
+                    await supabase.from('push_subscriptions').delete().eq('id', subRecord.id);
+                  }
+                }
+              });
+
+              await Promise.all(pushPromises);
+            }
           }
         } catch (pushErr) {
           console.error('[PUSH NOTIFICATION] Error enviando notificación en chat:', pushErr);
