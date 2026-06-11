@@ -1254,81 +1254,81 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
     console.log(`[CHAT RESPONSE LOG] El modelo que contestó es: ${selectedModelName}`);
 
     // ── NOTIFICAR AL USUARIO VÍA WEB PUSH (si está suscrito y tiene la app en segundo plano/pantalla apagada) ──
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
     if (vapidPublicKey && vapidPrivateKey) {
-      // Ejecutar de forma asíncrona para no retrasar la respuesta HTTP del chat
-      (async () => {
-        try {
-          webpush.setVapidDetails(
-            'mailto:soporte@whisper.chat',
-            vapidPublicKey,
-            vapidPrivateKey
-          );
+      vapidPublicKey = vapidPublicKey.replace(/^["']|["']$/g, '');
+      vapidPrivateKey = vapidPrivateKey.replace(/^["']|["']$/g, '');
 
-          // Buscar las suscripciones push de este usuario específico
-          const { data: userSubs } = await supabase
-            .from('push_subscriptions')
-            .select('id, subscription')
-            .eq('user_id', conversation.user_id);
+      try {
+        webpush.setVapidDetails(
+          'mailto:soporte@whisper.chat',
+          vapidPublicKey,
+          vapidPrivateKey
+        );
 
-          if (userSubs && userSubs.length > 0) {
-            // Filtrar duplicados por endpoint y limpiar la base de datos de manera silenciosa
-            const uniqueSubs: any[] = [];
-            const seenEndpoints = new Set<string>();
+        // Buscar las suscripciones push de este usuario específico
+        const { data: userSubs } = await supabase
+          .from('push_subscriptions')
+          .select('id, subscription')
+          .eq('user_id', conversation.user_id);
 
-            for (const subRecord of userSubs) {
-              try {
-                const pushSubscription = typeof subRecord.subscription === 'string'
-                  ? JSON.parse(subRecord.subscription)
-                  : subRecord.subscription;
+        if (userSubs && userSubs.length > 0) {
+          // Filtrar duplicados por endpoint y limpiar la base de datos de manera silenciosa
+          const uniqueSubs: any[] = [];
+          const seenEndpoints = new Set<string>();
 
-                if (pushSubscription && pushSubscription.endpoint) {
-                  if (!seenEndpoints.has(pushSubscription.endpoint)) {
-                    seenEndpoints.add(pushSubscription.endpoint);
-                    uniqueSubs.push({
-                      id: subRecord.id,
-                      subscription: pushSubscription
-                    });
-                  } else {
-                    // Eliminar el duplicado sobrante de la base de datos de manera silenciosa
-                    supabase.from('push_subscriptions').delete().eq('id', subRecord.id).then();
-                  }
+          for (const subRecord of userSubs) {
+            try {
+              const pushSubscription = typeof subRecord.subscription === 'string'
+                ? JSON.parse(subRecord.subscription)
+                : subRecord.subscription;
+
+              if (pushSubscription && pushSubscription.endpoint) {
+                if (!seenEndpoints.has(pushSubscription.endpoint)) {
+                  seenEndpoints.add(pushSubscription.endpoint);
+                  uniqueSubs.push({
+                    id: subRecord.id,
+                    subscription: pushSubscription
+                  });
+                } else {
+                  // Eliminar el duplicado sobrante de la base de datos de manera silenciosa
+                  supabase.from('push_subscriptions').delete().eq('id', subRecord.id).then();
                 }
-              } catch (e) {
-                // Ignorar suscripciones corruptas
               }
-            }
-
-            if (uniqueSubs.length > 0) {
-              const pushPayload = JSON.stringify({
-                title: avatar.name,
-                body: assistantContent.length > 150 ? assistantContent.slice(0, 150) + '...' : assistantContent,
-                icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
-                badge: '/icon-192.png',
-                tag: `chat-message-${conversation_id}`,
-                data: { url: `/dashboard/chats/${conversation_id}` }
-              });
-
-              const pushPromises = uniqueSubs.map(async (subRecord: any) => {
-                try {
-                  await webpush.sendNotification(subRecord.subscription, pushPayload);
-                } catch (err: any) {
-                  // Limpiar suscripciones inválidas o caducadas (código 410 o 404)
-                  if (err.statusCode === 410 || err.statusCode === 404) {
-                    await supabase.from('push_subscriptions').delete().eq('id', subRecord.id);
-                  }
-                }
-              });
-
-              await Promise.all(pushPromises);
+            } catch (e) {
+              // Ignorar suscripciones corruptas
             }
           }
-        } catch (pushErr) {
-          console.error('[PUSH NOTIFICATION] Error enviando notificación en chat:', pushErr);
+
+          if (uniqueSubs.length > 0) {
+            const pushPayload = JSON.stringify({
+              title: avatar.name,
+              body: assistantContent.length > 150 ? assistantContent.slice(0, 150) + '...' : assistantContent,
+              icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
+              badge: '/icon-192.png',
+              tag: `chat-message-${conversation_id}`,
+              data: { url: `/dashboard/chats/${avatar.id}` }
+            });
+
+            const pushPromises = uniqueSubs.map(async (subRecord: any) => {
+              try {
+                await webpush.sendNotification(subRecord.subscription, pushPayload);
+              } catch (err: any) {
+                // Limpiar suscripciones inválidas o caducadas (código 410 o 404)
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                  await supabase.from('push_subscriptions').delete().eq('id', subRecord.id);
+                }
+              }
+            });
+
+            await Promise.all(pushPromises);
+          }
         }
-      })();
+      } catch (pushErr) {
+        console.error('[PUSH NOTIFICATION] Error enviando notificación en chat:', pushErr);
+      }
     }
 
     return NextResponse.json({

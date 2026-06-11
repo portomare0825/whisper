@@ -81,10 +81,13 @@ export async function POST(req: Request) {
     }
 
     // 6. Notificar al creador del avatar en segundo plano vía Web Push si está suscrito
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
     if (vapidPublicKey && vapidPrivateKey) {
+      vapidPublicKey = vapidPublicKey.replace(/^["']|["']$/g, '');
+      vapidPrivateKey = vapidPrivateKey.replace(/^["']|["']$/g, '');
+
       try {
         webpush.setVapidDetails(
           'mailto:moderacion@whisper.chat',

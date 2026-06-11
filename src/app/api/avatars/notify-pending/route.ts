@@ -69,13 +69,16 @@ export async function POST(req: Request) {
     }
 
     // 5. Configurar web-push si las variables de entorno están presentes
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
     if (!vapidPublicKey || !vapidPrivateKey) {
       console.warn('Advertencia: Llaves VAPID no configuradas en .env.local. Saltando envío push.');
       return NextResponse.json({ success: true, message: 'Advertencia: Claves VAPID ausentes en el servidor. Proceso omitido.' });
     }
+
+    vapidPublicKey = vapidPublicKey.replace(/^["']|["']$/g, '');
+    vapidPrivateKey = vapidPrivateKey.replace(/^["']|["']$/g, '');
 
     webpush.setVapidDetails(
       'mailto:moderacion@whisper.chat',

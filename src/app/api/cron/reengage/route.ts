@@ -59,11 +59,14 @@ async function handleReengage(req: Request) {
     );
 
     // 3. Configurar web-push
-    const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-    const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+    let vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    let vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
     let pushEnabled = false;
 
     if (vapidPublicKey && vapidPrivateKey) {
+      vapidPublicKey = vapidPublicKey.replace(/^["']|["']$/g, '');
+      vapidPrivateKey = vapidPrivateKey.replace(/^["']|["']$/g, '');
+
       webpush.setVapidDetails(
         'mailto:reengagement@whisper.chat',
         vapidPublicKey,
