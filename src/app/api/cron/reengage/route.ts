@@ -279,11 +279,21 @@ El usuario con el que estabas chateando se ha quedado en silencio por un tiempo.
               .eq('user_id', convo.user_id);
 
             if (subscriptions && subscriptions.length > 0) {
+              const origin = req.headers.get('origin') || new URL(req.url).origin;
+              const getAbsoluteUrl = (url: string) => {
+                if (!url) return '';
+                if (url.startsWith('http://') || url.startsWith('https://')) return url;
+                return `${origin.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+              };
+
+              const avatarIcon = getAbsoluteUrl(avatar.current_image_url || avatar.base_image_url || '/icon-192.png');
+
               const payload = JSON.stringify({
                 title: `${avatar.name} 💖`,
                 body: assistantContent,
-                icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
-                badge: '/icon-192.png',
+                icon: avatarIcon,
+                image: avatarIcon,
+                badge: getAbsoluteUrl('/icon-192.png'),
                 tag: `reengage-${convo.id}`,
                 data: { url: `/dashboard/chats/${avatar.id}` }
               });

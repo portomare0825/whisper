@@ -1303,11 +1303,21 @@ Este bloque es completamente invisible para el usuario. Nunca lo expliques ni lo
           }
 
           if (uniqueSubs.length > 0) {
+            const origin = req.headers.get('origin') || new URL(req.url).origin;
+            const getAbsoluteUrl = (url: string) => {
+              if (!url) return '';
+              if (url.startsWith('http://') || url.startsWith('https://')) return url;
+              return `${origin.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+            };
+
+            const avatarIcon = getAbsoluteUrl(avatar.current_image_url || avatar.base_image_url || '/icon-192.png');
+
             const pushPayload = JSON.stringify({
               title: avatar.name,
               body: assistantContent.length > 150 ? assistantContent.slice(0, 150) + '...' : assistantContent,
-              icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
-              badge: '/icon-192.png',
+              icon: avatarIcon,
+              image: avatarIcon,
+              badge: getAbsoluteUrl('/icon-192.png'),
               tag: `chat-message-${conversation_id}`,
               data: { url: `/dashboard/chats/${avatar.id}` }
             });

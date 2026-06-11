@@ -69,6 +69,7 @@ self.addEventListener('push', (event) => {
   const options = {
     body: data.body || 'Tienes una nueva alerta de moderación.',
     icon: data.icon || '/icon-192.png',
+    image: data.image || data.icon || undefined,
     badge: data.badge || '/icon-192.png',
     tag: data.tag || 'moderation-alert',
     data: data.data || { url: '/dashboard/moderation' },

@@ -109,11 +109,21 @@ export async function POST(req: Request) {
     }
 
     // 8. Payload de la notificación push nativa
+    const origin = req.headers.get('origin') || new URL(req.url).origin;
+    const getAbsoluteUrl = (url: string) => {
+      if (!url) return '';
+      if (url.startsWith('http://') || url.startsWith('https://')) return url;
+      return `${origin.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+    };
+
+    const avatarIcon = getAbsoluteUrl(avatar.current_image_url || avatar.base_image_url || '/icon-192.png');
+
     const payload = JSON.stringify({
       title: 'Avatar Pendiente de Aprobación ⚖️',
       body: `El avatar "${avatar.name}" requiere tu aprobación para ser público.`,
-      icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
-      badge: '/icon-192.png',
+      icon: avatarIcon,
+      image: avatarIcon,
+      badge: getAbsoluteUrl('/icon-192.png'),
       tag: avatarId,
       data: { url: '/dashboard/moderation' }
     });

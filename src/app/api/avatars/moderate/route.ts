@@ -102,13 +102,23 @@ export async function POST(req: Request) {
           .eq('user_id', avatar.user_id);
 
         if (creatorSubs && creatorSubs.length > 0) {
+          const origin = req.headers.get('origin') || new URL(req.url).origin;
+          const getAbsoluteUrl = (url: string) => {
+            if (!url) return '';
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            return `${origin.replace(/\/$/, '')}/${url.replace(/^\//, '')}`;
+          };
+
+          const avatarIcon = getAbsoluteUrl(avatar.current_image_url || avatar.base_image_url || '/icon-192.png');
+
           const pushPayload = JSON.stringify({
             title: action === 'approve' ? '¡Avatar Aprobado! 🎉' : 'Avatar Rechazado ❌',
             body: action === 'approve' 
               ? `Tu avatar "${avatar.name}" ha sido aprobado y ya es público para la comunidad.` 
               : `Tu avatar "${avatar.name}" fue rechazado para ser público. Razón: ${reason || 'No cumple las pautas comunitarias.'}`,
-            icon: avatar.current_image_url || avatar.base_image_url || '/icon-192.png',
-            badge: '/icon-192.png',
+            icon: avatarIcon,
+            image: avatarIcon,
+            badge: getAbsoluteUrl('/icon-192.png'),
             tag: avatar.id,
             data: { url: '/dashboard' } // Al tocar la notificación le enviará directo a su panel
           });
