@@ -73,6 +73,11 @@ async function main() {
     'ALTER TABLE conversations ADD COLUMN IF NOT EXISTS context_summary TEXT, ADD COLUMN IF NOT EXISTS message_count INTEGER DEFAULT 0;'
   );
 
+  await runSQL(
+    'Agregar roleplay_settings a avatars',
+    'ALTER TABLE avatars ADD COLUMN IF NOT EXISTS roleplay_settings JSONB DEFAULT \'{"dificultad_conquista": 0.5, "apertura_inicial": 0.5, "velocidad_confianza": 0.5}\'::jsonb;'
+  );
+
   await runSQL('Reload schema cache', "SELECT pg_notify('pgrst', 'reload schema')");
 
   // Verificar directamente si las columnas son accesibles
@@ -83,6 +88,7 @@ async function main() {
     ['messages', 'hidden_thought'],
     ['conversations', 'context_summary'],
     ['conversations', 'message_count'],
+    ['avatars', 'roleplay_settings'],
   ];
 
   let allOk = true;

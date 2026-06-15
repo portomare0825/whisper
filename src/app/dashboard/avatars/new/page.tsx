@@ -25,6 +25,11 @@ export default function NewAvatarPage() {
     face_box_width: 180,
     face_box_height: 240,
   });
+  const [roleplaySettings, setRoleplaySettings] = useState({
+    dificultad_conquista: 0.5,
+    apertura_inicial: 0.5,
+    velocidad_confianza: 0.5,
+  });
   const [file, setFile] = useState<File | null>(null);
   const [checkingLimit, setCheckingLimit] = useState(true);
   const [limitReached, setLimitReached] = useState(false);
@@ -300,6 +305,7 @@ export default function NewAvatarPage() {
           base_image_url: publicUrl,
           current_image_url: publicUrl,
           voice_settings: { gender: formData.gender },
+          roleplay_settings: roleplaySettings,
           face_box_x: formData.face_box_x,
           face_box_y: formData.face_box_y,
           face_box_width: formData.face_box_width,
@@ -601,10 +607,90 @@ export default function NewAvatarPage() {
                 La IA analiza la imagen automáticamente, pero puedes agregar tus propios términos (ej. delgada, esbelta, flaca, alta, etc.).
               </p>
             </div>
-          </div>
+        </div>
+      </div>
+
+      {/* Parámetros de Roleplay y Conquista */}
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6">
+        <div>
+          <h3 className="text-lg font-bold text-white flex items-center gap-2">
+            Configuración de Roleplay y Afinidad 💖
+          </h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Define las barreras de conquista y la facilidad con la que el avatar ganará confianza.
+          </p>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-4">
+          {/* Slider 1: Dificultad de Conquista */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium text-white/80">Dificultad de Conquista: {roleplaySettings.dificultad_conquista}</span>
+              <span className="text-xs text-muted-foreground">
+                {roleplaySettings.dificultad_conquista <= 0.3 ? 'Muy fácil' : roleplaySettings.dificultad_conquista <= 0.7 ? 'Moderada' : 'Extrema'}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+              value={roleplaySettings.dificultad_conquista}
+              onChange={(e) => setRoleplaySettings({...roleplaySettings, dificultad_conquista: parseFloat(e.target.value)})}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Una dificultad alta requiere de conversaciones más profundas y paciencia antes de que el avatar se muestre afectuoso.
+            </p>
+          </div>
+
+          {/* Slider 2: Apertura Inicial */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium text-white/80">Apertura Inicial: {roleplaySettings.apertura_inicial}</span>
+              <span className="text-xs text-muted-foreground">
+                {roleplaySettings.apertura_inicial <= 0.3 ? 'Fría/Distante' : roleplaySettings.apertura_inicial <= 0.7 ? 'Normal' : 'Cálida/Sociable'}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+              value={roleplaySettings.apertura_inicial}
+              onChange={(e) => setRoleplaySettings({...roleplaySettings, apertura_inicial: parseFloat(e.target.value)})}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Determina la amabilidad o distancia emocional del avatar en los primeros mensajes de la conversación.
+            </p>
+          </div>
+
+          {/* Slider 3: Velocidad de Confianza */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium text-white/80">Velocidad de Confianza: {roleplaySettings.velocidad_confianza}</span>
+              <span className="text-xs text-muted-foreground">
+                {roleplaySettings.velocidad_confianza <= 0.3 ? 'Lenta' : roleplaySettings.velocidad_confianza <= 0.7 ? 'Media' : 'Rápida'}
+              </span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+              value={roleplaySettings.velocidad_confianza}
+              onChange={(e) => setRoleplaySettings({...roleplaySettings, velocidad_confianza: parseFloat(e.target.value)})}
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Controla qué tan rápido responde positivamente el avatar a los gestos agradables del usuario.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-2">
           <label className="text-sm font-medium text-muted-foreground">Instrucciones de Comportamiento (System Prompt)</label>
           <textarea
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 h-24 resize-none focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"

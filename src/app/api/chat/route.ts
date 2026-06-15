@@ -456,6 +456,13 @@ async function generateContextSummary(
     return;
   }
 
+  // Cargar datos de configuración de roleplay del avatar
+  const { data: avatar } = await supabase
+    .from('avatars')
+    .select('name, personality, roleplay_settings')
+    .eq('id', convo.avatar_id)
+    .single();
+
   const recentMessagesFormatted = recentMessages.map(m => ({
     role: m.role === 'avatar' ? 'assistant' : 'user',
     content: m.content
@@ -478,22 +485,31 @@ async function generateContextSummary(
       .eq('id', conversationId);
   }
 
-  // === PASO B: EXTRAER Y CONSOLIDAR HECHOS CLAVE (JSONB) ===
-  console.log('[MEMORY WORKER] Paso B: Extrayendo hechos clave (JSONB)...');
+  // === PASO B: EXTRAER Y CONSOLIDAR HECHOS CLAVE (JSONB) Y AFINIDAD ===
+  console.log('[MEMORY WORKER] Paso B: Extrayendo hechos clave (JSONB) y evaluando afinidad...');
   const currentKeyFacts = convo.key_facts || {};
   const factsPrompt = `Eres un sistema que consolida hechos y el estado de una relación en formato JSON.
 Tienes este JSON actual que representa lo que ya sabíamos de la relación:
 ${JSON.stringify(currentKeyFacts)}
 
+Información sobre el avatar:
+Nombre: ${avatar?.name || 'el avatar'}
+Personalidad: ${avatar?.personality || ''}
+Este avatar tiene un nivel de confianza con el usuario de ${currentKeyFacts.nivel_confianza || 5}/10.
+
 Analiza el diálogo reciente e incorpora hechos NUEVOS relevantes (como gustos, profesión, nombres, apodos, secretos o el estado civil del usuario o del avatar) o actualiza el estado de la relación. Mantenlo súper conciso.
+
+También evalúa el cambio en la afinidad/confianza. Determina si en este bloque de mensajes el usuario ha demostrado interés genuino, respeto y ha seguido el ritmo de la conversación del avatar de forma positiva (incrementar confianza), o si por el contrario ha sido grosero, acosador, aburrido/superficial violando sus barreras (decrementar confianza), o si la interacción ha sido neutral (mantener confianza).
+
 REGLAS:
-1. Responde ÚNICAMENTE con el objeto JSON estructurado exactamente así:
+1. Responde ÚNICAMENTE con el objeto JSON structured exactamente así:
 {
   "gustos_usuario": ["ejemplo1"],
   "relacion_actual": "ejemplo",
   "apodos_o_nombres": ["ejemplo"],
   "secretos_revelados": ["ejemplo"],
-  "detalles_importantes": ["ejemplo"]
+  "detalles_importantes": ["ejemplo"],
+  "afinidad_cambio": "mantener"  // Opciones: "incrementar", "decrementar", "mantener"
 }
 2. NO modifiques campos antiguos a menos que hayan cambiado.
 3. Si no hay nada nuevo, mantén el JSON igual.
@@ -510,7 +526,26 @@ REGLAS:
   if (factsResult) {
     try {
       const parsedFacts = JSON.parse(factsResult);
-      console.log('[MEMORY WORKER] Hechos clave (JSONB) generados:', parsedFacts);
+      console.log('[MEMORY WORKER] Hechos clave (JSONB) generados antes de ajustar afinidad:', parsedFacts);
+      
+      let nivelConfianza = currentKeyFacts.nivel_confianza ?? 5;
+      const rp = avatar?.roleplay_settings || { dificultad_conquista: 0.5, velocidad_confianza: 0.5 };
+      
+      if (parsedFacts.afinidad_cambio === 'incrementar') {
+        // La velocidad de confianza aumenta la afinidad, y la dificultad la frena
+        const incremento = Math.max(0.5, Math.min(2.0, 1.0 + (rp.velocidad_confianza * 1.5) - (rp.dificultad_conquista * 1.0)));
+        nivelConfianza = Math.min(10, nivelConfianza + incremento);
+      } else if (parsedFacts.afinidad_cambio === 'decrementar') {
+        // A mayor dificultad, mayor la pérdida de confianza ante errores
+        const decremento = Math.max(0.5, Math.min(2.5, 1.0 + (rp.dificultad_conquista * 1.5)));
+        nivelConfianza = Math.max(0, nivelConfianza - decremento);
+      }
+      
+      parsedFacts.nivel_confianza = Math.round(nivelConfianza * 10) / 10;
+      delete parsedFacts.afinidad_cambio; // Limpiar del JSON final
+      
+      console.log('[MEMORY WORKER] Hechos clave actualizados con confianza:', parsedFacts);
+      
       await supabase
         .from('conversations')
         .update({ key_facts: parsedFacts })
@@ -882,10 +917,46 @@ export async function POST(req: Request) {
       ? `\n<summary>Resumen de lo ocurrido hasta ahora en esta conversación: ${contextSummary}</summary>`
       : '';
 
+    // Obtener y calcular nivel de confianza basado en roleplay_settings del avatar
+    const rp = avatar.roleplay_settings || {
+      dificultad_conquista: 0.5,
+      apertura_inicial: 0.5,
+      velocidad_confianza: 0.5
+    };
+
+    let nivelConfianza = conversation.key_facts?.nivel_confianza;
+    if (nivelConfianza === undefined || nivelConfianza === null) {
+      // Inicializar el nivel de confianza si no existe en key_facts
+      nivelConfianza = Math.round((rp.apertura_inicial ?? 0.5) * 10);
+      
+      const updatedFacts = {
+        ...(conversation.key_facts || {}),
+        nivel_confianza: nivelConfianza
+      };
+      
+      // Actualizar de inmediato en base de datos para que persista
+      await supabase
+        .from('conversations')
+        .update({ key_facts: updatedFacts })
+        .eq('id', conversation_id);
+      
+      conversation.key_facts = updatedFacts;
+    }
+
+    let confianzaInstructionsSection = '';
+    if (nivelConfianza <= 3) {
+      confianzaInstructionsSection = `\n[ACTITUD ACTUAL CON EL USUARIO: DISTANTE Y FRÍA (Nivel de confianza: ${nivelConfianza}/10)]\nTu nivel de confianza actual con el usuario es extremadamente bajo. Debes mostrarte reservada, fría y distante en todo momento. Rechaza educadamente cualquier insinuación romántica o coqueteo directo con un tono irónico, tímido o desconfiado (según tu personalidad). No te rías de sus bromas superficiales y no cedas con facilidad. Recuerda que no le conoces y sus intenciones te causan dudas. Usa tu monólogo interno (<thought>...) para expresar tu escepticismo o tus dudas respecto a él/ella.`;
+    } else if (nivelConfianza <= 7) {
+      confianzaInstructionsSection = `\n[ACTITUD ACTUAL CON EL USUARIO: AMISTOSA CON RESERVAS (Nivel de confianza: ${nivelConfianza}/10)]\nTu nivel de confianza actual con el usuario es moderado. Eres cordial, respondes de forma amigable a sus comentarios y hablas con más soltura. Sin embargo, todavía mantienes reservas cuando se trata de coquetear abiertamente o hablar de intimidad extrema. Aceptas chistes, te ríes sutilmente y te muestras abierta a entablar una conversación, pero si se pone demasiado intenso, pon un freno amistoso.`;
+    } else {
+      confianzaInstructionsSection = `\n[ACTITUD ACTUAL CON EL USUARIO: CÁLIDA E ÍNTIMA (Nivel de confianza: ${nivelConfianza}/10)]\nTu nivel de confianza actual con el usuario es sumamente alto. Eres muy cercana, cariñosa, coqueta, confidente y abierta a hablar de cualquier tema íntimo, romántico o personal de forma libre. Muestras complicidad absoluta y te gusta hablar con él/ella. El muro de desconfianza ha desaparecido por completo y disfrutas de su cercanía.`;
+    }
+
     const rawSystemPrompt = `
 ========== IDENTIDAD ABSOLUTA E IRROMPIBLE ==========
 ERES: ${avatar.name}
 TU PERSONALIDAD ES: ${avatar.personality}.${physicalDescSection}
+${confianzaInstructionsSection}
 ${avatar.system_prompt ? `INSTRUCCIONES ESPECIALES DEL CREADOR: ${avatar.system_prompt}` : ''}${userPhysicalDescSection}
 ${summarySection}${keyFactsSection}${milestonesSection}${semanticMemoriesSection}
 

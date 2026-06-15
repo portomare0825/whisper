@@ -18,6 +18,11 @@ export interface Avatar {
     gender?: string;
     [key: string]: any;
   };
+  roleplay_settings?: {
+    dificultad_conquista: number;
+    apertura_inicial: number;
+    velocidad_confianza: number;
+  };
   is_active: boolean;
   created_at: string;
   updated_at: string;

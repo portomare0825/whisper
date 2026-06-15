@@ -36,6 +36,11 @@ export default function EditAvatarPage() {
   });
   
   const [file, setFile] = useState<File | null>(null);
+  const [roleplaySettings, setRoleplaySettings] = useState({
+    dificultad_conquista: 0.5,
+    apertura_inicial: 0.5,
+    velocidad_confianza: 0.5,
+  });
 
   useEffect(() => {
     async function loadData() {
@@ -82,6 +87,12 @@ export default function EditAvatarPage() {
           face_box_y: avatar.face_box_y ?? 120,
           face_box_width: avatar.face_box_width ?? 180,
           face_box_height: avatar.face_box_height ?? 240,
+        });
+
+        setRoleplaySettings(avatar.roleplay_settings || {
+          dificultad_conquista: 0.5,
+          apertura_inicial: 0.5,
+          velocidad_confianza: 0.5,
         });
         
         setOriginalImageUrl(avatar.base_image_url);
@@ -193,6 +204,7 @@ export default function EditAvatarPage() {
         system_prompt: formData.system_prompt,
         physical_description: formData.physical_description,
         voice_settings: { gender: formData.gender },
+        roleplay_settings: roleplaySettings,
         visibility: formData.visibility,
         face_box_x: formData.face_box_x,
         face_box_y: formData.face_box_y,
@@ -365,6 +377,77 @@ export default function EditAvatarPage() {
                 onChange={(e) => setFormData({...formData, personality: e.target.value})}
                 placeholder="Ej: Misterioso, siempre responde con acertijos y sarcasmo."
               />
+            </div>
+
+            {/* Parámetros de Roleplay y Conquista */}
+            <div className="bg-black/30 border border-white/5 rounded-2xl p-6 space-y-6">
+              <div>
+                <h3 className="text-md font-bold text-white flex items-center gap-2">
+                  Configuración de Roleplay y Afinidad 💖
+                </h3>
+                <p className="text-[11px] text-white/50 mt-1">
+                  Define las barreras de conquista y la facilidad con la que el avatar ganará confianza.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {/* Slider 1: Dificultad de Conquista */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-white/70">Dificultad de Conquista: {roleplaySettings.dificultad_conquista}</span>
+                    <span className="text-white/40">
+                      {roleplaySettings.dificultad_conquista <= 0.3 ? 'Muy fácil' : roleplaySettings.dificultad_conquista <= 0.7 ? 'Moderada' : 'Extrema'}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                    value={roleplaySettings.dificultad_conquista}
+                    onChange={(e) => setRoleplaySettings({...roleplaySettings, dificultad_conquista: parseFloat(e.target.value)})}
+                  />
+                </div>
+
+                {/* Slider 2: Apertura Inicial */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-white/70">Apertura Inicial: {roleplaySettings.apertura_inicial}</span>
+                    <span className="text-white/40">
+                      {roleplaySettings.apertura_inicial <= 0.3 ? 'Fría/Distante' : roleplaySettings.apertura_inicial <= 0.7 ? 'Normal' : 'Cálida/Sociable'}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                    value={roleplaySettings.apertura_inicial}
+                    onChange={(e) => setRoleplaySettings({...roleplaySettings, apertura_inicial: parseFloat(e.target.value)})}
+                  />
+                </div>
+
+                {/* Slider 3: Velocidad de Confianza */}
+                <div className="space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="font-medium text-white/70">Velocidad de Confianza: {roleplaySettings.velocidad_confianza}</span>
+                    <span className="text-white/40">
+                      {roleplaySettings.velocidad_confianza <= 0.3 ? 'Lenta' : roleplaySettings.velocidad_confianza <= 0.7 ? 'Media' : 'Rápida'}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                    value={roleplaySettings.velocidad_confianza}
+                    onChange={(e) => setRoleplaySettings({...roleplaySettings, velocidad_confianza: parseFloat(e.target.value)})}
+                  />
+                </div>
+              </div>
             </div>
 
             <div className="space-y-2">
