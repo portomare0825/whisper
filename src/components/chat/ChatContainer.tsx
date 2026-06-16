@@ -1469,12 +1469,21 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
         console.warn('Error al restaurar imagen de avatar:', avatarError);
       }
       
+      // Calcular nivel de confianza inicial para el reseteo
+      const rp = avatar.roleplay_settings || {
+        dificultad_conquista: 0.5,
+        apertura_inicial: 0.5,
+        velocidad_confianza: 0.5
+      };
+      const inicialConfianza = Math.round((rp.apertura_inicial ?? 0.5) * 10);
+
       const { error: convoError } = await supabase
         .from('conversations')
         .update({ 
           current_avatar_image_url: avatar.base_image_url,
           message_count: 0,
-          context_summary: null
+          context_summary: null,
+          key_facts: { nivel_confianza: inicialConfianza }
         })
         .eq('id', conversation.id);
         
