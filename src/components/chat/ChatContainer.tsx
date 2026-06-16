@@ -2192,7 +2192,7 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             </div>
 
             {/* Contenido del modal */}
-            <div className="flex-1 overflow-y-auto pr-1 py-6 space-y-6 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto py-6 space-y-6 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
               {loadingMemory ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
