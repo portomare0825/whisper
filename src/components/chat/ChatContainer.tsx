@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders, Archive, Shirt } from 'lucide-react';
+import { Send, Image as ImageIcon, Zap, Sparkles, Star, X, ArrowLeft, RotateCcw, Trash2, AlertTriangle, Lightbulb, Smile, Eye, EyeOff, ImageOff, Download, ChevronLeft, ChevronRight, BookOpen, MessageSquare, Sliders, Archive, Shirt, Brain } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import { Avatar, Message, Conversation } from '@/types';
 import { PremiumPoseSelector } from './PremiumPoseSelector';
@@ -209,6 +209,54 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
   const [resettingImage, setResettingImage] = useState(false);
   const [outfitToDelete, setOutfitToDelete] = useState<{ id: string; imageUrl: string } | null>(null);
   const [messageToDelete, setMessageToDelete] = useState<string | null>(null);
+
+  // Estados para el Modal de Memoria de 3 Capas
+  const [showMemoryModal, setShowMemoryModal] = useState(false);
+  const [loadingMemory, setLoadingMemory] = useState(false);
+  const [memoryData, setMemoryData] = useState<{
+    contextSummary: string;
+    keyFacts: any;
+    milestones: any[];
+    semanticMemories: any[];
+  } | null>(null);
+
+  const handleOpenMemory = async () => {
+    setShowMemoryModal(true);
+    setLoadingMemory(true);
+    try {
+      // 1. Obtener conversación actualizada
+      const { data: convo } = await supabase
+        .from('conversations')
+        .select('context_summary, key_facts')
+        .eq('id', conversation.id)
+        .single();
+
+      // 2. Obtener milestones
+      const { data: milestones } = await supabase
+        .from('milestones')
+        .select('*')
+        .eq('conversation_id', conversation.id)
+        .order('created_at', { ascending: true });
+
+      // 3. Obtener memorias semánticas
+      const { data: memories } = await supabase
+        .from('semantic_memories')
+        .select('*')
+        .eq('conversation_id', conversation.id)
+        .order('created_at', { ascending: true });
+
+      setMemoryData({
+        contextSummary: convo?.context_summary || 'No hay un resumen de contexto generado todavía (se consolida automáticamente cada 10 mensajes).',
+        keyFacts: convo?.key_facts || {},
+        milestones: milestones || [],
+        semanticMemories: memories || []
+      });
+    } catch (err) {
+      console.error('Error fetching memory data:', err);
+    } finally {
+      setLoadingMemory(false);
+    }
+  };
 
   const toggleShowAvatar = () => {
     setShowAvatarInChat(prev => {
@@ -1619,6 +1667,16 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
             {novelMode ? <BookOpen className="w-3.5 h-3.5 md:w-4 md:h-4" /> : <MessageSquare className="w-3.5 h-3.5 md:w-4 md:h-4" />}
           </button>
 
+          {/* Botón de Memoria de 3 Capas */}
+          <button
+            type="button"
+            onClick={handleOpenMemory}
+            title="Ver Memoria del Avatar (3 Capas)"
+            className="p-1.5 md:p-2.5 bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 rounded-lg md:rounded-xl transition-all border border-violet-500/25 flex items-center justify-center cursor-pointer flex-shrink-0"
+          >
+            <Brain className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          </button>
+
           <button
             type="button"
             onClick={() => setShowArchiveModal(true)}
@@ -2102,6 +2160,211 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
                 onError={(err) => setPoseError(err)}
                 onCancel={() => setShowPoseModal(false)}
               />
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Memoria de 3 Capas */}
+      {showMemoryModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="relative w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden glass-morphism rounded-3xl border border-white/10 p-6 md:p-8 shadow-[0_0_50px_rgba(139,92,246,0.15)] animate-in scale-in duration-300">
+            {/* Cabecera del modal */}
+            <div className="flex items-center justify-between pb-4 border-b border-white/5 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-violet-400 shadow-[0_0_15px_rgba(139,92,246,0.3)] animate-pulse">
+                  <Brain className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    Núcleo de Memoria 🧠
+                  </h2>
+                  <p className="text-xs text-muted-foreground">
+                    Registro de las 3 capas de conocimiento de {avatar.name}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => { setShowMemoryModal(false); setMemoryData(null); }}
+                className="p-1.5 hover:bg-white/5 rounded-lg text-muted-foreground hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Contenido del modal */}
+            <div className="flex-1 overflow-y-auto pr-1 py-6 space-y-6 scrollbar-thin">
+              {loadingMemory ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <div className="w-10 h-10 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+                  <p className="text-sm text-violet-400 font-semibold animate-pulse uppercase tracking-wider">Accediendo a recuerdos...</p>
+                </div>
+              ) : memoryData ? (
+                <div className="space-y-6">
+                  {/* Capa 1: Resumen de Contexto */}
+                  <div className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-3 text-left">
+                    <div className="flex items-center gap-2 text-violet-400 font-bold text-sm uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping" />
+                      Capa 1: Resumen Narrativo Reciente
+                    </div>
+                    <p className="text-sm text-white/90 leading-relaxed italic bg-black/20 p-4 rounded-xl border border-white/5 whitespace-pre-wrap">
+                      "{memoryData.contextSummary}"
+                    </p>
+                    <p className="text-[10px] text-muted-foreground leading-none">
+                      * El resumen de contexto recopila y sintetiza las últimas interacciones para mantener la continuidad conversacional a corto plazo.
+                    </p>
+                  </div>
+
+                  {/* Capa 2: Hechos consolidados y Afinidad */}
+                  <div className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4 text-left">
+                    <div className="flex items-center gap-2 text-emerald-400 font-bold text-sm uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                      Capa 2: Hechos de la Relación y Afecto
+                    </div>
+
+                    {/* Barra de progreso de Afecto/Confianza */}
+                    {memoryData.keyFacts.nivel_confianza !== undefined && (
+                      <div className="bg-black/30 p-4 rounded-xl border border-white/5 space-y-2">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-white/60 font-semibold flex items-center gap-1.5">
+                            💖 Nivel de Confianza:
+                          </span>
+                          <span className="text-emerald-400 font-black text-sm">
+                            {memoryData.keyFacts.nivel_confianza} / 10
+                          </span>
+                        </div>
+                        <div className="w-full h-2.5 bg-white/5 rounded-full overflow-hidden border border-white/10 relative">
+                          <div 
+                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
+                            style={{ width: `${(memoryData.keyFacts.nivel_confianza / 10) * 100}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          {memoryData.keyFacts.nivel_confianza <= 3 
+                            ? 'Actitud inicial y distante. Supera las barreras demostrando interés real.' 
+                            : memoryData.keyFacts.nivel_confianza <= 7 
+                            ? 'Relación amistosa y cordial con algunas reservas.' 
+                            : 'Nivel de confianza máximo. Complicidad, cercanía y afecto absoluto.'}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Tabla de hechos Consolidados */}
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-semibold text-white/60 uppercase tracking-wider">Detalles extraídos por la IA:</h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                        {/* Relación actual */}
+                        <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-1">
+                          <span className="text-muted-foreground block">Relación actual</span>
+                          <span className="text-white font-medium">{memoryData.keyFacts.relacion_actual || 'Indefinida / En proceso'}</span>
+                        </div>
+                        
+                        {/* Apodos */}
+                        <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-1">
+                          <span className="text-muted-foreground block">Apodos o Nombres</span>
+                          <span className="text-white font-medium">
+                            {Array.isArray(memoryData.keyFacts.apodos_o_nombres) && memoryData.keyFacts.apodos_o_nombres.length > 0
+                              ? memoryData.keyFacts.apodos_o_nombres.join(', ')
+                              : 'Ninguno registrado'}
+                          </span>
+                        </div>
+
+                        {/* Gustos del usuario */}
+                        <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-1 md:col-span-2">
+                          <span className="text-muted-foreground block">Gustos del usuario conocidos</span>
+                          <span className="text-white font-medium">
+                            {Array.isArray(memoryData.keyFacts.gustos_usuario) && memoryData.keyFacts.gustos_usuario.length > 0
+                              ? memoryData.keyFacts.gustos_usuario.join(', ')
+                              : 'Ninguno registrado aún'}
+                          </span>
+                        </div>
+
+                        {/* Secretos revelados */}
+                        <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-1 md:col-span-2">
+                          <span className="text-muted-foreground block">Secretos compartidos</span>
+                          <span className="text-white font-medium">
+                            {Array.isArray(memoryData.keyFacts.secretos_revelados) && memoryData.keyFacts.secretos_revelados.length > 0
+                              ? memoryData.keyFacts.secretos_revelados.join(', ')
+                              : 'Ningún secreto revelado todavía'}
+                          </span>
+                        </div>
+
+                        {/* Detalles importantes */}
+                        <div className="bg-black/20 p-3 rounded-lg border border-white/5 space-y-1 md:col-span-2">
+                          <span className="text-muted-foreground block">Otros detalles de importancia</span>
+                          <span className="text-white font-medium">
+                            {Array.isArray(memoryData.keyFacts.detalles_importantes) && memoryData.keyFacts.detalles_importantes.length > 0
+                              ? memoryData.keyFacts.detalles_importantes.join(', ')
+                              : 'Ningún detalle registrado'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Capa 3: Hitos e Historias a Largo Plazo */}
+                  <div className="bg-white/5 border border-white/5 rounded-2xl p-5 space-y-4 text-left">
+                    <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm uppercase tracking-wider">
+                      <span className="w-2 h-2 rounded-full bg-indigo-400" />
+                      Capa 3: Recuerdos del Pasado y Hitos Decisivos
+                    </div>
+
+                    {/* Milestones / Hitos */}
+                    <div className="space-y-2">
+                      <h4 className="text-xs font-semibold text-white/60 uppercase tracking-wider">Hitos históricos irreversibles:</h4>
+                      {memoryData.milestones.length === 0 ? (
+                        <p className="text-xs text-muted-foreground bg-black/10 p-3 rounded-xl border border-white/5">
+                          No han ocurrido hitos decisivos en la historia todavía (ej: declaraciones de afecto, acuerdos importantes, peleas graves).
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {memoryData.milestones.map((m: any, index: number) => (
+                            <div key={m.id || index} className="text-xs bg-indigo-500/5 p-3 rounded-xl border border-indigo-500/10 flex items-start gap-2.5">
+                              <span className="w-5 h-5 rounded-full bg-indigo-500/10 text-indigo-400 flex items-center justify-center flex-shrink-0 font-bold text-[10px]">
+                                {index + 1}
+                              </span>
+                              <span className="text-white/95 leading-relaxed">{m.description}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Recuerdos RAG vectoriales */}
+                    <div className="space-y-2 pt-2">
+                      <h4 className="text-xs font-semibold text-white/60 uppercase tracking-wider">Recuerdos consolidados a largo plazo (Memoria RAG):</h4>
+                      {memoryData.semanticMemories.length === 0 ? (
+                        <p className="text-xs text-muted-foreground bg-black/10 p-3 rounded-xl border border-white/5">
+                          Sin recuerdos persistentes a largo plazo por ahora. El bot consolidará hechos clave para rememorar en el futuro.
+                        </p>
+                      ) : (
+                        <ul className="list-disc list-inside space-y-1.5 text-xs text-white/80 bg-black/10 p-4 rounded-xl border border-white/5">
+                          {memoryData.semanticMemories.map((m: any, index: number) => (
+                            <li key={m.id || index} className="leading-relaxed">
+                              {m.content}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-10">
+                  <p className="text-muted-foreground">Error al cargar el núcleo de memoria.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Pie del modal */}
+            <div className="pt-4 border-t border-white/5 flex justify-end flex-shrink-0">
+              <button 
+                onClick={() => { setShowMemoryModal(false); setMemoryData(null); }}
+                className="premium-button text-primary-foreground font-bold px-6 py-2.5 rounded-xl hover:scale-105 active:scale-95 transition-transform text-sm cursor-pointer shadow-lg"
+              >
+                Cerrar Registro
+              </button>
+            </div>
           </div>
         </div>
       )}
