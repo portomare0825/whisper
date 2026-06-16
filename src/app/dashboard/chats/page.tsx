@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import Link from 'next/link';
+import Image from 'next/image';
 import { MessageCircle, ArrowRight } from 'lucide-react';
 
 export default async function ChatsIndexPage() {
@@ -84,10 +85,12 @@ export default async function ChatsIndexPage() {
                 href={`/dashboard/chats/${chat.avatars.id}`}
                 className="glass-morphism p-4 rounded-2xl border border-white/5 hover:border-primary/30 transition-all hover:-translate-y-1 group flex items-center gap-4"
               >
-                <div className="w-16 h-16 rounded-full overflow-hidden border border-white/10 group-hover:border-primary transition-colors">
-                  <img 
+                <div className="w-16 h-16 rounded-full overflow-hidden border border-white/10 group-hover:border-primary transition-colors relative flex-shrink-0">
+                  <Image 
                     src={chat.avatars.base_image_url} 
                     alt={chat.avatars.name}
+                    width={64}
+                    height={64}
                     className="w-full h-full object-cover"
                   />
                 </div>

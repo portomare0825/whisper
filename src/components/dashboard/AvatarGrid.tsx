@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Users, ArrowRight, Pencil, Plus, X, ImageIcon, Download, ChevronLeft, ChevronRight, Sparkles, Shirt } from 'lucide-react';
 import EditAvatarModal from './EditAvatarModal';
 
@@ -164,11 +165,16 @@ export default function AvatarGrid({ initialAvatars, currentUserId }: AvatarGrid
           title="Haz clic para ver el vestuario o chatear"
         >
           {avatar.base_image_url ? (
-            <img 
-              src={avatar.base_image_url} 
-              alt={avatar.name}
-              className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
-            />
+            <div className="relative w-full h-full">
+              <Image 
+                src={avatar.base_image_url} 
+                alt={avatar.name}
+                fill
+                sizes="(max-width: 768px) 33vw, (max-width: 1024px) 25vw, (max-width: 1280px) 20vw, 15vw"
+                className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity duration-500"
+                priority={avatar.is_admin_avatar}
+              />
+            </div>
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Users className="w-6 h-6 md:w-12 md:h-12 text-muted-foreground" />
