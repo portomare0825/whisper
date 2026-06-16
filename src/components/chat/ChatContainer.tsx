@@ -1436,59 +1436,21 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     try {
       setSending(true);
 
-      // 1. Borrar mensajes de la conversación
-      const { error: msgError } = await supabase
-        .from('messages')
-        .delete()
-        .eq('conversation_id', conversation.id);
-        
-      if (msgError) throw msgError;
-
-      // 1.5. Borrar memorias e hitos (reseteo total)
-      const { error: msError } = await supabase
-        .from('milestones')
-        .delete()
-        .eq('conversation_id', conversation.id);
-        
-      if (msError) console.warn('Error borrando hitos:', msError);
-
-      const { error: smError } = await supabase
-        .from('semantic_memories')
-        .delete()
-        .eq('conversation_id', conversation.id);
-        
-      if (smError) console.warn('Error borrando memorias semánticas:', smError);
-      
-      // 2. Restaurar imagen del avatar y conversación
-      const { error: avatarError } = await supabase
-        .from('avatars')
-        .update({ current_image_url: avatar.base_image_url })
-        .eq('id', avatar.id);
-        
-      if (avatarError) {
-        console.warn('Error al restaurar imagen de avatar:', avatarError);
-      }
-      
-      // Calcular nivel de confianza inicial para el reseteo
-      const rp = avatar.roleplay_settings || {
-        dificultad_conquista: 0.5,
-        apertura_inicial: 0.5,
-        velocidad_confianza: 0.5
-      };
-      const inicialConfianza = Math.round((rp.apertura_inicial ?? 0.5) * 10);
-
-      const { error: convoError } = await supabase
-        .from('conversations')
-        .update({ 
-          current_avatar_image_url: avatar.base_image_url,
-          message_count: 0,
-          context_summary: null,
-          key_facts: { nivel_confianza: inicialConfianza }
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'clear',
+          conversation_id: conversation.id,
+          avatar_id: avatar.id
         })
-        .eq('id', conversation.id);
-        
-      if (convoError) {
-        console.warn('Error al restaurar imagen de conversación y resetear contadores:', convoError);
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Error al limpiar el chat en el servidor');
       }
       
       setMessages([]);

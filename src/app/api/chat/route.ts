@@ -718,6 +718,84 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, deletedCount: deletedRows?.length || 0 });
     }
 
+    // Acción para limpiar completamente el chat y resetear la memoria de 3 capas
+    if (action === 'clear') {
+      console.log('[CLEAR API] Petición recibida para limpiar conversación:', conversation_id);
+
+      if (!conversation_id) {
+        return NextResponse.json({ error: 'conversation_id is required' }, { status: 400 });
+      }
+
+      // 1. Borrar todos los mensajes
+      const { error: deleteMsgError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('conversation_id', conversation_id);
+
+      if (deleteMsgError) {
+        console.error('[CLEAR API] Error al borrar mensajes:', deleteMsgError);
+        return NextResponse.json({ error: 'Error al eliminar los mensajes' }, { status: 500 });
+      }
+
+      // 2. Borrar hitos (milestones)
+      const { error: deleteMilestonesError } = await supabase
+        .from('milestones')
+        .delete()
+        .eq('conversation_id', conversation_id);
+
+      if (deleteMilestonesError) {
+        console.warn('[CLEAR API] Error al borrar hitos:', deleteMilestonesError);
+      }
+
+      // 3. Borrar memorias semánticas
+      const { error: deleteMemoriesError } = await supabase
+        .from('semantic_memories')
+        .delete()
+        .eq('conversation_id', conversation_id);
+
+      if (deleteMemoriesError) {
+        console.warn('[CLEAR API] Error al borrar memorias semánticas:', deleteMemoriesError);
+      }
+
+      // 4. Obtener datos de configuración del avatar
+      let inicialConfianza = 5;
+      if (avatar_id) {
+        const { data: avatar } = await supabase
+          .from('avatars')
+          .select('base_image_url, roleplay_settings')
+          .eq('id', avatar_id)
+          .single();
+
+        if (avatar) {
+          const rp = avatar.roleplay_settings || {
+            dificultad_conquista: 0.5,
+            apertura_inicial: 0.5,
+            velocidad_confianza: 0.5
+          };
+          inicialConfianza = Math.round((rp.apertura_inicial ?? 0.5) * 10);
+
+          // Restaurar la foto del avatar en avatars
+          await supabase
+            .from('avatars')
+            .update({ current_image_url: avatar.base_image_url })
+            .eq('id', avatar_id);
+          
+          // Restaurar la conversación
+          await supabase
+            .from('conversations')
+            .update({
+              current_avatar_image_url: avatar.base_image_url,
+              message_count: 0,
+              context_summary: null,
+              key_facts: { nivel_confianza: inicialConfianza }
+            })
+            .eq('id', conversation_id);
+        }
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
     // ── OPTIMIZACIÓN: PARALELIZACIÓN DE CONSULTAS INICIALES ──
     const [
       avatarRes,
