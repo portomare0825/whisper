@@ -391,6 +391,9 @@ export default function NewAvatarPage() {
             setCompletedCount(0);
             setGenerationProgress(0);
 
+            const genData = await genResponse.json().catch(() => ({}));
+            const predictions = genData.predictions; // [{ key: string, predictionId: string }]
+
             const keysToPoll = [
               'profile_image_url',
               'back_image_url',
@@ -400,12 +403,14 @@ export default function NewAvatarPage() {
               'emotion_flirty'
             ];
 
+            const failedPredictions = new Set<string>();
             let attempts = 0;
             const maxAttempts = 20; // 20 intentos * 3 segundos = 60 segundos de espera máxima
 
             const checkInterval = setInterval(async () => {
               attempts++;
               try {
+                // 1. Consultar el estado actual en Supabase
                 const { data: avatar, error: pollError } = await supabase
                   .from('avatars')
                   .select(keysToPoll.join(','))
@@ -419,20 +424,64 @@ export default function NewAvatarPage() {
 
                 if (avatar) {
                   let completed = 0;
+                  const missingKeys: string[] = [];
+
                   keysToPoll.forEach(key => {
                     if (avatar[key] && avatar[key].startsWith('http')) {
                       completed++;
+                    } else {
+                      missingKeys.push(key);
                     }
                   });
 
                   setCompletedCount(completed);
-                  setGenerationProgress((completed / keysToPoll.length) * 100);
+                  
+                  const totalProcessed = completed + failedPredictions.size;
+                  setGenerationProgress((totalProcessed / keysToPoll.length) * 100);
 
-                  if (completed === keysToPoll.length) {
+                  // Si ya se procesaron todas (exitosas o fallidas definitivamente)
+                  if (totalProcessed >= keysToPoll.length) {
                     clearInterval(checkInterval);
                     setGeneratingAngles(false);
-                    router.push('/dashboard');
-                    router.refresh();
+
+                    if (failedPredictions.size === keysToPoll.length) {
+                      setError('No se pudo generar ninguna expresión del avatar. Todas las predicciones de Replicate fallaron.');
+                    } else if (failedPredictions.size > 0) {
+                      console.warn(`[NewAvatar] Algunas expresiones fallaron (${failedPredictions.size}), pero las restantes se completaron.`);
+                      router.push('/dashboard');
+                      router.refresh();
+                    } else {
+                      router.push('/dashboard');
+                      router.refresh();
+                    }
+                    return;
+                  }
+
+                  // 2. Si faltan llaves y tenemos predictions de Replicate, forzamos la consulta de estado
+                  if (predictions && Array.isArray(predictions) && predictions.length > 0 && missingKeys.length > 0) {
+                    const checkPromises = predictions
+                      .filter(pred => missingKeys.includes(pred.key) && !failedPredictions.has(pred.key))
+                      .map(async (pred) => {
+                        try {
+                          const res = await fetch(`/api/avatars/check-status?predictionId=${pred.predictionId}&avatarId=${newAvatar.id}&userId=${newAvatar.user_id}&key=${pred.key}`);
+                          if (res.ok) {
+                            const statusData = await res.json();
+                            if (statusData.status === 'failed') {
+                              console.error(`[NewAvatar] Predicción falló para ${pred.key}:`, statusData.error);
+                              failedPredictions.add(pred.key);
+                            }
+                          } else {
+                            const statusData = await res.json().catch(() => ({}));
+                            const errMsg = statusData.error || `Error HTTP ${res.status}`;
+                            console.error(`[NewAvatar] Error en check-status para ${pred.key}:`, errMsg);
+                            failedPredictions.add(pred.key);
+                          }
+                        } catch (pollErr: any) {
+                          console.error(`[NewAvatar] Error llamando check-status para ${pred.key}:`, pollErr);
+                          failedPredictions.add(pred.key);
+                        }
+                      });
+                    await Promise.all(checkPromises);
                   }
                 }
               } catch (err) {
