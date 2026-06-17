@@ -449,6 +449,7 @@ export default function NewAvatarPage() {
           }
         } catch (err) {
           console.error('Error disparando generación de ángulos:', err);
+          throw err;
         }
       }
 
