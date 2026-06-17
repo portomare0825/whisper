@@ -443,6 +443,9 @@ export default function NewAvatarPage() {
 
               return; // Salir aquí para esperar el progreso
             }
+          } else {
+            const errorData = await genResponse.json();
+            throw new Error(`Se creó el avatar, pero falló la generación de expresiones: ${errorData.error || 'Error en el servidor'}`);
           }
         } catch (err) {
           console.error('Error disparando generación de ángulos:', err);

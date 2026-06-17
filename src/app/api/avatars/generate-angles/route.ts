@@ -122,17 +122,20 @@ export async function POST(req: Request) {
     const physicalDesc = avatar.physical_description || 'a beautiful young person';
 
     // Resolver la URL base del webhook de forma dinámica y tolerante a fallos
-    const host = req.headers.get('host') || '';
+    const forwardedHost = req.headers.get('x-forwarded-host');
+    const host = forwardedHost || req.headers.get('host') || '';
     const isHostLocal = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('::1') || !host;
-    const appWebhookUrl = process.env.APP_WEBHOOK_URL;
     
     let webhookBaseUrl = '';
-    if (appWebhookUrl && !(appWebhookUrl.includes('localhost') && !isHostLocal)) {
-      webhookBaseUrl = appWebhookUrl.replace(/\/$/, '');
+    const protocol = isHostLocal ? 'http' : 'https';
+    
+    if (host && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      // Priorizar el host real de la petición en producción
+      webhookBaseUrl = `${protocol}://${host}`;
+    } else if (process.env.APP_WEBHOOK_URL) {
+      webhookBaseUrl = process.env.APP_WEBHOOK_URL.replace(/\/$/, '');
     } else {
-      const protocol = isHostLocal ? 'http' : 'https';
-      const finalHost = host || 'localhost:3000';
-      webhookBaseUrl = `${protocol}://${finalHost}`;
+      webhookBaseUrl = `${protocol}://${host || 'localhost:3000'}`;
     }
 
     console.log(`[Generate-Angles] URL base para webhooks resuelta: ${webhookBaseUrl}`);
