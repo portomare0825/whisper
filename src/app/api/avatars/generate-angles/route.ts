@@ -12,6 +12,86 @@ const GENERATIONS = [
   { key: 'emotion_flirty', promptModifier: "winking expression, playful wink, cute charming smile, friendly flirty look.", start_step: 4, id_weight: 0.85 }
 ];
 
+// Función de sondeo en segundo plano para entorno local (evita fallos de webhooks en localhost)
+async function pollAndSaveReplicate(
+  predictionId: string,
+  avatarId: string,
+  userId: string,
+  key: string,
+  supabaseUrl: string,
+  supabaseKey: string
+) {
+  console.log(`[Generate-Angles] [Local-Poll] Iniciando sondeo local en background para predicción Replicate: ${predictionId}`);
+  let checkReplicateStatus;
+  try {
+    const replicateLib = await import('@/lib/replicate');
+    checkReplicateStatus = replicateLib.checkReplicateStatus;
+  } catch (err) {
+    console.error('[Generate-Angles] [Local-Poll] Error importando checkReplicateStatus:', err);
+    return;
+  }
+
+  // Crear cliente Supabase dinámicamente en background
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  let attempts = 0;
+  const maxAttempts = 60; // 60 intentos * 4 segundos = 240 segundos (4 minutos)
+  const interval = 4000; // 4 segundos
+
+  const timer = setInterval(async () => {
+    attempts++;
+    if (attempts > maxAttempts) {
+      console.error(`[Generate-Angles] [Local-Poll] Se alcanzó el máximo de intentos para predicción: ${predictionId}`);
+      clearInterval(timer);
+      return;
+    }
+
+    try {
+      const statusResult = await checkReplicateStatus(predictionId);
+      console.log(`[Generate-Angles] [Local-Poll] Predicción ${predictionId} estado: ${statusResult.status} (intento ${attempts})`);
+
+      if (statusResult.status === 'completed' && statusResult.imageUrl) {
+        clearInterval(timer);
+        console.log(`[Generate-Angles] [Local-Poll] Predicción ${predictionId} completada. Descargando imagen...`);
+
+        const imgResponse = await fetch(statusResult.imageUrl);
+        if (!imgResponse.ok) {
+          throw new Error(`Fallo al descargar la imagen (${imgResponse.status})`);
+        }
+        const imgBlob = await imgResponse.blob();
+
+        const timestamp = Date.now();
+        const fileName = `${userId}/${avatarId}_${key}_${timestamp}.webp`;
+        console.log(`[Generate-Angles] [Local-Poll] Subiendo imagen a Supabase Storage: ${fileName}`);
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(fileName, imgBlob, { contentType: 'image/webp', upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
+        console.log(`[Generate-Angles] [Local-Poll] Imagen disponible en URL pública: ${publicUrl}`);
+
+        const { error: updateError } = await supabase
+          .from('avatars')
+          .update({ [key]: publicUrl })
+          .eq('id', avatarId);
+
+        if (updateError) throw updateError;
+
+        console.log(`[Generate-Angles] [Local-Poll] Avatar ${avatarId} actualizado correctamente en DB para ${key}.`);
+      } else if (statusResult.status === 'failed') {
+        clearInterval(timer);
+        console.error(`[Generate-Angles] [Local-Poll] La predicción ${predictionId} falló: ${statusResult.error}`);
+      }
+    } catch (err) {
+      console.error(`[Generate-Angles] [Local-Poll] Error en el intento ${attempts} de sondeo:`, err);
+    }
+  }, interval);
+}
+
 export async function POST(req: Request) {
   try {
     const { avatarId } = await req.json();
@@ -102,7 +182,8 @@ export async function POST(req: Request) {
 
     if (VTON_PROVIDER === 'replicate') {
       const { submitReplicatePose } = await import('@/lib/replicate');
-      console.log(`[Generate-Angles] Iniciando generación asíncrona con Replicate para avatar: ${avatarId}`);
+      console.log(`[Generate-Angles] Iniciando generación asíncrona con Replicate para avatar: ${avatarId} | Modo local: ${isHostLocal}`);
+      const enqueuedPredictions: { key: string; predictionId: string }[] = [];
       try {
         await Promise.all(
           GENERATIONS.map(async (gen) => {
@@ -117,20 +198,39 @@ export async function POST(req: Request) {
               width: 768,
               height: 1024,
               isAngle: true,
-              webhook: webhookUrl
+              webhook: isHostLocal ? undefined : webhookUrl
             });
 
             if (!repResult.success || !repResult.generationId) {
               throw new Error(`Fallo en Replicate para ${gen.key}: ${repResult.error}`);
             }
 
-            console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${repResult.generationId}`);
+            const predId = repResult.generationId.replace('replicate_pose_p_', '');
+            console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${predId}`);
+
+            enqueuedPredictions.push({ key: gen.key, predictionId: predId });
+
+            if (isHostLocal) {
+              pollAndSaveReplicate(
+                predId,
+                avatar.id,
+                avatar.user_id,
+                gen.key,
+                process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                process.env.SUPABASE_SERVICE_ROLE_KEY!
+              );
+            }
           })
         );
 
         return NextResponse.json({
           success: true,
-          message: 'Generación iniciada con éxito en Replicate (los resultados se recibirán vía webhook).'
+          message: isHostLocal
+            ? 'Generación iniciada con éxito en Replicate (ambiente local detectado: sondeando resultados en background).'
+            : 'Generación iniciada con éxito en Replicate (los resultados se recibirán vía webhook).',
+          predictions: enqueuedPredictions,
+          avatarId: avatar.id,
+          userId: avatar.user_id
         }, { status: 202 });
       } catch (bgError: any) {
         console.error('[Generate-Angles] Error crítico al encolar en Replicate:', bgError);

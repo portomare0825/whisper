@@ -13,6 +13,9 @@ export default function NewAvatarPage() {
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [generatingAngles, setGeneratingAngles] = useState(false);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState(0);
   const [formData, setFormData] = useState({
     name: '',
     personality: '',
@@ -335,11 +338,70 @@ export default function NewAvatarPage() {
 
       if (newAvatar) {
         try {
-          await fetch('/api/avatars/generate-angles', {
+          const genResponse = await fetch('/api/avatars/generate-angles', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ avatarId: newAvatar.id })
           });
+
+          if (genResponse.ok) {
+            const genData = await genResponse.json();
+            const predictions = genData.predictions;
+
+            if (predictions && Array.isArray(predictions) && predictions.length > 0) {
+              setGeneratingAngles(true);
+              setCompletedCount(0);
+              setGenerationProgress(0);
+
+              const totalPredictions = predictions.length;
+              const completedPredictions = new Set<string>();
+
+              // Timeout de seguridad de 60 segundos
+              const safetyTimeout = setTimeout(() => {
+                console.warn('[NewAvatar] Sondeo de expresiones alcanzó el límite de tiempo seguro.');
+                setGeneratingAngles(false);
+                router.push('/dashboard');
+                router.refresh();
+              }, 60000);
+
+              const checkInterval = setInterval(async () => {
+                try {
+                  const checkPromises = predictions.map(async (pred) => {
+                    if (completedPredictions.has(pred.key)) return;
+
+                    const res = await fetch(`/api/avatars/check-status?predictionId=${pred.predictionId}&avatarId=${newAvatar.id}&userId=${newAvatar.user_id}&key=${pred.key}`);
+                    if (res.ok) {
+                      const statusData = await res.json();
+                      if (statusData.status === 'completed') {
+                        completedPredictions.add(pred.key);
+                      } else if (statusData.status === 'failed') {
+                        console.error(`[NewAvatar] Predicción fallida en Replicate para ${pred.key}:`, statusData.error);
+                        completedPredictions.add(pred.key);
+                      }
+                    }
+                  });
+
+                  await Promise.all(checkPromises);
+
+                  const count = completedPredictions.size;
+                  setCompletedCount(count);
+                  setGenerationProgress((count / totalPredictions) * 100);
+
+                  if (count >= totalPredictions) {
+                    clearInterval(checkInterval);
+                    clearTimeout(safetyTimeout);
+                    setGeneratingAngles(false);
+                    router.push('/dashboard');
+                    router.refresh();
+                  }
+                } catch (checkErr) {
+                  console.error('Error sondeando predicciones desde el cliente:', checkErr);
+                }
+              }, 3000);
+
+              return; // Salir aquí para esperar el progreso
+            }
+          }
         } catch (err) {
           console.error('Error disparando generación de ángulos:', err);
         }
@@ -716,6 +778,44 @@ export default function NewAvatarPage() {
           <Sparkles className="w-5 h-5" />
         </button>
       </form>
+
+      {/* Cargando progreso de generación de expresiones */}
+      {generatingAngles && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center z-50 p-6 animate-in fade-in duration-300">
+          <div className="bg-gradient-to-br from-white/10 to-white/5 border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-2xl text-center space-y-6">
+            <div className="relative w-24 h-24 mx-auto">
+              <div className="absolute inset-0 border-4 border-primary/20 rounded-full" />
+              <div className="absolute inset-0 border-4 border-t-primary rounded-full animate-spin" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-white flex items-center justify-center gap-2">
+                Generando Expresiones Mágicas 🪄
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Estamos creando las 6 imágenes faciales del avatar (alegre, triste, perfil, etc.) usando IA de alta fidelidad.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <div className="h-2 w-full bg-white/5 border border-white/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-gradient-to-r from-primary to-amber-400 rounded-full transition-all duration-500" 
+                  style={{ width: `${generationProgress}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground font-semibold">
+                <span>{Math.round(generationProgress)}% Completado</span>
+                <span>{completedCount} de 6 imágenes</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 italic">
+              Esto tomará unos 15 segundos. Por favor, no cierres esta pestaña.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
