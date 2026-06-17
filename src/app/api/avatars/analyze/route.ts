@@ -33,6 +33,110 @@ function getImageDimensions(buffer: Buffer) {
   return null;
 }
 
+interface VisionProfile {
+  name?: string;
+  personality?: string;
+  physical_description?: string;
+  system_prompt?: string;
+  ymin?: number;
+  xmin?: number;
+  ymax?: number;
+  xmax?: number;
+}
+
+function parseRobustJSON(text: string): VisionProfile {
+  // 1. Limpieza inicial: quitar fences de markdown
+  let cleaned = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+  // 2. Intento de parseo directo
+  try {
+    const parsed = JSON.parse(cleaned);
+    if (parsed && typeof parsed === 'object') {
+      return parsed;
+    }
+  } catch (e) {}
+
+  // 3. Intento de extraer el bloque {...} principal (remueve texto introductorio/conclusión)
+  try {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      const jsonSub = cleaned.slice(start, end + 1);
+      const parsed = JSON.parse(jsonSub);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+
+  // 4. Intento con limpieza de saltos de línea dentro de las cadenas del JSON
+  try {
+    const start = cleaned.indexOf('{');
+    const end = cleaned.lastIndexOf('}');
+    if (start !== -1 && end !== -1 && end > start) {
+      let jsonSub = cleaned.slice(start, end + 1);
+      // Reemplazar saltos de línea reales dentro de valores de comillas por \n
+      jsonSub = jsonSub.replace(/:\s*"([^"]*)"/g, (match, p1) => {
+        return ': "' + p1.replace(/\n/g, '\\n').replace(/\r/g, '\\r') + '"';
+      });
+      // Quitar comas colgadas (trailing commas) antes de llaves de cierre
+      jsonSub = jsonSub.replace(/,\s*([}\]])/g, '$1');
+      
+      const parsed = JSON.parse(jsonSub);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    }
+  } catch (e) {}
+
+  // 5. Fallback definitivo: extracción por expresiones regulares (Regex) campo por campo
+  console.warn('Fallo el parseo JSON en /api/avatars/analyze, aplicando extracción por Regex.');
+  
+  const extractString = (field: string): string => {
+    // 1. Intento estándar con comillas bien formadas y escapes
+    const regex = new RegExp(`"${field}"\\s*:\\s*"([^"]*(?:\\\\"[^"]*)*)"`, 's');
+    const match = cleaned.match(regex);
+    if (match && match[1]) {
+      return match[1]
+        .replace(/\\"/g, '"')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .trim();
+    }
+
+    // 2. Fallback súper robusto en caso de comillas internas no escapadas:
+    // Captura todo desde el inicio del valor hasta el inicio de la siguiente clave conocida (o llave de cierre)
+    const fallbackRegex = new RegExp(`"${field}"\\s*:\\s*["']?(.*?)(?:["']?\\s*(?:,\\s*"[a-zA-Z0-9_-]+"\\s*:|\\s*}))`, 's');
+    const fallbackMatch = cleaned.match(fallbackRegex);
+    if (fallbackMatch && fallbackMatch[1]) {
+      return fallbackMatch[1]
+        .replace(/\\"/g, '"')
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .trim();
+    }
+
+    return '';
+  };
+
+  const extractNumber = (field: string): number | undefined => {
+    const regex = new RegExp(`"${field}"\\s*:\\s*(\\d+)`, 'i');
+    const match = cleaned.match(regex);
+    return match && match[1] ? parseInt(match[1], 10) : undefined;
+  };
+
+  return {
+    name: extractString('name'),
+    personality: extractString('personality'),
+    physical_description: extractString('physical_description'),
+    system_prompt: extractString('system_prompt'),
+    ymin: extractNumber('ymin'),
+    xmin: extractNumber('xmin'),
+    ymax: extractNumber('ymax'),
+    xmax: extractNumber('xmax'),
+  };
+}
+
 export async function POST(req: Request) {
   try {
     const { imageBase64, mimeType } = await req.json();
@@ -59,33 +163,47 @@ export async function POST(req: Request) {
     // Usar OpenRouter con Gemini 2.5 Flash
     const url = "https://openrouter.ai/api/v1/chat/completions";
 
+    const systemInstruction = `
+      Eres un psicólogo y escritor creativo experto en perfiles de personajes para juegos de rol de inteligencia artificial.
+      Tu tarea es analizar la imagen proporcionada de un avatar y generar un perfil creativo completo y localizar el rostro principal.
+      
+      Debes responder ÚNICAMENTE con un objeto JSON válido (sin formato Markdown, sin texto introductorio ni de conclusión) con la siguiente estructura (todas las respuestas de texto en español):
+      {
+        "name": "Un nombre extremadamente atractivo, original y con gran frescura y variedad en español (evita absolutamente clichés típicos de siempre como Camila, Valeria, Lucas o Sofía). Sugiere nombres modernos, elegantes, exóticos, clásicos recuperados o con un toque de fantasía que encajen a la perfección con la etnia, estilo y rasgos visuales del avatar en la foto (ejemplo: Aitana, Dante, Kenzo, Bianca, Amira, Gael, Elio, Ainhoa, Liam, Kayla, etc.).",
+        "personality": "Una descripción muy atractiva de su personalidad y rasgos de comportamiento (mínimo 2 líneas).",
+        "physical_description": "Describe de forma exhaustiva pero amigable la apariencia física del personaje en español cubriendo: Edad estimada, complexión/contextura, estatura, rasgos faciales (labios, nariz, ojos, cejas), color y tipo de cabello, color de ojos, ropa/estilo y vibra/iluminación general. Esta descripción servirá para recrear al avatar de forma consistente. Prohibido usar palabras como 3D, dibujo o animación.",
+        "system_prompt": "Instrucciones de comportamiento detalladas (3-4 líneas) escritas en segunda persona para guiar a la IA durante el chat de rol.",
+        "ymin": entero de 0 a 1000 (borde superior del rostro),
+        "xmin": entero de 0 a 1000 (borde izquierdo del rostro),
+        "ymax": entero de 0 a 1000 (borde inferior del rostro),
+        "xmax": entero de 0 a 1000 (borde derecho del rostro)
+      }
+    `.trim();
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${openrouterKey}`,
+        'HTTP-Referer': 'http://localhost:3000',
+        'X-Title': 'AvatarChat Pro'
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         response_format: { type: "json_object" },
+        temperature: 0.2,
+        max_tokens: 1500,
         messages: [
+          {
+            role: "system",
+            content: systemInstruction
+          },
           {
             role: "user",
             content: [
               {
                 type: "text",
-                text: `Analiza detalladamente esta foto de avatar. Genera un perfil creativo completo y localiza el rostro principal.
-                Debes responder ÚNICAMENTE con un objeto JSON válido con la siguiente estructura (todas las respuestas de texto en español):
-                {
-                  "name": "Genera un nombre extremadamente atractivo, original y con gran frescura y variedad en español (evita absolutamente clichés típicos de siempre como Camila, Valeria, Lucas o Sofía). Puedes sugerir nombres modernos, elegantes, exóticos, clásicos recuperados o con un toque de fantasía que encajen a la perfección con la etnia, estilo y rasgos visuales del avatar en la foto (ejemplo: Aitana, Dante, Kenzo, Bianca, Amira, Gael, Elio, Ainhoa, Liam, Kayla, etc.).",
-                  "personality": "Una descripción muy atractiva de su personalidad y rasgos de comportamiento (mínimo 2 líneas).",
-                  "physical_description": "Describe exhaustivamente la apariencia física del personaje cubriendo los pilares de consistencia visual: Edad, contextura, estatura, estructura facial exacta (nariz, labios, mandíbula, cejas), tipo/color/estilo de cabello, color y forma de ojos, textura de la piel (lunares, pecas), ropa/estilo y vibra/iluminación general. Esta descripción debe ser lo suficientemente detallada para que un motor de IA pueda dibujar exactamente a la misma persona desde otros ángulos. PROHIBIDO usar palabras como 3D, dibujo o animación.",
-                  "system_prompt": "Instrucciones de comportamiento detalladas (3-4 líneas) escritas en segunda persona para guiar a la IA.",
-                  "ymin": integer (0-1000 indicating the top edge of the face),
-                  "xmin": integer (0-1000 indicating the left edge of the face),
-                  "ymax": integer (0-1000 indicating the bottom edge of the face),
-                  "xmax": integer (0-1000 indicating the right edge of the face)
-                }`
+                text: "Analiza detalladamente esta foto de avatar, genera su perfil y localiza su rostro en formato JSON."
               },
               {
                 type: "image_url",
@@ -107,10 +225,14 @@ export async function POST(req: Request) {
     }
 
     let text = result.choices?.[0]?.message?.content || '';
-    text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
 
     try {
-      const parsed = JSON.parse(text);
+      const parsed = parseRobustJSON(text);
+
+      // Si no logramos extraer absolutamente nada de texto, lanzar error
+      if (!parsed.name && !parsed.personality && !parsed.physical_description) {
+        throw new Error('No se pudo extraer ningún campo válido de la respuesta.');
+      }
 
       let faceBox = null;
       if (dims && parsed.ymin !== undefined && parsed.xmin !== undefined && parsed.ymax !== undefined && parsed.xmax !== undefined) {
@@ -144,15 +266,18 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json({
-        name: parsed.name?.trim(),
-        personality: parsed.personality?.trim(),
-        physical_description: parsed.physical_description?.trim(),
-        system_prompt: parsed.system_prompt?.trim(),
+        name: parsed.name?.trim() || '',
+        personality: parsed.personality?.trim() || '',
+        physical_description: parsed.physical_description?.trim() || '',
+        system_prompt: parsed.system_prompt?.trim() || '',
         ...(faceBox || {})
       });
-    } catch (parseError) {
+    } catch (parseError: any) {
       console.error('Error parsing JSON from Vision API:', parseError, text);
-      return NextResponse.json({ description: text.trim() });
+      return NextResponse.json(
+        { error: `Error al analizar la estructura del perfil: ${parseError.message || parseError}` },
+        { status: 422 }
+      );
     }
   } catch (err: any) {
     console.error('Error en /api/avatars/analyze:', err);
