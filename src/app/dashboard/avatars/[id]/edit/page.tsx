@@ -236,13 +236,18 @@ export default function EditAvatarPage() {
         }
         // Disparar generación de ángulos y esperar a que termine
         try {
-          await fetch('/api/avatars/generate-angles', {
+          const genResponse = await fetch('/api/avatars/generate-angles', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ avatarId })
           });
-        } catch (err) {
+          if (!genResponse.ok) {
+            const errorData = await genResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Error interno en la generación de expresiones');
+          }
+        } catch (err: any) {
           console.error('Error disparando generación de ángulos:', err);
+          throw new Error(`Se guardó el avatar, pero falló la generación de las 6 expresiones faciales: ${err.message}`);
         }
       }
 

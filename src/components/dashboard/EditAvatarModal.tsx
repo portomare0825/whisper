@@ -169,13 +169,18 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
       if (isImageChanged) {        
         // Disparar generación de ángulos y esperar
         try {
-          await fetch('/api/avatars/generate-angles', {
+          const genResponse = await fetch('/api/avatars/generate-angles', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ avatarId: avatar.id })
           });
-        } catch (err) {
+          if (!genResponse.ok) {
+            const errorData = await genResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || 'Error interno en la generación de expresiones');
+          }
+        } catch (err: any) {
           console.error('Error generando ángulos:', err);
+          throw new Error(`Se guardaron los cambios del avatar, pero falló la generación de las 6 expresiones faciales: ${err.message}`);
         }
       }
 

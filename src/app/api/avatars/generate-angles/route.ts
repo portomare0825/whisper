@@ -292,7 +292,8 @@ export async function POST(req: Request) {
           });
 
           if (!response.ok) {
-            throw new Error(`Error en fal.ai para ${gen.key}: ${response.status}`);
+            const errText = await response.text();
+            throw new Error(`Error en fal.ai para ${gen.key}: HTTP ${response.status} - ${errText}`);
           }
 
           let data = await response.json();
@@ -358,11 +359,14 @@ export async function POST(req: Request) {
       );
 
       const updates: Record<string, string> = {};
+      const errors: string[] = [];
       for (const result of results) {
         if (result.status === 'fulfilled') {
           updates[result.value.key] = result.value.url;
         } else {
-          console.error(`[Generate-Angles] Error generando ángulo:`, result.reason);
+          const errMsg = result.reason?.message || String(result.reason);
+          console.error(`[Generate-Angles] Error generando ángulo:`, errMsg);
+          errors.push(errMsg);
         }
       }
 
@@ -375,13 +379,22 @@ export async function POST(req: Request) {
 
         if (updateError) {
           console.error('[Generate-Angles] Error actualizando DB:', updateError);
+          return NextResponse.json({ error: `Error actualizando base de datos con las imágenes generadas: ${updateError.message}` }, { status: 500 });
         } else {
           console.log(`[Generate-Angles] Avatar ${avatarId} actualizado correctamente.`);
         }
       }
-    } catch (bgError) {
+
+      if (Object.keys(updates).length === 0) {
+        return NextResponse.json({
+          error: `No se pudo generar ninguna imagen de expresiones del avatar. Errores de Fal.ai:\n${errors.join('\n')}`
+        }, { status: 500 });
+      } else if (errors.length > 0) {
+        console.warn(`[Generate-Angles] Se generaron con éxito ${Object.keys(updates).length} de ${GENERATIONS.length} imágenes. Errores en las demás:`, errors);
+      }
+    } catch (bgError: any) {
       console.error('[Generate-Angles] Error crítico en background:', bgError);
-      return NextResponse.json({ error: 'Error interno en generación' }, { status: 500 });
+      return NextResponse.json({ error: `Error interno de servidor en generación: ${bgError.message || bgError}` }, { status: 500 });
     }
 
     return NextResponse.json({ success: true, message: 'Procesamiento completado' }, { status: 200 });

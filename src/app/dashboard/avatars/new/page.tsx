@@ -397,6 +397,7 @@ export default function NewAvatarPage() {
 
               const totalPredictions = predictions.length;
               const completedPredictions = new Set<string>();
+              const failedPredictions = new Map<string, string>();
 
               // Timeout de seguridad de 60 segundos
               const safetyTimeout = setTimeout(() => {
@@ -409,32 +410,63 @@ export default function NewAvatarPage() {
               const checkInterval = setInterval(async () => {
                 try {
                   const checkPromises = predictions.map(async (pred) => {
-                    if (completedPredictions.has(pred.key)) return;
+                    if (completedPredictions.has(pred.key) || failedPredictions.has(pred.key)) return;
 
-                    const res = await fetch(`/api/avatars/check-status?predictionId=${pred.predictionId}&avatarId=${newAvatar.id}&userId=${newAvatar.user_id}&key=${pred.key}`);
-                    if (res.ok) {
-                      const statusData = await res.json();
-                      if (statusData.status === 'completed') {
-                        completedPredictions.add(pred.key);
-                      } else if (statusData.status === 'failed') {
-                        console.error(`[NewAvatar] Predicción fallida en Replicate para ${pred.key}:`, statusData.error);
-                        completedPredictions.add(pred.key);
+                    try {
+                      const res = await fetch(`/api/avatars/check-status?predictionId=${pred.predictionId}&avatarId=${newAvatar.id}&userId=${newAvatar.user_id}&key=${pred.key}`);
+                      if (res.ok) {
+                        const statusData = await res.json();
+                        if (statusData.status === 'completed') {
+                          completedPredictions.add(pred.key);
+                        } else if (statusData.status === 'failed') {
+                          console.error(`[NewAvatar] Predicción fallida en Replicate para ${pred.key}:`, statusData.error);
+                          failedPredictions.set(pred.key, statusData.error || 'Error desconocido en Replicate');
+                        }
+                      } else {
+                        const statusData = await res.json().catch(() => ({}));
+                        const errMsg = statusData.error || `Error HTTP ${res.status}`;
+                        console.error(`[NewAvatar] Error en check-status para ${pred.key}:`, errMsg);
+                        failedPredictions.set(pred.key, errMsg);
                       }
+                    } catch (fetchErr: any) {
+                      console.error(`[NewAvatar] Excepción de red en check-status para ${pred.key}:`, fetchErr);
+                      failedPredictions.set(pred.key, fetchErr.message || 'Error de conexión');
                     }
                   });
 
                   await Promise.all(checkPromises);
 
-                  const count = completedPredictions.size;
-                  setCompletedCount(count);
-                  setGenerationProgress((count / totalPredictions) * 100);
+                  const successCount = completedPredictions.size;
+                  const failedCount = failedPredictions.size;
+                  const totalProcessed = successCount + failedCount;
 
-                  if (count >= totalPredictions) {
+                  setCompletedCount(successCount);
+                  setGenerationProgress((totalProcessed / totalPredictions) * 100);
+
+                  if (totalProcessed >= totalPredictions) {
                     clearInterval(checkInterval);
                     clearTimeout(safetyTimeout);
                     setGeneratingAngles(false);
-                    router.push('/dashboard');
-                    router.refresh();
+
+                    if (failedCount === totalPredictions) {
+                      // Todas las expresiones fallaron
+                      const errorDetails = Array.from(failedPredictions.entries())
+                        .map(([key, err]) => `• ${key}: ${err}`)
+                        .join('\n');
+                      setError(`El avatar base se creó correctamente, pero falló la generación de todas sus expresiones faciales de Replicate:\n${errorDetails}`);
+                    } else if (failedCount > 0) {
+                      // Algunas expresiones fallaron, pero no todas
+                      const errorDetails = Array.from(failedPredictions.entries())
+                        .map(([key, err]) => `• ${key}: ${err}`)
+                        .join('\n');
+                      console.warn(`[NewAvatar] Algunas expresiones faciales fallaron al generarse:\n${errorDetails}`);
+                      router.push('/dashboard');
+                      router.refresh();
+                    } else {
+                      // Todo exitoso
+                      router.push('/dashboard');
+                      router.refresh();
+                    }
                   }
                 } catch (checkErr) {
                   console.error('Error sondeando predicciones desde el cliente:', checkErr);
