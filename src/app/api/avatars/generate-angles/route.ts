@@ -140,10 +140,11 @@ export async function POST(req: Request) {
 
     console.log(`[Generate-Angles] URL base para webhooks resuelta: ${webhookBaseUrl}`);
 
-    // Si RunPod está configurado, usamos la ejecución asíncrona con webhooks
+    // Determinamos el proveedor de generación en base a VTON_PROVIDER
+    const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
     const RUNPOD_ENDPOINT_ID = process.env.RUNPOD_ENDPOINT_ID;
 
-    if (RUNPOD_ENDPOINT_ID) {
+    if (VTON_PROVIDER === 'runpod' && RUNPOD_ENDPOINT_ID) {
       console.log(`[Generate-Angles] Usando RunPod Serverless asíncrono para avatar: ${avatarId}`);
       try {
         const { queueRunPodJob } = await import('@/lib/runpod');
@@ -179,9 +180,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: `Fallo al encolar en RunPod: ${runpodErr.message}` }, { status: 500 });
       }
     }
-
-    // Fallback: Si no está configurado RunPod, usamos Replicate o Fal.ai
-    const VTON_PROVIDER = process.env.VTON_PROVIDER || 'pixel';
 
     if (VTON_PROVIDER === 'replicate') {
       const { submitReplicatePose } = await import('@/lib/replicate');
@@ -241,7 +239,7 @@ export async function POST(req: Request) {
       }
     }
 
-    console.log('[Generate-Angles] RunPod/Replicate no configurado. Usando fallback síncrono de Fal.ai.');
+    console.log('[Generate-Angles] Usando fallback síncrono de Fal.ai.');
     const FAL_KEY = process.env.FAL_KEY;
     if (!FAL_KEY) {
       return NextResponse.json({ error: 'FAL_KEY no configurada' }, { status: 500 });
