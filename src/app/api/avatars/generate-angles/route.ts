@@ -183,46 +183,81 @@ export async function POST(req: Request) {
 
     if (VTON_PROVIDER === 'replicate') {
       const { submitReplicatePose } = await import('@/lib/replicate');
-      console.log(`[Generate-Angles] Iniciando generación asíncrona con Replicate para avatar: ${avatarId} | Modo local: ${isHostLocal}`);
+      console.log(`[Generate-Angles] Iniciando generación asíncrona secuencial con Replicate para avatar: ${avatarId}`);
+      
       const enqueuedPredictions: { key: string; predictionId: string }[] = [];
+      const errors: string[] = [];
+      
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
       try {
-        await Promise.all(
-          GENERATIONS.map(async (gen) => {
-            const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+        for (const gen of GENERATIONS) {
+          const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+          const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
 
-            const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+          let attempt = 0;
+          let success = false;
 
-            const repResult = await submitReplicatePose({
-              faceImageUrl: avatar.base_image_url,
-              prompt: finalPrompt,
-              physicalDescription: physicalDesc,
-              width: 768,
-              height: 1024,
-              isAngle: true,
-              webhook: isHostLocal ? undefined : webhookUrl
-            });
+          while (attempt < 3 && !success) {
+            attempt++;
+            try {
+              const repResult = await submitReplicatePose({
+                faceImageUrl: avatar.base_image_url,
+                prompt: finalPrompt,
+                physicalDescription: physicalDesc,
+                width: 768,
+                height: 1024,
+                isAngle: true,
+                webhook: isHostLocal ? undefined : webhookUrl
+              });
 
-            if (!repResult.success || !repResult.generationId) {
-              throw new Error(`Fallo en Replicate para ${gen.key}: ${repResult.error}`);
+              if (repResult.success && repResult.generationId) {
+                const predId = repResult.generationId.replace('replicate_pose_p_', '');
+                console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${predId} (intento ${attempt})`);
+                
+                enqueuedPredictions.push({ key: gen.key, predictionId: predId });
+                success = true;
+
+                if (isHostLocal) {
+                  pollAndSaveReplicate(
+                    predId,
+                    avatar.id,
+                    avatar.user_id,
+                    gen.key,
+                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                    process.env.SUPABASE_SERVICE_ROLE_KEY!
+                  );
+                }
+              } else {
+                const errMsg = repResult.error || 'Error desconocido';
+                const isThrottled = errMsg.toLowerCase().includes('throttled') || errMsg.includes('429');
+                
+                if (isThrottled && attempt < 3) {
+                  console.warn(`[Generate-Angles] Replicate limitó la petición para ${gen.key}. Esperando 5 segundos para reintentar (intento ${attempt})...`);
+                  await delay(5000);
+                } else {
+                  throw new Error(errMsg);
+                }
+              }
+            } catch (err: any) {
+              console.error(`[Generate-Angles] Error en Replicate para ${gen.key} (intento ${attempt}):`, err.message || err);
+              if (attempt >= 3) {
+                errors.push(`${gen.key}: ${err.message || err}`);
+              }
             }
+          }
 
-            const predId = repResult.generationId.replace('replicate_pose_p_', '');
-            console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${predId}`);
+          // Pequeño delay de 2 segundos para evitar ráfagas instantáneas
+          if (success) {
+            await delay(2000);
+          }
+        }
 
-            enqueuedPredictions.push({ key: gen.key, predictionId: predId });
-
-            if (isHostLocal) {
-              pollAndSaveReplicate(
-                predId,
-                avatar.id,
-                avatar.user_id,
-                gen.key,
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.SUPABASE_SERVICE_ROLE_KEY!
-              );
-            }
-          })
-        );
+        if (enqueuedPredictions.length === 0) {
+          return NextResponse.json({ 
+            error: `Límite de tasa excedido en Replicate. No se pudo encolar ninguna expresión. Detalles:\n${errors.join('\n')}` 
+          }, { status: 429 });
+        }
 
         return NextResponse.json({
           success: true,
