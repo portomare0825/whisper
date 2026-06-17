@@ -233,6 +233,46 @@ export default function NewAvatarPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuario no autenticado');
 
+      // Validar que el nombre no esté repetido
+      const cleanName = formData.name.trim();
+      if (!cleanName) {
+        throw new Error('Por favor, introduce un nombre válido para el avatar.');
+      }
+
+      // 1. Comprobar si el propio usuario ya tiene un avatar con este nombre
+      const { data: existingUserAvatar, error: userCheckError } = await supabase
+        .from('avatars')
+        .select('id')
+        .eq('user_id', user.id)
+        .ilike('name', cleanName)
+        .maybeSingle();
+
+      if (userCheckError) {
+        console.error('Error comprobando duplicado de usuario:', userCheckError);
+      }
+
+      if (existingUserAvatar) {
+        throw new Error(`Ya tienes un avatar creado con el nombre "${cleanName}". Por favor, elige otro nombre.`);
+      }
+
+      // 2. Si es público, comprobar si ya existe un avatar público con ese nombre en la comunidad
+      if (formData.visibility === 'public') {
+        const { data: existingPublicAvatar, error: publicCheckError } = await supabase
+          .from('avatars')
+          .select('id')
+          .eq('visibility', 'public')
+          .ilike('name', cleanName)
+          .maybeSingle();
+
+        if (publicCheckError) {
+          console.error('Error comprobando duplicado público:', publicCheckError);
+        }
+
+        if (existingPublicAvatar) {
+          throw new Error(`Ya existe un avatar público en la comunidad con el nombre "${cleanName}". Por favor, elige un nombre único.`);
+        }
+      }
+
       // Validar límites y comprobar permisos de administrador según el plan
       const { data: profile } = await supabase
         .from('profiles')
