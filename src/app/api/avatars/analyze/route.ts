@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@supabase/supabase-js';
 
 // Helper para obtener dimensiones de JPEG y PNG
 function getImageDimensions(buffer: Buffer) {
@@ -139,7 +140,7 @@ function parseRobustJSON(text: string): VisionProfile {
 
 export async function POST(req: Request) {
   try {
-    const { imageBase64, mimeType } = await req.json();
+    const { imageBase64, mimeType, userId } = await req.json();
 
     if (!imageBase64 || !mimeType) {
       return NextResponse.json(
@@ -160,13 +161,55 @@ export async function POST(req: Request) {
     const buffer = Buffer.from(imageBase64, 'base64');
     const dims = getImageDimensions(buffer);
 
+    // 2. Obtener nombres de avatares ya existentes (del usuario y públicos) para evitar duplicados
+    let existingNames: string[] = [];
+    if (userId) {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+
+        // Consultar avatares propios del usuario
+        const { data: userAvatars } = await supabase
+          .from('avatars')
+          .select('name')
+          .eq('user_id', userId);
+
+        if (userAvatars) {
+          existingNames.push(...userAvatars.map(av => av.name.trim()));
+        }
+
+        // Consultar avatares públicos generales
+        const { data: publicAvatars } = await supabase
+          .from('avatars')
+          .select('name')
+          .eq('visibility', 'public');
+
+        if (publicAvatars) {
+          existingNames.push(...publicAvatars.map(av => av.name.trim()));
+        }
+
+        // Filtrar duplicados y nombres vacíos
+        existingNames = Array.from(new Set(existingNames.filter(Boolean)));
+        console.log(`[Analyze] Nombres existentes excluidos de la generación: ${existingNames.join(', ')}`);
+      } catch (dbErr) {
+        console.error('[Analyze] Error consultando nombres existentes en Supabase:', dbErr);
+      }
+    }
+
     // Usar OpenRouter con Gemini 2.5 Flash
     const url = "https://openrouter.ai/api/v1/chat/completions";
+
+    const forbiddenNamesPrompt = existingNames.length > 0
+      ? `\nIMPORTANTE: Los siguientes nombres ya están ocupados en la base de datos, por lo que está COMPLETAMENTE PROHIBIDO utilizarlos. Debes generar un nombre de avatar totalmente diferente y creativo: ${existingNames.join(', ')}`
+      : '';
 
     const systemInstruction = `
       Eres un psicólogo y escritor creativo experto en perfiles de personajes para juegos de rol de inteligencia artificial.
       Tu tarea es analizar la imagen proporcionada de un avatar y generar un perfil creativo completo y localizar el rostro principal.
-      
+      ${forbiddenNamesPrompt}
+
       Debes responder ÚNICAMENTE con un objeto JSON válido (sin formato Markdown, sin texto introductorio ni de conclusión) con la siguiente estructura (todas las respuestas de texto en español):
       {
         "name": "Un nombre extremadamente atractivo, original y con gran frescura y variedad en español (evita absolutamente clichés típicos de siempre como Camila, Valeria, Lucas o Sofía). Sugiere nombres modernos, elegantes, exóticos, clásicos recuperados o con un toque de fantasía que encajen a la perfección con la etnia, estilo y rasgos visuales del avatar en la foto (ejemplo: Aitana, Dante, Kenzo, Bianca, Amira, Gael, Elio, Ainhoa, Liam, Kayla, etc.).",
@@ -191,7 +234,7 @@ export async function POST(req: Request) {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         response_format: { type: "json_object" },
-        temperature: 0.2,
+        temperature: 0.4, // Subido ligeramente de 0.2 a 0.4 para dar mayor creatividad y variedad de nombres
         max_tokens: 1500,
         messages: [
           {

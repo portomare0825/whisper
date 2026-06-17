@@ -179,6 +179,7 @@ export default function NewAvatarPage() {
       // Auto-analizar la foto con IA (Gemini 1.5 Flash)
       setAnalyzingImage(true);
       try {
+        const { data: { user } } = await supabase.auth.getUser();
         const base64 = await fileToBase64(compressed);
         const response = await fetch('/api/avatars/analyze', {
           method: 'POST',
@@ -188,6 +189,7 @@ export default function NewAvatarPage() {
           body: JSON.stringify({
             imageBase64: base64,
             mimeType: compressed.type,
+            userId: user?.id,
           }),
         });
 
