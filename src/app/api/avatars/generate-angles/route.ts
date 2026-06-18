@@ -4,8 +4,8 @@ import { queueRunPodJob } from '@/lib/runpod';
 
 // Lista de generaciones a realizar (con parámetros ajustados para forzar expresiones)
 const GENERATIONS = [
-  { key: 'profile_image_url', promptModifier: "side profile view, looking to the side, side face.", start_step: 1, id_weight: 0.98, type: 'profile' },
-  { key: 'back_image_url', promptModifier: "view from directly behind, showing the back of the head and shoulders, facing away from camera.", start_step: 3, id_weight: 0.9, type: 'back' },
+  { key: 'profile_image_url', promptModifier: "side profile view, looking to the side, side face.", start_step: 4, id_weight: 0.93, type: 'profile' },
+  { key: 'back_image_url', promptModifier: "view from directly behind, showing the back of the head and shoulders, facing away from camera.", start_step: 4, id_weight: 0.9, type: 'back' },
   { key: 'emotion_happy', promptModifier: "EXTREMELY HAPPY, LAUGHING OUT LOUD, HUGE WIDE SMILE, showing teeth, joyous expression, eyes crinkled with laughter.", start_step: 5, id_weight: 0.95, type: 'happy' },
   { key: 'emotion_sad', promptModifier: "CRYING, DEEPLY SAD, tears streaming down face, extremely miserable, heartbreaking expression, looking down.", start_step: 5, id_weight: 0.95, type: 'sad' },
   { key: 'emotion_angry', promptModifier: "FURIOUS, EXTREMELY ANGRY, screaming, raging, deeply furrowed brows, intense aggressive expression.", start_step: 5, id_weight: 0.95, type: 'angry' },

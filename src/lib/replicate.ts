@@ -40,17 +40,16 @@ export async function submitReplicatePose(params: {
       };
 
       if (params.expressionType === 'happy') {
-        inputPayload.smile = 1.3;
-        inputPayload.eyebrow = 0.4;
+        inputPayload.smile = 1.0;
+        inputPayload.eyebrow = 0.3;
       } else if (params.expressionType === 'sad') {
-        inputPayload.smile = -1.2;
-        inputPayload.eyebrow = -1.5;
+        inputPayload.smile = -1.0;
+        inputPayload.eyebrow = -1.0;
       } else if (params.expressionType === 'angry') {
-        inputPayload.smile = -0.7;
-        inputPayload.eyebrow = 1.6;
-        inputPayload.rotate_pitch = 4;
+        inputPayload.smile = -0.5;
+        inputPayload.eyebrow = 1.0;
       } else if (params.expressionType === 'flirty') {
-        inputPayload.smile = 0.7;
+        inputPayload.smile = 0.6;
         inputPayload.wink = 1.0;
       }
 
@@ -115,6 +114,7 @@ export async function submitReplicatePose(params: {
       // Para ángulos pregenerados de perfil/emociones de la galería, priorizamos fidelidad de identidad y cercanía
       if (params.startStep === undefined) startStep = 3;
       if (params.idWeight === undefined) idWeight = 0.85;
+      negativePrompt += ", cartoon, 3d, painting, illustration, anime, sketch, digital art, 3d render, doll, plastic skin, unreal engine, render, lowres, picsart, airbrushed, drawing, graphic, CG, draft";
     } else {
       // Detección dinámica de pose para evitar contradicciones en el prompt que causen planos cerrados
       const promptLower = finalPrompt.toLowerCase();
