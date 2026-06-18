@@ -45,57 +45,61 @@ export async function submitReplicatePose(params: {
         output_quality: 100,
       };
 
-      // ─── profile_image_url → type: 'intrigued' ────────────────────────────
-      // Expresión: intrigada/curiosa — ceja levantada, cabeza ladeada, ojo ligeramente fruncido
+      // ─── profile_image_url → type: 'intrigued' (INTRIGADA/CURIOSA) ─────────
+      // Una ceja levantada, cabeza ladeada, mirada lateral, boca cerrada
       if (params.expressionType === 'intrigued') {
-        inputPayload.smile      = -0.1;  // boca neutral/seria
-        inputPayload.eyebrow    = 12.0;  // una ceja muy levantada (máximo)
-        inputPayload.rotate_yaw = -5;    // cabeza ladeada (girando)
-        inputPayload.wink       = 6;     // un ojo ligeramente fruncido de intriga (no guiño exagerado)
-        inputPayload.pupil_x    = 2;     // mirada lateral
+        inputPayload.smile      = 0.1;   // media sonrisa sutil de misterio
+        inputPayload.eyebrow    = 8.0;   // cejas levantadas de curiosidad
+        inputPayload.wink       = 8;     // UN ojo ligeramente fruncido (intriga, no guiño)
+        inputPayload.rotate_yaw = -6;    // cabeza ladeada
+        inputPayload.pupil_x    = 3;     // mirada de reojo
+        inputPayload.aaa        = 5;     // boca ligeramente abierta de curiosidad
 
-      // ─── back_image_url → type: 'excited' ─────────────────────────────────
-      // Expresión: emoción desbordante — querer reír y llorar a la vez
+      // ─── back_image_url → type: 'excited' (EMOCIÓN DESBORDANTE) ───────────
+      // Querer reír y llorar a la vez: sonrisa grande PERO con tensión emocional
       } else if (params.expressionType === 'excited') {
-        inputPayload.smile   = 1.2;   // sonrisa enorme temblorosa
-        inputPayload.eyebrow = 7.0;   // cejas muy levantadas de sorpresa/emoción
-        inputPayload.aaa     = 50;    // boca muy abierta de emoción
-        inputPayload.blink   = -15;   // ojos muy abiertos (emoción desbordante)
-        inputPayload.pupil_y = -3;    // mirada hacia arriba (abrumada)
+        inputPayload.smile   = 1.0;   // sonrisa grande pero temblorosa
+        inputPayload.eyebrow = 6.0;   // cejas levantadas de emoción
+        inputPayload.aaa     = 30;    // boca abierta moderada (emoción, no carcajada)
+        inputPayload.blink   = 1.5;   // ojos ligeramente entrecerrados (lágrimas de emoción)
+        inputPayload.pupil_y = -2;    // mirada levemente hacia arriba
 
-      // ─── emotion_happy → type: 'happy' ────────────────────────────────────
-      // Expresión: risa genuina y contagiosa
+      // ─── emotion_happy → type: 'happy' (FELIZ / RISA) ────────────────────
+      // Risa abierta y contagiosa: boca bien abierta, ojos de risa
       } else if (params.expressionType === 'happy') {
-        inputPayload.smile   = 1.3;   // máximo smile
-        inputPayload.eyebrow = 4.0;   // cejas levantadas de alegría
-        inputPayload.aaa     = 70;    // boca muy abierta riendo
-        inputPayload.blink   = 1.0;   // ojos entrecerrados de risa (positivo = entrecerrar)
+        inputPayload.smile   = 1.3;   // máximo smile (risa total)
+        inputPayload.eyebrow = 3.0;   // cejas levantadas naturales de risa
+        inputPayload.aaa     = 80;    // boca MUY abierta riendo (diferente de excited)
+        inputPayload.blink   = 2.0;   // ojos entrecerrados de risa (arrugas de alegría)
+        inputPayload.eee     = 8;     // labios mostrando dientes en sonrisa amplia
 
-      // ─── emotion_sad → type: 'sad' ────────────────────────────────────────
-      // Expresión: llanto desconsolado
+      // ─── emotion_sad → type: 'sad' (TRISTE / LLORANDO) ───────────────────
+      // Cejas negativas = fruncidas hacia abajo = llanto real
       } else if (params.expressionType === 'sad') {
-        inputPayload.smile   = -0.3;  // boca hacia abajo (mínimo)
-        inputPayload.eyebrow = -8.0;  // cejas caídas de tristeza
-        inputPayload.blink   = 4.0;   // párpados caídos de llanto
-        inputPayload.pupil_y = -4;    // mirada hacia abajo
+        inputPayload.smile   = -0.3;  // boca hacia abajo (máximo negativo)
+        inputPayload.eyebrow = -5.0;  // cejas NEGATIVAS = caídas de tristeza (no enojo)
+        inputPayload.blink   = 3.5;   // párpados pesados de llanto
+        inputPayload.pupil_y = -5;    // mirada hacia abajo
+        inputPayload.aaa     = 8;     // boca ligeramente abierta (puchero)
 
-      // ─── emotion_angry → type: 'angry' ────────────────────────────────────
-      // Expresión: furiosa, gritando
+      // ─── emotion_angry → type: 'angry' (ENOJADA / FURIOSA) ───────────────
+      // eyebrow MUY NEGATIVO = cejas fruncidas al centro = cara de enojo
       } else if (params.expressionType === 'angry') {
-        inputPayload.smile        = -0.3;  // boca tensa/hacia abajo
-        inputPayload.eyebrow      = 12.0;  // cejas muy fruncidas al centro
-        inputPayload.aaa          = 50;    // boca abierta gritando
-        inputPayload.rotate_pitch = 3;     // cabeza inclinada adelante, intimidante
+        inputPayload.smile        = -0.3;   // boca tensa/hacia abajo
+        inputPayload.eyebrow      = -9.0;   // cejas MUY NEGATIVAS = fruncidas = ENOJO
+        inputPayload.aaa          = 45;     // boca abierta gritando
+        inputPayload.rotate_pitch = 4;      // cabeza inclinada adelante (intimidante)
+        inputPayload.eee          = 5;      // dientes apretados/mostrando
 
-      // ─── emotion_flirty → type: 'flirty' ──────────────────────────────────
-      // Expresión: éxtasis sexual — ambos ojos entrecerrados, pupilas arriba, boca entreabierta
+      // ─── emotion_flirty → type: 'flirty' (ÉXTASIS / EXCITACIÓN) ──────────
+      // Ambos párpados caídos, pupilas arriba, boca entreabierta, cabeza atrás
       } else if (params.expressionType === 'flirty') {
-        inputPayload.smile        = 0.4;   // sonrisa suave
-        inputPayload.blink        = 4.0;   // AMBOS párpados muy caídos (no wink)
-        inputPayload.aaa          = 30;    // boca entreabierta jadeando
+        inputPayload.smile        = 0.3;   // sonrisa suave
+        inputPayload.blink        = 4.5;   // AMBOS párpados muy caídos (sensual)
+        inputPayload.aaa          = 20;    // boca entreabierta jadeando
         inputPayload.pupil_y      = 5;     // pupilas hacia arriba (ojos en blanco)
-        inputPayload.eyebrow      = 3.0;   // cejas ligeramente levantadas
-        inputPayload.rotate_pitch = -4;    // cabeza levemente inclinada hacia atrás
+        inputPayload.eyebrow      = 2.0;   // cejas suavemente levantadas
+        inputPayload.rotate_pitch = -5;    // cabeza hacia atrás (rendida al placer)
       }
 
       const response = await fetch('https://api.replicate.com/v1/predictions', {

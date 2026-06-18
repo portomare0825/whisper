@@ -552,31 +552,40 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
     
     // Si el último mensaje es del avatar y tiene una emoción, actualizamos la foto
     if (lastMsg.role === 'avatar' && lastMsg.emotion_tag) {
-      const emotion = lastMsg.emotion_tag.toLowerCase();
-      // Empezamos con la imagen que tenga el avatar, pero priorizamos la base por defecto si no hace match
+      const emotion = lastMsg.emotion_tag.toLowerCase().trim();
       let newImage = currentImage;
       
-      // Mapeo de emociones detectadas por el backend a nuestras emociones clave de galería
-      if (['feliz', 'divertido', 'orgulloso'].includes(emotion)) {
+      // ── Feliz / Alegre ───────────────────────────────────────────────────────
+      if (['feliz', 'divertido', 'orgulloso', 'alegre', 'contenta', 'contento', 'satisfecha', 'satisfecho', 'riendo', 'riéndose', 'gracioso', 'graciosa'].includes(emotion)) {
         newImage = avatar.emotion_happy || newImage;
-      } else if (['triste', 'melancólico', 'avergonzado'].includes(emotion)) {
+
+      // ── Triste / Llorando ────────────────────────────────────────────────────
+      } else if (['triste', 'melancólico', 'melancólica', 'avergonzado', 'avergonzada', 'llorando', 'deprimida', 'deprimido', 'abatida', 'abatido', 'nostálgica', 'nostálgico'].includes(emotion)) {
         newImage = avatar.emotion_sad || newImage;
-      } else if (['enojado', 'furioso', 'molesto'].includes(emotion)) {
+
+      // ── Enojada / Furiosa ────────────────────────────────────────────────────
+      } else if (['enojado', 'enojada', 'furioso', 'furiosa', 'molesto', 'molesta', 'irritada', 'irritado', 'enfadada', 'enfadado', 'rabia', 'ira', 'frustrada', 'frustrado'].includes(emotion)) {
         newImage = avatar.emotion_angry || newImage;
-      } else if (['coqueto', 'seductor', 'pícaro'].includes(emotion)) {
+
+      // ── Coqueta / Excitación / Éxtasis ──────────────────────────────────────
+      } else if (['coqueto', 'coqueta', 'seductor', 'seductora', 'pícaro', 'pícara', 'excitada', 'excitado', 'caliente', 'sensual', 'apasionada', 'apasionado', 'ardiente', 'deseo', 'tentadora', 'provocadora', 'juguetona', 'traviesa'].includes(emotion)) {
         newImage = avatar.emotion_flirty || newImage;
-      } else if (['intrigado', 'curioso', 'misterioso', 'suspicaz', 'duda'].includes(emotion)) {
+
+      // ── Intrigada / Curiosa / Sospechosa ────────────────────────────────────
+      } else if (['intrigado', 'intrigada', 'curioso', 'curiosa', 'misterioso', 'misteriosa', 'suspicaz', 'duda', 'dudosa', 'escéptica', 'escéptico', 'pensativa', 'pensativo'].includes(emotion)) {
         newImage = avatar.profile_image_url || newImage;
-      } else if (['excitado', 'entusiasmado', 'eufórico', 'emocionado'].includes(emotion)) {
+
+      // ── Emocionada / Eufórica (querer reír y llorar) ─────────────────────────
+      } else if (['emocionada', 'emocionado', 'entusiasmado', 'entusiasmada', 'eufórica', 'eufórico', 'abrumada', 'abrumado', 'sorprendida', 'sorprendido', 'asombrada', 'asombrado', 'encantada', 'encantado'].includes(emotion)) {
         newImage = avatar.back_image_url || newImage;
+
       } else {
-        // Por defecto
+        // Por defecto volvemos a la imagen base
         newImage = avatar.base_image_url;
       }
       
       if (newImage && newImage !== currentImage) {
         setCurrentImage(newImage);
-        // Si no es la imagen base, asumimos que viene de fal (3:4) para ajustar el aspect ratio
         setIsFalImage(newImage !== avatar.base_image_url);
       }
     }
