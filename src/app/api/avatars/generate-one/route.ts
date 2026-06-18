@@ -46,11 +46,22 @@ export async function POST(req: Request) {
     const webhookBaseUrl = `${protocol}://${host || 'localhost:3000'}`;
     const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${key}`;
 
+    const EXPRESSION_PROMPTS: Record<string, string> = {
+      intrigued: "looking extremely intrigued and puzzled, one eyebrow dramatically raised very high, head tilted, mouth slightly open in curiosity, wide curious eyes, very expressive face",
+      excited: "OVERWHELMED WITH EXCITEMENT, on the verge of both laughing and crying at the same time, eyes glistening with tears of joy, trembling huge smile, cheeks flushed, emotionally overflowing, hands covering mouth in disbelief, pure emotional ecstasy",
+      happy: "BURSTING WITH HAPPINESS, laughing hysterically, enormous ear-to-ear smile showing all teeth, eyes completely shut from laughing so hard, cheeks raised, genuine uncontrollable laughter, pure joy",
+      sad: "SOBBING UNCONTROLLABLY, rivers of tears streaming down face, eyes red and swollen from crying, extremely miserable expression, trembling lip, deeply heartbroken, covering mouth with hand",
+      angry: "ABSOLUTELY FURIOUS, screaming at the top of lungs, face red with rage, veins visible, deeply furrowed brows pushed together hard, teeth bared, jaw clenched, maximum anger expression",
+      flirty: "extremely aroused, breathless with desire, on the verge of ecstasy, half-closed glossy eyes rolling back slightly, mouth slightly parted gasping softly, flushed cheeks, intense orgasmic build-up expression, deeply seductive and vulnerable, losing control"
+    };
+
+    const promptModifier = EXPRESSION_PROMPTS[expressionType] || "looking at camera";
+
     const repResult = await submitReplicatePose({
       faceImageUrl: avatar.base_image_url,
-      prompt: `Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`,
+      prompt: `Photorealistic, 8k resolution, cinematic lighting, ${promptModifier}, no 3d, no illustration, exactly the same person.`,
       physicalDescription: avatar.physical_description || '',
-      width: 768,
+      width: 576,
       height: 1024,
       isAngle: true,
       webhook: isHostLocal ? undefined : webhookUrl,
