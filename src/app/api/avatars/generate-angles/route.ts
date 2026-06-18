@@ -2,14 +2,14 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { queueRunPodJob } from '@/lib/runpod';
 
-// Lista de generaciones a realizar (con parámetros ajustados para forzar expresiones)
+// Lista de generaciones a realizar (expresiones MUY exageradas y marcadas)
 const GENERATIONS = [
-  { key: 'profile_image_url', promptModifier: "looking intrigued, curious expression, raised eyebrow, head slightly tilted.", start_step: 4, id_weight: 0.93, type: 'intrigued' },
-  { key: 'back_image_url', promptModifier: "looking excited, thrilled expression, wide eyes, joyful shocked face, open mouth smile.", start_step: 4, id_weight: 0.9, type: 'excited' },
-  { key: 'emotion_happy', promptModifier: "EXTREMELY HAPPY, LAUGHING OUT LOUD, HUGE WIDE SMILE, showing teeth, joyous expression, eyes crinkled with laughter.", start_step: 5, id_weight: 0.95, type: 'happy' },
-  { key: 'emotion_sad', promptModifier: "CRYING, DEEPLY SAD, tears streaming down face, extremely miserable, heartbreaking expression, looking down.", start_step: 5, id_weight: 0.95, type: 'sad' },
-  { key: 'emotion_angry', promptModifier: "FURIOUS, EXTREMELY ANGRY, screaming, raging, deeply furrowed brows, intense aggressive expression.", start_step: 5, id_weight: 0.95, type: 'angry' },
-  { key: 'emotion_flirty', promptModifier: "winking expression, playful wink, cute charming smile, friendly flirty look.", start_step: 4, id_weight: 0.93, type: 'flirty' }
+  { key: 'profile_image_url',  promptModifier: "looking extremely intrigued and puzzled, one eyebrow dramatically raised very high, head tilted, mouth slightly open in curiosity, wide curious eyes, very expressive face.", start_step: 4, id_weight: 0.90, type: 'intrigued' },
+  { key: 'back_image_url',     promptModifier: "EXTREMELY EXCITED and thrilled, jaw dropped wide open, both hands on cheeks in shock, eyes wide open as possible, eyebrows raised to maximum, pure euphoria expression, screaming with joy.", start_step: 4, id_weight: 0.88, type: 'excited' },
+  { key: 'emotion_happy',      promptModifier: "BURSTING WITH HAPPINESS, laughing hysterically, enormous ear-to-ear smile showing all teeth, eyes completely shut from laughing so hard, cheeks raised, genuine uncontrollable laughter, pure joy.", start_step: 5, id_weight: 0.92, type: 'happy' },
+  { key: 'emotion_sad',        promptModifier: "SOBBING UNCONTROLLABLY, rivers of tears streaming down face, eyes red and swollen from crying, extremely miserable expression, trembling lip, deeply heartbroken, covering mouth with hand.", start_step: 5, id_weight: 0.92, type: 'sad' },
+  { key: 'emotion_angry',      promptModifier: "ABSOLUTELY FURIOUS, screaming at the top of lungs, face red with rage, veins visible, deeply furrowed brows pushed together hard, teeth bared, jaw clenched, maximum anger expression.", start_step: 5, id_weight: 0.92, type: 'angry' },
+  { key: 'emotion_flirty',     promptModifier: "VERY FLIRTATIOUS, dramatic slow wink with one eye fully closed, seductive half-smile, playfully biting lower lip, tilted head, smoldering confident look, charming and alluring expression.", start_step: 4, id_weight: 0.90, type: 'flirty' }
 ];
 
 // Función de sondeo en segundo plano para entorno local (evita fallos de webhooks en localhost)
