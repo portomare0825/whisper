@@ -392,7 +392,8 @@ export default function NewAvatarPage() {
             setGenerationProgress(0);
 
             const genData = await genResponse.json().catch(() => ({}));
-            const predictions = genData.predictions; // [{ key: string, predictionId: string }]
+            // Nuevo flujo: encolar cada expresión de forma secuencial desde el cliente
+            const jobs: { key: string; expressionType: string }[] = genData.jobs || [];
 
             const keysToPoll = [
               'profile_image_url',
@@ -403,15 +404,43 @@ export default function NewAvatarPage() {
               'emotion_flirty'
             ];
 
-            const failedPredictions = new Set<string>();
+            // Encolar cada expresión secuencialmente (una a la vez, con 800ms de pausa entre ellas)
+            if (jobs.length > 0) {
+              (async () => {
+                for (const job of jobs) {
+                  try {
+                    const oneRes = await fetch('/api/avatars/generate-one', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        avatarId: newAvatar.id,
+                        key: job.key,
+                        expressionType: job.expressionType
+                      })
+                    });
+                    const oneData = await oneRes.json().catch(() => ({}));
+                    if (oneRes.ok) {
+                      console.log(`[NewAvatar] Encolado OK: ${job.key} (predId: ${oneData.predictionId})`);
+                    } else {
+                      console.error(`[NewAvatar] Error encolando ${job.key}:`, oneData.error);
+                    }
+                  } catch (e) {
+                    console.error(`[NewAvatar] Excepción encolando ${job.key}:`, e);
+                  }
+                  // Pausa de 800ms entre llamadas para no saturar Replicate
+                  await new Promise(resolve => setTimeout(resolve, 800));
+                }
+              })();
+            }
+
+            // Sondeo de la base de datos hasta que todas las imágenes aparezcan
             let attempts = 0;
-            const maxAttempts = 20; // 20 intentos * 3 segundos = 60 segundos de espera máxima
+            const maxAttempts = 60; // 60 * 5s = 5 minutos de espera máxima
 
             const checkInterval = setInterval(async () => {
               attempts++;
               try {
-                // 1. Consultar el estado actual en Supabase
-                const { data: avatar, error: pollError } = await supabase
+                const { data: avatarData, error: pollError } = await supabase
                   .from('avatars')
                   .select(keysToPoll.join(','))
                   .eq('id', newAvatar.id)
@@ -422,66 +451,23 @@ export default function NewAvatarPage() {
                   return;
                 }
 
-                if (avatar) {
+                if (avatarData) {
                   let completed = 0;
-                  const missingKeys: string[] = [];
-
                   keysToPoll.forEach(key => {
-                    if (avatar[key] && avatar[key].startsWith('http')) {
+                    if ((avatarData as any)[key] && (avatarData as any)[key].startsWith('http')) {
                       completed++;
-                    } else {
-                      missingKeys.push(key);
                     }
                   });
 
                   setCompletedCount(completed);
-                  
-                  const totalProcessed = completed + failedPredictions.size;
-                  setGenerationProgress((totalProcessed / keysToPoll.length) * 100);
+                  setGenerationProgress((completed / keysToPoll.length) * 100);
 
-                  // Si ya se procesaron todas (exitosas o fallidas definitivamente)
-                  if (totalProcessed >= keysToPoll.length) {
+                  if (completed >= keysToPoll.length) {
                     clearInterval(checkInterval);
                     setGeneratingAngles(false);
-
-                    if (failedPredictions.size === keysToPoll.length) {
-                      setError('No se pudo generar ninguna expresión del avatar. Todas las predicciones de Replicate fallaron.');
-                    } else if (failedPredictions.size > 0) {
-                      console.warn(`[NewAvatar] Algunas expresiones fallaron (${failedPredictions.size}), pero las restantes se completaron.`);
-                      router.push('/dashboard');
-                      router.refresh();
-                    } else {
-                      router.push('/dashboard');
-                      router.refresh();
-                    }
+                    router.push('/dashboard');
+                    router.refresh();
                     return;
-                  }
-
-                  // 2. Si faltan llaves y tenemos predictions de Replicate, forzamos la consulta de estado
-                  if (predictions && Array.isArray(predictions) && predictions.length > 0 && missingKeys.length > 0) {
-                    const checkPromises = predictions
-                      .filter(pred => missingKeys.includes(pred.key) && !failedPredictions.has(pred.key))
-                      .map(async (pred) => {
-                        try {
-                          const res = await fetch(`/api/avatars/check-status?predictionId=${pred.predictionId}&avatarId=${newAvatar.id}&userId=${newAvatar.user_id}&key=${pred.key}`);
-                          if (res.ok) {
-                            const statusData = await res.json();
-                            if (statusData.status === 'failed') {
-                              console.error(`[NewAvatar] Predicción falló para ${pred.key}:`, statusData.error);
-                              failedPredictions.add(pred.key);
-                            }
-                          } else {
-                            const statusData = await res.json().catch(() => ({}));
-                            const errMsg = statusData.error || `Error HTTP ${res.status}`;
-                            console.error(`[NewAvatar] Error en check-status para ${pred.key}:`, errMsg);
-                            failedPredictions.add(pred.key);
-                          }
-                        } catch (pollErr: any) {
-                          console.error(`[NewAvatar] Error llamando check-status para ${pred.key}:`, pollErr);
-                          failedPredictions.add(pred.key);
-                        }
-                      });
-                    await Promise.all(checkPromises);
                   }
                 }
               } catch (err) {
@@ -492,7 +478,6 @@ export default function NewAvatarPage() {
                 clearInterval(checkInterval);
                 setGeneratingAngles(false);
 
-                // Obtener estado final para el error
                 try {
                   const { data: finalAvatar } = await supabase
                     .from('avatars')
@@ -503,9 +488,7 @@ export default function NewAvatarPage() {
                   let completed = 0;
                   if (finalAvatar) {
                     keysToPoll.forEach(key => {
-                      if (finalAvatar[key] && finalAvatar[key].startsWith('http')) {
-                        completed++;
-                      }
+                      if ((finalAvatar as any)[key] && (finalAvatar as any)[key].startsWith('http')) completed++;
                     });
                   }
 
@@ -519,7 +502,7 @@ export default function NewAvatarPage() {
                   setError('El avatar se creó, pero ocurrió un error verificando las expresiones generadas.');
                 }
               }
-            }, 3000);
+            }, 5000);
 
             return; // Esperar a que se complete el sondeo
           } else {

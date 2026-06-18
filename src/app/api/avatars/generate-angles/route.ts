@@ -1,4 +1,4 @@
-import { NextResponse, after } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { queueRunPodJob } from '@/lib/runpod';
 
@@ -182,83 +182,21 @@ export async function POST(req: Request) {
     }
 
     if (VTON_PROVIDER === 'replicate') {
-      console.log(`[Generate-Angles] Registrando tarea en segundo plano con after() para encolar predicciones en Replicate.`);
-      
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+      console.log(`[Generate-Angles] Retornando lista de expresiones para encolamiento secuencial desde el cliente.`);
 
-      after(async () => {
-        try {
-          const { submitReplicatePose } = await import('@/lib/replicate');
-          console.log(`[Generate-Angles] [Background] Iniciando generación paralela de expresiones en Replicate para avatar: ${avatarId}`);
-          
-          await Promise.all(
-            GENERATIONS.map(async (gen, index) => {
-              // Delay escalonado para evitar ráfagas simultáneas en Replicate (400ms entre cada llamada)
-              await delay(index * 400);
-
-              const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
-              const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
-
-              let attempt = 0;
-              let success = false;
-
-              while (attempt < 3 && !success) {
-                attempt++;
-                try {
-                  const repResult = await submitReplicatePose({
-                    faceImageUrl: avatar.base_image_url,
-                    prompt: finalPrompt,
-                    physicalDescription: physicalDesc,
-                    width: 768,
-                    height: 1024,
-                    isAngle: true,
-                    webhook: isHostLocal ? undefined : webhookUrl,
-                    startStep: gen.start_step,
-                    idWeight: gen.id_weight,
-                    expressionType: gen.type as any
-                  });
-
-                  if (repResult.success && repResult.generationId) {
-                    const predId = repResult.generationId.replace('replicate_pose_p_', '');
-                    console.log(`[Generate-Angles] [Background] Encolada predicción Replicate para ${gen.key} con ID: ${predId} (intento ${attempt})`);
-                    
-                    if (isHostLocal) {
-                      pollAndSaveReplicate(
-                        predId,
-                        avatar.id,
-                        avatar.user_id,
-                        gen.key,
-                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                        process.env.SUPABASE_SERVICE_ROLE_KEY!
-                      );
-                    }
-                    success = true;
-                  } else {
-                    const errMsg = repResult.error || 'Error desconocido';
-                    const isThrottled = errMsg.toLowerCase().includes('throttled') || errMsg.includes('429');
-                    
-                    if (isThrottled && attempt < 3) {
-                      console.warn(`[Generate-Angles] [Background] Replicate limitó la petición para ${gen.key}. Esperando 5 segundos para reintentar (intento ${attempt})...`);
-                      await delay(5000);
-                    } else {
-                      throw new Error(errMsg);
-                    }
-                  }
-                } catch (err: any) {
-                  console.error(`[Generate-Angles] [Background] Error en Replicate para ${gen.key} (intento ${attempt}):`, err.message || err);
-                }
-              }
-            })
-          );
-          console.log(`[Generate-Angles] [Background] Finalizado el proceso de encolamiento de expresiones para avatar: ${avatarId}`);
-        } catch (error: any) {
-          console.error('[Generate-Angles] [Background] Error crítico en la tarea de fondo de Replicate:', error);
-        }
-      });
+      // Solo devolvemos la lista de trabajos a lanzar; el frontend los encola de a uno
+      // con /api/avatars/generate-one para evitar timeouts de Vercel
+      const jobs = GENERATIONS.map(gen => ({
+        key: gen.key,
+        expressionType: gen.type
+      }));
 
       return NextResponse.json({
         success: true,
-        message: 'Generación de expresiones iniciada en segundo plano con éxito.'
+        message: 'Lista de expresiones lista para encolamiento secuencial.',
+        jobs,
+        avatarId: avatar.id,
+        userId: avatar.user_id
       }, { status: 202 });
     }
 
