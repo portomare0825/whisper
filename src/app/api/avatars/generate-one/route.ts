@@ -2,13 +2,15 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 // Mapa de configuración de expresiones para cada tipo
+// start_step bajo (2) = la cara se ancla MUY temprano = más fiel a la persona original
+// id_weight alto (1.0) = máxima prioridad a la identidad facial
 const EXPRESSION_CONFIGS: Record<string, { start_step: number; id_weight: number }> = {
-  intrigued: { start_step: 4, id_weight: 0.93 },
-  excited:   { start_step: 4, id_weight: 0.90 },
-  happy:     { start_step: 5, id_weight: 0.95 },
-  sad:       { start_step: 5, id_weight: 0.95 },
-  angry:     { start_step: 5, id_weight: 0.95 },
-  flirty:    { start_step: 4, id_weight: 0.93 },
+  intrigued: { start_step: 2, id_weight: 1.0 },
+  excited:   { start_step: 2, id_weight: 1.0 },
+  happy:     { start_step: 2, id_weight: 1.0 },
+  sad:       { start_step: 2, id_weight: 1.0 },
+  angry:     { start_step: 2, id_weight: 1.0 },
+  flirty:    { start_step: 2, id_weight: 1.0 },
 };
 
 export async function POST(req: Request) {

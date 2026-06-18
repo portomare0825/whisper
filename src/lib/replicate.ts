@@ -66,10 +66,10 @@ export async function submitReplicatePose(params: {
     let negativePrompt = "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, worst quality, low quality, bad anatomy, deformed body";
 
     if (params.isAngle) {
-      // Para ángulos pregenerados de perfil/emociones de la galería, priorizamos fidelidad de identidad y cercanía
-      if (params.startStep === undefined) startStep = 3;
-      if (params.idWeight === undefined) idWeight = 0.85;
-      negativePrompt += ", cartoon, 3d, painting, illustration, anime, sketch, digital art, 3d render, doll, plastic skin, unreal engine, render, lowres, picsart, airbrushed, drawing, graphic, CG, draft";
+      // Para expresiones pregeneradas: máxima fidelidad de identidad - la cara NO debe cambiar
+      if (params.startStep === undefined) startStep = 2;
+      if (params.idWeight === undefined) idWeight = 1.0;
+      negativePrompt += ", cartoon, 3d, painting, illustration, anime, sketch, digital art, 3d render, doll, plastic skin, unreal engine, render, lowres, picsart, airbrushed, drawing, graphic, CG, draft, different person, different face, another person, face replacement, identity change, morphed face, fake identity, someone else, wrong person, changed appearance";
     } else {
       // Detección dinámica de pose para evitar contradicciones en el prompt que causen planos cerrados
       const promptLower = finalPrompt.toLowerCase();
