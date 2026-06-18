@@ -5,12 +5,13 @@ import { queueRunPodJob } from '@/lib/runpod';
 // Lista de generaciones a realizar (expresiones MUY exageradas y marcadas)
 const GENERATIONS = [
   { key: 'profile_image_url',  promptModifier: "looking extremely intrigued and puzzled, one eyebrow dramatically raised very high, head tilted, mouth slightly open in curiosity, wide curious eyes, very expressive face.", start_step: 4, id_weight: 0.90, type: 'intrigued' },
-  { key: 'back_image_url',     promptModifier: "EXTREMELY EXCITED and thrilled, jaw dropped wide open, both hands on cheeks in shock, eyes wide open as possible, eyebrows raised to maximum, pure euphoria expression, screaming with joy.", start_step: 4, id_weight: 0.88, type: 'excited' },
+  { key: 'back_image_url',     promptModifier: "OVERWHELMED WITH EXCITEMENT, on the verge of both laughing and crying at the same time, eyes glistening with tears of joy, trembling huge smile, cheeks flushed, emotionally overflowing, hands covering mouth in disbelief, pure emotional ecstasy.", start_step: 4, id_weight: 0.88, type: 'excited' },
   { key: 'emotion_happy',      promptModifier: "BURSTING WITH HAPPINESS, laughing hysterically, enormous ear-to-ear smile showing all teeth, eyes completely shut from laughing so hard, cheeks raised, genuine uncontrollable laughter, pure joy.", start_step: 5, id_weight: 0.92, type: 'happy' },
   { key: 'emotion_sad',        promptModifier: "SOBBING UNCONTROLLABLY, rivers of tears streaming down face, eyes red and swollen from crying, extremely miserable expression, trembling lip, deeply heartbroken, covering mouth with hand.", start_step: 5, id_weight: 0.92, type: 'sad' },
   { key: 'emotion_angry',      promptModifier: "ABSOLUTELY FURIOUS, screaming at the top of lungs, face red with rage, veins visible, deeply furrowed brows pushed together hard, teeth bared, jaw clenched, maximum anger expression.", start_step: 5, id_weight: 0.92, type: 'angry' },
-  { key: 'emotion_flirty',     promptModifier: "VERY FLIRTATIOUS, dramatic slow wink with one eye fully closed, seductive half-smile, playfully biting lower lip, tilted head, smoldering confident look, charming and alluring expression.", start_step: 4, id_weight: 0.90, type: 'flirty' }
+  { key: 'emotion_flirty',     promptModifier: "emotionally overwhelmed in a flirtatious way, trying not to cry happy tears while smiling seductively, eyes glistening and glossy, biting lower lip to hold back a trembling smile, flushed cheeks, intensely vulnerable yet alluring look, heart-fluttering expression.", start_step: 4, id_weight: 0.90, type: 'flirty' }
 ];
+
 
 // Función de sondeo en segundo plano para entorno local (evita fallos de webhooks en localhost)
 async function pollAndSaveReplicate(
