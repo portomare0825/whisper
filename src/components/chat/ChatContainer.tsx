@@ -556,18 +556,22 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       // Empezamos con la imagen que tenga el avatar, pero priorizamos la base por defecto si no hace match
       let newImage = currentImage;
       
-      // Mapeo de emociones detectadas por el backend a nuestras 4 emociones clave
+      // Mapeo de emociones detectadas por el backend a nuestras emociones clave de galería
       if (['feliz', 'divertido', 'orgulloso'].includes(emotion)) {
         newImage = avatar.emotion_happy || newImage;
       } else if (['triste', 'melancólico', 'avergonzado'].includes(emotion)) {
         newImage = avatar.emotion_sad || newImage;
-      } else if (['enojado'].includes(emotion)) {
+      } else if (['enojado', 'furioso', 'molesto'].includes(emotion)) {
         newImage = avatar.emotion_angry || newImage;
-      } else if (['coqueto', 'seductor'].includes(emotion)) {
+      } else if (['coqueto', 'seductor', 'pícaro'].includes(emotion)) {
         newImage = avatar.emotion_flirty || newImage;
+      } else if (['intrigado', 'curioso', 'misterioso', 'suspicaz', 'duda'].includes(emotion)) {
+        newImage = avatar.profile_image_url || newImage;
+      } else if (['excitado', 'entusiasmado', 'eufórico', 'emocionado'].includes(emotion)) {
+        newImage = avatar.back_image_url || newImage;
       } else {
-        // Para 'neutral', 'sorprendido', 'misterioso', 'ansioso', etc. volvemos a la base o perfil si quisiéramos
-        newImage = avatar.profile_image_url || avatar.base_image_url;
+        // Por defecto
+        newImage = avatar.base_image_url;
       }
       
       if (newImage && newImage !== currentImage) {

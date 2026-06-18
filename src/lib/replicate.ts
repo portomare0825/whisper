@@ -18,7 +18,7 @@ export async function submitReplicatePose(params: {
   webhook?: string;
   startStep?: number;
   idWeight?: number;
-  expressionType?: 'happy' | 'sad' | 'angry' | 'flirty' | 'profile' | 'back';
+  expressionType?: 'happy' | 'sad' | 'angry' | 'flirty' | 'intrigued' | 'excited' | 'profile' | 'back';
 }): Promise<{ success: boolean; generationId?: string; error?: string }> {
   if (!REPLICATE_API_TOKEN) {
     return { success: false, error: 'REPLICATE_API_TOKEN no configurada en el servidor' };
@@ -28,7 +28,9 @@ export async function submitReplicatePose(params: {
     const isExpression = params.expressionType === 'happy' || 
                          params.expressionType === 'sad' || 
                          params.expressionType === 'angry' || 
-                         params.expressionType === 'flirty';
+                         params.expressionType === 'flirty' ||
+                         params.expressionType === 'intrigued' ||
+                         params.expressionType === 'excited';
 
     if (isExpression) {
       console.log(`[Replicate] Utilizando fofr/expression-editor para la emoción facial: ${params.expressionType}`);
@@ -40,17 +42,27 @@ export async function submitReplicatePose(params: {
       };
 
       if (params.expressionType === 'happy') {
-        inputPayload.smile = 1.0;
-        inputPayload.eyebrow = 0.3;
+        inputPayload.smile = 1.2;
+        inputPayload.eyebrow = 3.0;
       } else if (params.expressionType === 'sad') {
-        inputPayload.smile = -1.0;
-        inputPayload.eyebrow = -1.0;
+        inputPayload.smile = -0.3; // Mínimo permitido en el modelo
+        inputPayload.eyebrow = -4.0; // Cejas caídas de tristeza
+        inputPayload.blink = 1.5; // Ojos tristes
       } else if (params.expressionType === 'angry') {
-        inputPayload.smile = -0.5;
-        inputPayload.eyebrow = 1.0;
+        inputPayload.smile = -0.3; // Boca seria
+        inputPayload.eyebrow = 4.0; // Cejas fruncidas de enojo
+        inputPayload.rotate_pitch = 3; // Cabeza inclinada adelante
       } else if (params.expressionType === 'flirty') {
         inputPayload.smile = 0.6;
-        inputPayload.wink = 1.0;
+        inputPayload.wink = 15.0; // Guiño marcado (rango 0-25)
+      } else if (params.expressionType === 'intrigued') {
+        inputPayload.smile = -0.1;
+        inputPayload.eyebrow = 5.0; // Ceja levantada de intriga
+        inputPayload.rotate_yaw = -3;
+      } else if (params.expressionType === 'excited') {
+        inputPayload.smile = 1.0;
+        inputPayload.eyebrow = 2.0;
+        inputPayload.blink = 2.0; // Mirada juguetona/sexy
       }
 
       const response = await fetch("https://api.replicate.com/v1/predictions", {

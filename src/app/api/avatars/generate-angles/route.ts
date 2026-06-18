@@ -4,8 +4,8 @@ import { queueRunPodJob } from '@/lib/runpod';
 
 // Lista de generaciones a realizar (con parámetros ajustados para forzar expresiones)
 const GENERATIONS = [
-  { key: 'profile_image_url', promptModifier: "side profile view, looking to the side, side face.", start_step: 4, id_weight: 0.93, type: 'profile' },
-  { key: 'back_image_url', promptModifier: "view from directly behind, showing the back of the head and shoulders, facing away from camera.", start_step: 4, id_weight: 0.9, type: 'back' },
+  { key: 'profile_image_url', promptModifier: "looking intrigued, curious expression, raised eyebrow, head slightly tilted.", start_step: 4, id_weight: 0.93, type: 'intrigued' },
+  { key: 'back_image_url', promptModifier: "looking excited, thrilled expression, wide eyes, joyful shocked face, open mouth smile.", start_step: 4, id_weight: 0.9, type: 'excited' },
   { key: 'emotion_happy', promptModifier: "EXTREMELY HAPPY, LAUGHING OUT LOUD, HUGE WIDE SMILE, showing teeth, joyous expression, eyes crinkled with laughter.", start_step: 5, id_weight: 0.95, type: 'happy' },
   { key: 'emotion_sad', promptModifier: "CRYING, DEEPLY SAD, tears streaming down face, extremely miserable, heartbreaking expression, looking down.", start_step: 5, id_weight: 0.95, type: 'sad' },
   { key: 'emotion_angry', promptModifier: "FURIOUS, EXTREMELY ANGRY, screaming, raging, deeply furrowed brows, intense aggressive expression.", start_step: 5, id_weight: 0.95, type: 'angry' },
@@ -183,7 +183,7 @@ export async function POST(req: Request) {
 
     if (VTON_PROVIDER === 'replicate') {
       const { submitReplicatePose } = await import('@/lib/replicate');
-      console.log(`[Generate-Angles] Iniciando generación asíncrona secuencial con Replicate para avatar: ${avatarId}`);
+      console.log(`[Generate-Angles] Iniciando generación paralela escalonada con Replicate para avatar: ${avatarId}`);
       
       const enqueuedPredictions: { key: string; predictionId: string }[] = [];
       const errors: string[] = [];
@@ -191,70 +191,70 @@ export async function POST(req: Request) {
       const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
       try {
-        for (const gen of GENERATIONS) {
-          const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
-          const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+        await Promise.all(
+          GENERATIONS.map(async (gen, index) => {
+            // Delay escalonado para evitar ráfagas simultáneas en Replicate (1.2s entre cada llamada)
+            await delay(index * 1200);
 
-          let attempt = 0;
-          let success = false;
+            const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+            const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
 
-          while (attempt < 3 && !success) {
-            attempt++;
-            try {
-              const repResult = await submitReplicatePose({
-                faceImageUrl: avatar.base_image_url,
-                prompt: finalPrompt,
-                physicalDescription: physicalDesc,
-                width: 768,
-                height: 1024,
-                isAngle: true,
-                webhook: isHostLocal ? undefined : webhookUrl,
-                startStep: gen.start_step,
-                idWeight: gen.id_weight,
-                expressionType: gen.type as any
-              });
+            let attempt = 0;
+            let success = false;
 
-              if (repResult.success && repResult.generationId) {
-                const predId = repResult.generationId.replace('replicate_pose_p_', '');
-                console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${predId} (intento ${attempt})`);
-                
-                enqueuedPredictions.push({ key: gen.key, predictionId: predId });
-                success = true;
+            while (attempt < 3 && !success) {
+              attempt++;
+              try {
+                const repResult = await submitReplicatePose({
+                  faceImageUrl: avatar.base_image_url,
+                  prompt: finalPrompt,
+                  physicalDescription: physicalDesc,
+                  width: 768,
+                  height: 1024,
+                  isAngle: true,
+                  webhook: isHostLocal ? undefined : webhookUrl,
+                  startStep: gen.start_step,
+                  idWeight: gen.id_weight,
+                  expressionType: gen.type as any
+                });
 
-                if (isHostLocal) {
-                  pollAndSaveReplicate(
-                    predId,
-                    avatar.id,
-                    avatar.user_id,
-                    gen.key,
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    process.env.SUPABASE_SERVICE_ROLE_KEY!
-                  );
-                }
-              } else {
-                const errMsg = repResult.error || 'Error desconocido';
-                const isThrottled = errMsg.toLowerCase().includes('throttled') || errMsg.includes('429');
-                
-                if (isThrottled && attempt < 3) {
-                  console.warn(`[Generate-Angles] Replicate limitó la petición para ${gen.key}. Esperando 5 segundos para reintentar (intento ${attempt})...`);
-                  await delay(5000);
+                if (repResult.success && repResult.generationId) {
+                  const predId = repResult.generationId.replace('replicate_pose_p_', '');
+                  console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${predId} (intento ${attempt})`);
+                  
+                  enqueuedPredictions.push({ key: gen.key, predictionId: predId });
+                  success = true;
+
+                  if (isHostLocal) {
+                    pollAndSaveReplicate(
+                      predId,
+                      avatar.id,
+                      avatar.user_id,
+                      gen.key,
+                      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                      process.env.SUPABASE_SERVICE_ROLE_KEY!
+                    );
+                  }
                 } else {
-                  throw new Error(errMsg);
+                  const errMsg = repResult.error || 'Error desconocido';
+                  const isThrottled = errMsg.toLowerCase().includes('throttled') || errMsg.includes('429');
+                  
+                  if (isThrottled && attempt < 3) {
+                    console.warn(`[Generate-Angles] Replicate limitó la petición para ${gen.key}. Esperando 5 segundos para reintentar (intento ${attempt})...`);
+                    await delay(5000);
+                  } else {
+                    throw new Error(errMsg);
+                  }
                 }
-              }
-            } catch (err: any) {
-              console.error(`[Generate-Angles] Error en Replicate para ${gen.key} (intento ${attempt}):`, err.message || err);
-              if (attempt >= 3) {
-                errors.push(`${gen.key}: ${err.message || err}`);
+              } catch (err: any) {
+                console.error(`[Generate-Angles] Error en Replicate para ${gen.key} (intento ${attempt}):`, err.message || err);
+                if (attempt >= 3) {
+                  errors.push(`${gen.key}: ${err.message || err}`);
+                }
               }
             }
-          }
-
-          // Pequeño delay de 2 segundos para evitar ráfagas instantáneas
-          if (success) {
-            await delay(2000);
-          }
-        }
+          })
+        );
 
         if (enqueuedPredictions.length === 0) {
           return NextResponse.json({ 
