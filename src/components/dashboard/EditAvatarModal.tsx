@@ -84,24 +84,45 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
       setAnalyzingImage(true);
       try {
         const base64 = await fileToBase64(compressed);
+
+        // Obtener userId actual para que la API evite nombres duplicados
+        const { data: { user } } = await supabase.auth.getUser();
+
         const response = await fetch('/api/avatars/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, mimeType: compressed.type }),
+          body: JSON.stringify({
+            imageBase64: base64,
+            mimeType: compressed.type,
+            userId: user?.id,
+          }),
         });
         if (response.ok) {
           const data = await response.json();
+          // Actualizar TODO excepto el nombre (que el usuario ya definió)
           setFormData(prev => ({
             ...prev,
+            // El nombre NO se toca — se conserva el actual
+            // Regenerar descripción física con la nueva imagen
             physical_description: data.physical_description || data.description || prev.physical_description,
+            // Regenerar personalidad basada en la nueva apariencia
+            personality: data.personality || prev.personality,
+            // Regenerar instrucciones de comportamiento
+            system_prompt: data.system_prompt || prev.system_prompt,
+            // Actualizar coordenadas de cara detectada
             face_box_x: data.face_box_x !== undefined ? data.face_box_x : prev.face_box_x,
             face_box_y: data.face_box_y !== undefined ? data.face_box_y : prev.face_box_y,
             face_box_width: data.face_box_width !== undefined ? data.face_box_width : prev.face_box_width,
             face_box_height: data.face_box_height !== undefined ? data.face_box_height : prev.face_box_height,
           }));
+        } else {
+          const errData = await response.json().catch(() => ({}));
+          console.error('[EditModal] Error en analyze:', errData.error || response.status);
+          setError('No se pudo analizar la imagen nueva. Puedes editar los campos manualmente.');
         }
       } catch (analyzeErr) {
         console.error('Error al analizar la imagen:', analyzeErr);
+        setError('Error al analizar la imagen. Puedes continuar y editar los campos manualmente.');
       } finally {
         setAnalyzingImage(false);
       }
