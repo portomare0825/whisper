@@ -242,35 +242,35 @@ export default function NewAvatarPage() {
       }
 
       // 1. Comprobar si el propio usuario ya tiene un avatar con este nombre
-      const { data: existingUserAvatar, error: userCheckError } = await supabase
+      const { data: existingUserAvatars, error: userCheckError } = await supabase
         .from('avatars')
         .select('id')
         .eq('user_id', user.id)
         .ilike('name', cleanName)
-        .maybeSingle();
+        .limit(1);
 
       if (userCheckError) {
         console.error('Error comprobando duplicado de usuario:', userCheckError);
       }
 
-      if (existingUserAvatar) {
+      if (existingUserAvatars && existingUserAvatars.length > 0) {
         throw new Error(`Ya tienes un avatar creado con el nombre "${cleanName}". Por favor, elige otro nombre.`);
       }
 
       // 2. Si es público, comprobar si ya existe un avatar público con ese nombre en la comunidad
       if (formData.visibility === 'public') {
-        const { data: existingPublicAvatar, error: publicCheckError } = await supabase
+        const { data: existingPublicAvatars, error: publicCheckError } = await supabase
           .from('avatars')
           .select('id')
           .eq('visibility', 'public')
           .ilike('name', cleanName)
-          .maybeSingle();
+          .limit(1);
 
         if (publicCheckError) {
           console.error('Error comprobando duplicado público:', publicCheckError);
         }
 
-        if (existingPublicAvatar) {
+        if (existingPublicAvatars && existingPublicAvatars.length > 0) {
           throw new Error(`Ya existe un avatar público en la comunidad con el nombre "${cleanName}". Por favor, elige un nombre único.`);
         }
       }
