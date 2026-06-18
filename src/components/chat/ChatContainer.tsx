@@ -567,9 +567,11 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       } else if (['enojado', 'enojada', 'furioso', 'furiosa', 'molesto', 'molesta', 'irritada', 'irritado', 'enfadada', 'enfadado', 'rabia', 'ira', 'frustrada', 'frustrado'].includes(emotion)) {
         newImage = avatar.emotion_angry || newImage;
 
-      // ── Seductora / Coqueta → emotion_flirty (mirada letal) ─────────────────
+      // ── Seductora / Coqueta → rota entre imagen 6 (mirada) e imagen 2 (éxtasis) ──
       } else if (['coqueto', 'coqueta', 'seductor', 'seductora', 'pícaro', 'pícara', 'tentadora', 'provocadora', 'juguetona', 'traviesa', 'sensual', 'flirteando'].includes(emotion)) {
-        newImage = avatar.emotion_flirty || newImage;
+        // Rotar aleatoriamente entre la mirada seductora y el éxtasis para mayor intensidad
+        const seductivePool = [avatar.emotion_flirty, avatar.back_image_url].filter(Boolean) as string[];
+        newImage = seductivePool[Math.floor(Math.random() * seductivePool.length)] || newImage;
 
       // ── Excitada / Éxtasis → back_image_url (orgasmo) ───────────────────────
       } else if (['excitada', 'excitado', 'caliente', 'apasionada', 'apasionado', 'ardiente', 'deseo', 'éxtasis', 'extasis', 'excitación'].includes(emotion)) {
