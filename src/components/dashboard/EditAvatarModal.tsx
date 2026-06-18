@@ -18,6 +18,10 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(avatar.base_image_url || null);
   const [file, setFile] = useState<File | null>(null);
+  // Estados de generación de expresiones
+  const [generatingAngles, setGeneratingAngles] = useState(false);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState(0);
 
   const [formData, setFormData] = useState({
     name: avatar.name || '',
@@ -32,29 +36,51 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
     face_box_height: avatar.face_box_height ?? 240,
   });
 
-  // Convertir archivo a Base64 para análisis
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
+  const [roleplaySettings, setRoleplaySettings] = useState({
+    dificultad_conquista: avatar.roleplay_settings?.dificultad_conquista ?? 0.5,
+    apertura_inicial: avatar.roleplay_settings?.apertura_inicial ?? 0.5,
+    velocidad_confianza: avatar.roleplay_settings?.velocidad_confianza ?? 0.5,
+  });
+
+  const [userCoins, setUserCoins] = useState<number>(0);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('coins, is_admin').eq('id', user.id).maybeSingle();
+        if (profile) {
+          setUserCoins(profile.coins || 0);
+          setIsAdmin(!!profile.is_admin);
+        }
+      }
+    };
+    loadProfile();
+  }, [supabase]);
+
+  // Prevenir scroll en el body cuando el modal está abierto
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = 'auto'; };
+  }, []);
+
+  const fileToBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64String = (reader.result as string).split(',')[1];
-        resolve(base64String);
-      };
-      reader.onerror = (error) => reject(error);
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
     });
-  };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
-
     try {
       setError(null);
       const compressed = await compressAvatarImage(selectedFile);
       setFile(compressed);
       setPreview(URL.createObjectURL(compressed));
-
       setAnalyzingImage(true);
       try {
         const base64 = await fileToBase64(compressed);
@@ -63,7 +89,6 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ imageBase64: base64, mimeType: compressed.type }),
         });
-
         if (response.ok) {
           const data = await response.json();
           setFormData(prev => ({
@@ -85,23 +110,6 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
     }
   };
 
-  const [userCoins, setUserCoins] = useState<number>(0);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('coins, is_admin').eq('id', user.id).maybeSingle();
-        if (profile) {
-          setUserCoins(profile.coins || 0);
-          setIsAdmin(!!profile.is_admin);
-        }
-      }
-    };
-    loadProfile();
-  }, [supabase]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.personality) {
@@ -114,27 +122,18 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
       setError(null);
 
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuario no autenticado");
+      if (!user) throw new Error('Usuario no autenticado');
 
       let imageUrl = avatar.base_image_url;
       const isImageChanged = !!file;
 
       if (file) {
-        // Upload new image
         const fileExt = file.name.split('.').pop();
         const fileName = `${avatar.id}-${Math.random()}.${fileExt}`;
         const filePath = `${avatar.user_id}/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file);
-
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file);
         if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(filePath);
-          
+        const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath);
         imageUrl = publicUrl;
       }
 
@@ -149,12 +148,20 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
         face_box_width: formData.face_box_width,
         face_box_height: formData.face_box_height,
         visibility: formData.visibility,
+        roleplay_settings: roleplaySettings,
         moderation_status: formData.visibility === 'private' ? 'none' : (isAdmin ? 'approved' : 'pending'),
       };
 
       if (isImageChanged) {
         updatedData.base_image_url = imageUrl;
         updatedData.current_image_url = imageUrl;
+        // Limpiar expresiones antiguas
+        updatedData.profile_image_url = null;
+        updatedData.back_image_url = null;
+        updatedData.emotion_happy = null;
+        updatedData.emotion_sad = null;
+        updatedData.emotion_angry = null;
+        updatedData.emotion_flirty = null;
       }
 
       const { data, error: updateError } = await supabase
@@ -166,25 +173,7 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
 
       if (updateError) throw updateError;
 
-      if (isImageChanged) {        
-        // Disparar generación de ángulos y esperar
-        try {
-          const genResponse = await fetch('/api/avatars/generate-angles', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ avatarId: avatar.id })
-          });
-          if (!genResponse.ok) {
-            const errorData = await genResponse.json().catch(() => ({}));
-            throw new Error(errorData.error || 'Error interno en la generación de expresiones');
-          }
-        } catch (err: any) {
-          console.error('Error generando ángulos:', err);
-          throw new Error(`Se guardaron los cambios del avatar, pero falló la generación de las 6 expresiones faciales: ${err.message}`);
-        }
-      }
-
-      // Disparar notificación push de moderación en segundo plano (si requiere revisión)
+      // Notificación moderación
       if (formData.visibility === 'public' && !isAdmin && data) {
         fetch('/api/avatars/notify-pending', {
           method: 'POST',
@@ -192,23 +181,147 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
           body: JSON.stringify({ avatarId: data.id })
         }).catch(err => console.error('Error disparando notificación push:', err));
       }
-      
+
+      if (isImageChanged) {
+        // Obtener lista de jobs y encolar expresiones secuencialmente
+        try {
+          const genResponse = await fetch('/api/avatars/generate-angles', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ avatarId: avatar.id })
+          });
+          const genData = await genResponse.json().catch(() => ({}));
+          const jobs: { key: string; expressionType: string }[] = genData.jobs || [];
+
+          if (jobs.length > 0) {
+            // Lanzar encolamiento en background
+            (async () => {
+              for (const job of jobs) {
+                let attempt = 0;
+                const maxAttempts = 5;
+                let enqueued = false;
+                while (attempt < maxAttempts && !enqueued) {
+                  attempt++;
+                  try {
+                    const oneRes = await fetch('/api/avatars/generate-one', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ avatarId: avatar.id, key: job.key, expressionType: job.expressionType })
+                    });
+                    const oneData = await oneRes.json().catch(() => ({}));
+                    if (oneRes.ok) {
+                      console.log(`[EditModal] Encolado OK: ${job.key}`);
+                      enqueued = true;
+                    } else if (oneRes.status === 429 && oneData.throttled) {
+                      const waitMs = ((oneData.retry_after || 10) + 3) * 1000;
+                      console.warn(`[EditModal] Throttle ${job.key}. Esperando ${waitMs / 1000}s...`);
+                      await new Promise(resolve => setTimeout(resolve, waitMs));
+                    } else {
+                      console.error(`[EditModal] Error ${job.key}:`, oneData.error);
+                      break;
+                    }
+                  } catch (e) {
+                    console.error(`[EditModal] Excepción ${job.key}:`, e);
+                    break;
+                  }
+                }
+                await new Promise(resolve => setTimeout(resolve, 12000));
+              }
+            })();
+          }
+        } catch (err: any) {
+          console.error('Error disparando generación:', err);
+        }
+
+        // Mostrar progreso y sondear Supabase
+        setLoading(false);
+        setGeneratingAngles(true);
+        setCompletedCount(0);
+        setGenerationProgress(0);
+
+        const keysToPoll = ['profile_image_url','back_image_url','emotion_happy','emotion_sad','emotion_angry','emotion_flirty'];
+        let attempts = 0;
+        const maxAttempts = 60;
+
+        const checkInterval = setInterval(async () => {
+          attempts++;
+          try {
+            const { data: avatarData } = await supabase
+              .from('avatars')
+              .select(keysToPoll.join(','))
+              .eq('id', avatar.id)
+              .single();
+
+            if (avatarData) {
+              let completed = 0;
+              keysToPoll.forEach(key => {
+                if ((avatarData as any)[key] && (avatarData as any)[key].startsWith('http')) completed++;
+              });
+              setCompletedCount(completed);
+              setGenerationProgress((completed / keysToPoll.length) * 100);
+
+              if (completed >= keysToPoll.length) {
+                clearInterval(checkInterval);
+                setGeneratingAngles(false);
+                onUpdate(data);
+                onClose();
+                return;
+              }
+            }
+          } catch (err) {
+            console.error('[EditModal] Error sondeando BD:', err);
+          }
+
+          if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            setGeneratingAngles(false);
+            onUpdate(data);
+            onClose();
+          }
+        }, 5000);
+        return;
+      }
+
       onUpdate(data);
       onClose();
     } catch (err: any) {
       setError(err.message || 'Error al guardar los cambios.');
-    } finally {
       setLoading(false);
     }
   };
 
-  // Prevenir scroll en el body cuando el modal está abierto
-  useEffect(() => {
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = 'auto';
-    };
-  }, []);
+  // Pantalla de progreso de generación
+  if (generatingAngles) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="bg-background border border-white/10 rounded-2xl shadow-2xl w-full max-w-sm p-10 flex flex-col items-center gap-8">
+          <div className="relative">
+            <div className="w-24 h-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+            </div>
+          </div>
+          <div className="text-center space-y-2">
+            <h2 className="text-2xl font-bold">Regenerando Expresiones</h2>
+            <p className="text-muted-foreground">Creando {completedCount} de 6 imágenes...</p>
+            <p className="text-xs text-white/40">Puede tardar hasta 5 minutos. No cierres esta ventana.</p>
+          </div>
+          <div className="w-full space-y-2">
+            <div className="flex justify-between text-xs text-white/60">
+              <span>Progreso</span>
+              <span>{completedCount}/6</span>
+            </div>
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all duration-500"
+                style={{ width: `${generationProgress}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
@@ -246,28 +359,27 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
                         <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
                       </label>
                     </div>
+                    {analyzingImage && (
+                      <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center backdrop-blur-sm">
+                        <Sparkles className="w-8 h-8 text-primary animate-pulse mb-3" />
+                        <p className="text-xs font-medium text-white/90 animate-pulse">Analizando rasgos...</p>
+                      </div>
+                    )}
                   </>
                 ) : (
                   <label className="w-full h-full cursor-pointer flex flex-col items-center justify-center p-6 text-center space-y-4">
                     <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                       <Upload className="w-8 h-8 text-primary" />
                     </div>
-                    <div>
-                      <p className="font-semibold">Haz clic para subir</p>
-                    </div>
+                    <p className="font-semibold">Haz clic para subir</p>
                     <input type="file" className="hidden" accept="image/*" onChange={handleImageChange} />
                   </label>
                 )}
               </div>
               
-              {file && !isAdmin && (
-                <div className="bg-primary/10 border border-primary/20 text-primary text-xs p-3 rounded-xl mt-3">
-                  Has seleccionado una nueva foto. El sistema sincronizará todas las expresiones automáticamente. <strong>¡Esta actualización es gratuita!</strong>
-                </div>
-              )}
-              {file && isAdmin && (
-                <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-200 text-xs p-3 rounded-xl mt-3">
-                  Has seleccionado una nueva foto. <strong>¡Modo Admin: Generación Gratuita!</strong>
+              {file && (
+                <div className="bg-primary/10 border border-primary/20 text-primary text-xs p-3 rounded-xl">
+                  Nueva foto seleccionada. Se regenerarán las <strong>6 expresiones</strong> automáticamente.
                 </div>
               )}
             </div>
@@ -288,18 +400,12 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-muted-foreground">Género del Avatar (Voz)</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({...formData, gender: 'female'})}
-                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.gender === 'female' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
-                  >
+                  <button type="button" onClick={() => setFormData({...formData, gender: 'female'})}
+                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.gender === 'female' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}>
                     Femenino 👩‍💼
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({...formData, gender: 'male'})}
-                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.gender === 'male' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
-                  >
+                  <button type="button" onClick={() => setFormData({...formData, gender: 'male'})}
+                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.gender === 'male' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}>
                     Masculino 👨‍💼
                   </button>
                 </div>
@@ -308,24 +414,18 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-muted-foreground">Privacidad del Avatar</label>
                 <div className="grid grid-cols-2 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setFormData({...formData, visibility: 'private'})}
-                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.visibility === 'private' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
-                  >
+                  <button type="button" onClick={() => setFormData({...formData, visibility: 'private'})}
+                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.visibility === 'private' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}>
                     Privado 🔒
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({...formData, visibility: 'public'})}
-                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.visibility === 'public' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}
-                  >
+                  <button type="button" onClick={() => setFormData({...formData, visibility: 'public'})}
+                    className={`py-2.5 rounded-xl text-sm font-medium border transition-all ${formData.visibility === 'public' ? 'premium-button text-primary-foreground border-primary/50 shadow-lg' : 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10'}`}>
                     Público 🌐
                   </button>
                 </div>
                 {formData.visibility === 'public' && (
                   <p className="text-[10px] text-primary animate-pulse font-semibold mt-1">
-                    ✨ Nota: Al hacerlo público, pasará a revisión de un moderador antes de ser visible para toda la comunidad.
+                    ✨ Nota: Al hacerlo público, pasará a revisión de un moderador antes de ser visible.
                   </p>
                 )}
               </div>
@@ -351,7 +451,7 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
                 </label>
                 <textarea
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 h-24 resize-none focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all text-sm"
-                  placeholder="Ej: Chica de 25 años, esbelta, delgada..."
+                  placeholder="Ej: Chica de 25 años, esbelta..."
                   value={formData.physical_description}
                   onChange={(e) => setFormData({...formData, physical_description: e.target.value})}
                 />
@@ -359,6 +459,7 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
             </div>
           </div>
 
+          {/* System Prompt */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-muted-foreground">Instrucciones de Comportamiento (System Prompt)</label>
             <textarea
@@ -367,6 +468,68 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
               value={formData.system_prompt}
               onChange={(e) => setFormData({...formData, system_prompt: e.target.value})}
             />
+          </div>
+
+          {/* Configuración de Roleplay y Afinidad */}
+          <div className="bg-black/30 border border-white/5 rounded-2xl p-6 space-y-6">
+            <div>
+              <h3 className="text-md font-bold text-white flex items-center gap-2">
+                Configuración de Roleplay y Afinidad 💖
+              </h3>
+              <p className="text-[11px] text-white/50 mt-1">
+                Define las barreras de conquista y la facilidad con la que el avatar ganará confianza.
+              </p>
+            </div>
+
+            <div className="space-y-5">
+              {/* Slider 1: Dificultad de Conquista */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-white/70">Dificultad de Conquista: {roleplaySettings.dificultad_conquista}</span>
+                  <span className="text-white/40">
+                    {roleplaySettings.dificultad_conquista <= 0.3 ? 'Muy fácil' : roleplaySettings.dificultad_conquista <= 0.7 ? 'Moderada' : 'Extrema'}
+                  </span>
+                </div>
+                <input type="range" min="0" max="1" step="0.1"
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                  value={roleplaySettings.dificultad_conquista}
+                  onChange={(e) => setRoleplaySettings({...roleplaySettings, dificultad_conquista: parseFloat(e.target.value)})}
+                />
+                <p className="text-[10px] text-white/30">Una dificultad alta requiere de conversaciones más profundas y paciencia antes de que el avatar se muestre afectuoso.</p>
+              </div>
+
+              {/* Slider 2: Apertura Inicial */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-white/70">Apertura Inicial: {roleplaySettings.apertura_inicial}</span>
+                  <span className="text-white/40">
+                    {roleplaySettings.apertura_inicial <= 0.3 ? 'Fría/Distante' : roleplaySettings.apertura_inicial <= 0.7 ? 'Normal' : 'Cálida/Sociable'}
+                  </span>
+                </div>
+                <input type="range" min="0" max="1" step="0.1"
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                  value={roleplaySettings.apertura_inicial}
+                  onChange={(e) => setRoleplaySettings({...roleplaySettings, apertura_inicial: parseFloat(e.target.value)})}
+                />
+                <p className="text-[10px] text-white/30">Determina la amabilidad o distancia emocional del avatar en los primeros mensajes de la conversación.</p>
+              </div>
+
+              {/* Slider 3: Velocidad de Confianza */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-white/70">Velocidad de Confianza: {roleplaySettings.velocidad_confianza}</span>
+                  <span className="text-white/40">
+                    {roleplaySettings.velocidad_confianza <= 0.3 ? 'Lenta' : roleplaySettings.velocidad_confianza <= 0.7 ? 'Media' : 'Rápida'}
+                  </span>
+                </div>
+                <input type="range" min="0" max="1" step="0.1"
+                  className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-primary"
+                  value={roleplaySettings.velocidad_confianza}
+                  onChange={(e) => setRoleplaySettings({...roleplaySettings, velocidad_confianza: parseFloat(e.target.value)})}
+                />
+                <p className="text-[10px] text-white/30">Controla qué tan rápido responde positivamente el avatar a los gestos agradables del usuario.</p>
+              </div>
+            </div>
           </div>
 
           {error && (
@@ -379,18 +542,12 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
 
         {/* Footer Modal */}
         <div className="sticky bottom-0 p-6 bg-background/80 backdrop-blur-md border-t border-white/5 flex justify-end gap-4">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-3 rounded-xl font-bold bg-white/5 hover:bg-white/10 transition-colors"
-          >
+          <button type="button" onClick={onClose}
+            className="px-6 py-3 rounded-xl font-bold bg-white/5 hover:bg-white/10 transition-colors">
             Cancelar
           </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading || analyzingImage}
-            className="premium-button px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50"
-          >
+          <button onClick={handleSubmit} disabled={loading || analyzingImage}
+            className="premium-button px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50">
             {loading ? (
               <span className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 animate-spin" /> Guardando...
@@ -402,7 +559,6 @@ export default function EditAvatarModal({ avatar, onClose, onUpdate }: EditAvata
             )}
           </button>
         </div>
-
       </div>
     </div>
   );
