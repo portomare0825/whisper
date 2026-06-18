@@ -1,5 +1,6 @@
 // Use global fetch
 
+const REPLICATE_API_TOKEN = REPLICATE_API_TOKEN;
 
 async function run() {
   try {
