@@ -18,12 +18,67 @@ export async function submitReplicatePose(params: {
   webhook?: string;
   startStep?: number;
   idWeight?: number;
+  expressionType?: 'happy' | 'sad' | 'angry' | 'flirty' | 'profile' | 'back';
 }): Promise<{ success: boolean; generationId?: string; error?: string }> {
   if (!REPLICATE_API_TOKEN) {
     return { success: false, error: 'REPLICATE_API_TOKEN no configurada en el servidor' };
   }
 
   try {
+    const isExpression = params.expressionType === 'happy' || 
+                         params.expressionType === 'sad' || 
+                         params.expressionType === 'angry' || 
+                         params.expressionType === 'flirty';
+
+    if (isExpression) {
+      console.log(`[Replicate] Utilizando fofr/expression-editor para la emoción facial: ${params.expressionType}`);
+      
+      let inputPayload: Record<string, any> = {
+        image: params.faceImageUrl,
+        output_format: "webp",
+        output_quality: 100
+      };
+
+      if (params.expressionType === 'happy') {
+        inputPayload.smile = 1.3;
+        inputPayload.eyebrow = 0.4;
+      } else if (params.expressionType === 'sad') {
+        inputPayload.smile = -1.2;
+        inputPayload.eyebrow = -1.5;
+      } else if (params.expressionType === 'angry') {
+        inputPayload.smile = -0.7;
+        inputPayload.eyebrow = 1.6;
+        inputPayload.rotate_pitch = 4;
+      } else if (params.expressionType === 'flirty') {
+        inputPayload.smile = 0.7;
+        inputPayload.wink = 1.0;
+      }
+
+      const response = await fetch("https://api.replicate.com/v1/predictions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Token ${REPLICATE_API_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          version: "bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86", // fofr/expression-editor
+          input: inputPayload,
+          ...(params.webhook ? {
+            webhook: params.webhook,
+            webhook_events_filter: ["completed"]
+          } : {})
+        })
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error('[Replicate] Error en fofr/expression-editor:', errBody);
+        return { success: false, error: errBody };
+      }
+
+      const data = await response.json();
+      return { success: true, generationId: `replicate_pose_p_${data.id}` };
+    }
     let finalPrompt = params.prompt;
     let complexionModifiers = "";
 
