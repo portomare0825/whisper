@@ -16,6 +16,8 @@ export async function submitReplicatePose(params: {
   height?: number;
   isAngle?: boolean;
   webhook?: string;
+  startStep?: number;
+  idWeight?: number;
 }): Promise<{ success: boolean; generationId?: string; error?: string }> {
   if (!REPLICATE_API_TOKEN) {
     return { success: false, error: 'REPLICATE_API_TOKEN no configurada en el servidor' };
@@ -50,14 +52,14 @@ export async function submitReplicatePose(params: {
       finalPrompt = `A beautiful young woman with ${physicalEng.trim()}. ${finalPrompt}`;
     }
 
-    let startStep = 7; // Aumentado a 7 para asegurar que el cuerpo y fondo se dibujen antes de inyectar el rostro
-    let idWeight = 0.78; // Reducido ligeramente a 0.78 para evitar que la cara de referencia fuerce un plano cerrado (1/4)
+    let startStep = params.startStep !== undefined ? params.startStep : 7;
+    let idWeight = params.idWeight !== undefined ? params.idWeight : 0.78;
     let negativePrompt = "floating head, disconnected neck, neck seam, separated neck, double neck, cut-and-paste face, face swap artifact, worst quality, low quality, bad anatomy, deformed body";
 
     if (params.isAngle) {
       // Para ángulos pregenerados de perfil/emociones de la galería, priorizamos fidelidad de identidad y cercanía
-      startStep = 3;
-      idWeight = 0.85;
+      if (params.startStep === undefined) startStep = 3;
+      if (params.idWeight === undefined) idWeight = 0.85;
     } else {
       // Detección dinámica de pose para evitar contradicciones en el prompt que causen planos cerrados
       const promptLower = finalPrompt.toLowerCase();
