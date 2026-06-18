@@ -567,20 +567,23 @@ export default function ChatContainer({ avatar, conversation, initialMessages = 
       } else if (['enojado', 'enojada', 'furioso', 'furiosa', 'molesto', 'molesta', 'irritada', 'irritado', 'enfadada', 'enfadado', 'rabia', 'ira', 'frustrada', 'frustrado'].includes(emotion)) {
         newImage = avatar.emotion_angry || newImage;
 
-      // ── Coqueta / Excitación / Éxtasis ──────────────────────────────────────
-      } else if (['coqueto', 'coqueta', 'seductor', 'seductora', 'pícaro', 'pícara', 'excitada', 'excitado', 'caliente', 'sensual', 'apasionada', 'apasionado', 'ardiente', 'deseo', 'tentadora', 'provocadora', 'juguetona', 'traviesa'].includes(emotion)) {
+      // ── Seductora / Coqueta → emotion_flirty (mirada letal) ─────────────────
+      } else if (['coqueto', 'coqueta', 'seductor', 'seductora', 'pícaro', 'pícara', 'tentadora', 'provocadora', 'juguetona', 'traviesa', 'sensual', 'flirteando'].includes(emotion)) {
         newImage = avatar.emotion_flirty || newImage;
+
+      // ── Excitada / Éxtasis → back_image_url (orgasmo) ───────────────────────
+      } else if (['excitada', 'excitado', 'caliente', 'apasionada', 'apasionado', 'ardiente', 'deseo', 'éxtasis', 'extasis', 'excitación'].includes(emotion)) {
+        newImage = avatar.back_image_url || newImage;
 
       // ── Intrigada / Curiosa / Sospechosa ────────────────────────────────────
       } else if (['intrigado', 'intrigada', 'curioso', 'curiosa', 'misterioso', 'misteriosa', 'suspicaz', 'duda', 'dudosa', 'escéptica', 'escéptico', 'pensativa', 'pensativo'].includes(emotion)) {
         newImage = avatar.profile_image_url || newImage;
 
-      // ── Emocionada / Eufórica (querer reír y llorar) ─────────────────────────
+      // ── Emocionada / Eufórica ────────────────────────────────────────────────
       } else if (['emocionada', 'emocionado', 'entusiasmado', 'entusiasmada', 'eufórica', 'eufórico', 'abrumada', 'abrumado', 'sorprendida', 'sorprendido', 'asombrada', 'asombrado', 'encantada', 'encantado'].includes(emotion)) {
         newImage = avatar.back_image_url || newImage;
 
       } else {
-        // Por defecto volvemos a la imagen base
         newImage = avatar.base_image_url;
       }
       

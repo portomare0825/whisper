@@ -55,14 +55,15 @@ export async function submitReplicatePose(params: {
         inputPayload.pupil_x    = 3;     // mirada de reojo
         inputPayload.aaa        = 5;     // boca ligeramente abierta de curiosidad
 
-      // ─── back_image_url → type: 'excited' (EMOCIÓN DESBORDANTE) ───────────
-      // Querer reír y llorar a la vez: sonrisa grande PERO con tensión emocional
+      // ─── back_image_url → type: 'excited' (ÉXTASIS / ORGASMO) ────────────
+      // Párpados caídos, boca entreabierta, cabeza atrás, pupilas arriba
       } else if (params.expressionType === 'excited') {
-        inputPayload.smile   = 1.0;   // sonrisa grande pero temblorosa
-        inputPayload.eyebrow = 6.0;   // cejas levantadas de emoción
-        inputPayload.aaa     = 30;    // boca abierta moderada (emoción, no carcajada)
-        inputPayload.blink   = 1.5;   // ojos ligeramente entrecerrados (lágrimas de emoción)
-        inputPayload.pupil_y = -2;    // mirada levemente hacia arriba
+        inputPayload.smile        = 0.3;   // sonrisa suave, no carcajada
+        inputPayload.blink        = 4.5;   // párpados MUY caídos (placer)
+        inputPayload.aaa          = 25;    // boca entreabierta jadeando
+        inputPayload.pupil_y      = 5;     // pupilas hacia arriba (ojos en blanco)
+        inputPayload.eyebrow      = 2.0;   // cejas suavemente levantadas
+        inputPayload.rotate_pitch = -5;    // cabeza hacia atrás (rendida)
 
       // ─── emotion_happy → type: 'happy' (FELIZ / RISA) ────────────────────
       // Risa abierta y contagiosa: boca bien abierta, ojos de risa
@@ -91,15 +92,16 @@ export async function submitReplicatePose(params: {
         inputPayload.rotate_pitch = 4;      // cabeza inclinada adelante (intimidante)
         inputPayload.eee          = 5;      // dientes apretados/mostrando
 
-      // ─── emotion_flirty → type: 'flirty' (ÉXTASIS / EXCITACIÓN) ──────────
-      // Ambos párpados caídos, pupilas arriba, boca entreabierta, cabeza atrás
+      // ─── emotion_flirty → type: 'flirty' (SEDUCTORA / COQUETA) ────────────
+      // Mirada letal: medio ojo entrecerrado, labio mordido, sonrisa lateral
       } else if (params.expressionType === 'flirty') {
-        inputPayload.smile        = 0.3;   // sonrisa suave
-        inputPayload.blink        = 4.5;   // AMBOS párpados muy caídos (sensual)
-        inputPayload.aaa          = 20;    // boca entreabierta jadeando
-        inputPayload.pupil_y      = 5;     // pupilas hacia arriba (ojos en blanco)
-        inputPayload.eyebrow      = 2.0;   // cejas suavemente levantadas
-        inputPayload.rotate_pitch = -5;    // cabeza hacia atrás (rendida al placer)
+        inputPayload.smile        = 0.7;   // sonrisa lateral seductora
+        inputPayload.wink         = 12;    // UN ojo entrecerrado (mirada letal)
+        inputPayload.blink        = 1.5;   // párpados semi-caídos (sensual)
+        inputPayload.eyebrow      = 3.0;   // ceja ligeramente levantada
+        inputPayload.rotate_yaw   = 3;     // cabeza levemente girada (pose)
+        inputPayload.pupil_x      = -2;    // mirada de reojo
+        inputPayload.aaa          = 8;     // labios ligeramente entreabiertos
       }
 
       const response = await fetch('https://api.replicate.com/v1/predictions', {
