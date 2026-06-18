@@ -404,31 +404,52 @@ export default function NewAvatarPage() {
               'emotion_flirty'
             ];
 
-            // Encolar cada expresión secuencialmente (una a la vez, con 800ms de pausa entre ellas)
+            // Encolar cada expresión secuencialmente con manejo de throttle (burst=1 en cuentas < $5)
             if (jobs.length > 0) {
               (async () => {
                 for (const job of jobs) {
-                  try {
-                    const oneRes = await fetch('/api/avatars/generate-one', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        avatarId: newAvatar.id,
-                        key: job.key,
-                        expressionType: job.expressionType
-                      })
-                    });
-                    const oneData = await oneRes.json().catch(() => ({}));
-                    if (oneRes.ok) {
-                      console.log(`[NewAvatar] Encolado OK: ${job.key} (predId: ${oneData.predictionId})`);
-                    } else {
-                      console.error(`[NewAvatar] Error encolando ${job.key}:`, oneData.error);
+                  let attempt = 0;
+                  const maxAttempts = 5;
+                  let enqueued = false;
+
+                  while (attempt < maxAttempts && !enqueued) {
+                    attempt++;
+                    try {
+                      const oneRes = await fetch('/api/avatars/generate-one', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          avatarId: newAvatar.id,
+                          key: job.key,
+                          expressionType: job.expressionType
+                        })
+                      });
+                      const oneData = await oneRes.json().catch(() => ({}));
+
+                      if (oneRes.ok) {
+                        console.log(`[NewAvatar] Encolado OK: ${job.key} (predId: ${oneData.predictionId})`);
+                        enqueued = true;
+                      } else if (oneRes.status === 429 && oneData.throttled) {
+                        // Throttle de Replicate: esperar retry_after + margen y reintentar
+                        const waitMs = ((oneData.retry_after || 10) + 3) * 1000;
+                        console.warn(`[NewAvatar] Throttle para ${job.key}. Esperando ${waitMs / 1000}s... (intento ${attempt}/${maxAttempts})`);
+                        await new Promise(resolve => setTimeout(resolve, waitMs));
+                      } else {
+                        console.error(`[NewAvatar] Error encolando ${job.key}:`, oneData.error);
+                        break; // Error no recuperable, pasar al siguiente
+                      }
+                    } catch (e) {
+                      console.error(`[NewAvatar] Excepción encolando ${job.key}:`, e);
+                      break;
                     }
-                  } catch (e) {
-                    console.error(`[NewAvatar] Excepción encolando ${job.key}:`, e);
                   }
-                  // Pausa de 800ms entre llamadas para no saturar Replicate
-                  await new Promise(resolve => setTimeout(resolve, 800));
+
+                  if (!enqueued) {
+                    console.error(`[NewAvatar] No se pudo encolar ${job.key} tras ${maxAttempts} intentos.`);
+                  }
+
+                  // Pausa de 12s entre expresiones para respetar el límite burst=1 de cuentas < $5
+                  await new Promise(resolve => setTimeout(resolve, 12000));
                 }
               })();
             }

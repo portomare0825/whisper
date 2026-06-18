@@ -60,7 +60,17 @@ export async function POST(req: Request) {
     });
 
     if (!repResult.success || !repResult.generationId) {
-      return NextResponse.json({ error: repResult.error || 'Error encolando en Replicate' }, { status: 500 });
+      const errMsg = repResult.error || 'Error encolando en Replicate';
+      // Detectar throttle 429 y retornarlo correctamente para que el cliente pueda esperar
+      const isThrottle = errMsg.includes('429') || errMsg.toLowerCase().includes('throttled') || errMsg.toLowerCase().includes('rate limit');
+      if (isThrottle) {
+        // Extraer retry_after si está disponible en el mensaje
+        const retryMatch = errMsg.match(/"retry_after"\s*:\s*(\d+)/);
+        const retryAfter = retryMatch ? parseInt(retryMatch[1]) : 10;
+        console.warn(`[Generate-One] Throttle de Replicate para ${key}. retry_after: ${retryAfter}s`);
+        return NextResponse.json({ error: errMsg, throttled: true, retry_after: retryAfter }, { status: 429 });
+      }
+      return NextResponse.json({ error: errMsg }, { status: 500 });
     }
 
     const predictionId = repResult.generationId.replace('replicate_pose_p_', '');
