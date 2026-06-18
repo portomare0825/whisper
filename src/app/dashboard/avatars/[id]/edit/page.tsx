@@ -21,6 +21,11 @@ export default function EditAvatarPage() {
   const [userCoins, setUserCoins] = useState<number>(0);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isOwner, setIsOwner] = useState<boolean>(false);
+  // Estados de generación de expresiones
+  const [generatingAngles, setGeneratingAngles] = useState(false);
+  const [completedCount, setCompletedCount] = useState(0);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [editedAvatarId, setEditedAvatarId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -321,6 +326,57 @@ export default function EditAvatarPage() {
         }
       }
 
+      if (isImageChanged) {
+        // Mostrar pantalla de progreso y sondear hasta que las 6 expresiones estén listas
+        setEditedAvatarId(avatarId);
+        setGeneratingAngles(true);
+        setCompletedCount(0);
+        setGenerationProgress(0);
+        setSaving(false);
+
+        const keysToPoll = ['profile_image_url','back_image_url','emotion_happy','emotion_sad','emotion_angry','emotion_flirty'];
+        let attempts = 0;
+        const maxAttempts = 60; // 60 * 5s = 5 minutos
+
+        const checkInterval = setInterval(async () => {
+          attempts++;
+          try {
+            const { data: avatarData } = await supabase
+              .from('avatars')
+              .select(keysToPoll.join(','))
+              .eq('id', avatarId)
+              .single();
+
+            if (avatarData) {
+              let completed = 0;
+              keysToPoll.forEach(key => {
+                if ((avatarData as any)[key] && (avatarData as any)[key].startsWith('http')) completed++;
+              });
+              setCompletedCount(completed);
+              setGenerationProgress((completed / keysToPoll.length) * 100);
+
+              if (completed >= keysToPoll.length) {
+                clearInterval(checkInterval);
+                setGeneratingAngles(false);
+                router.push('/dashboard/avatars');
+                router.refresh();
+                return;
+              }
+            }
+          } catch (err) {
+            console.error('[EditAvatar] Error sondeando BD:', err);
+          }
+
+          if (attempts >= maxAttempts) {
+            clearInterval(checkInterval);
+            setGeneratingAngles(false);
+            router.push('/dashboard/avatars');
+            router.refresh();
+          }
+        }, 5000);
+        return;
+      }
+
       router.push('/dashboard/avatars');
       router.refresh();
     } catch (err: any) {
@@ -333,6 +389,37 @@ export default function EditAvatarPage() {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Pantalla de progreso de generación de expresiones (igual a new/page.tsx)
+  if (generatingAngles) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-8">
+        <div className="relative">
+          <div className="w-24 h-24 rounded-full border-4 border-primary/20 border-t-primary animate-spin" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Sparkles className="w-8 h-8 text-primary animate-pulse" />
+          </div>
+        </div>
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl font-bold">Regenerando Expresiones</h2>
+          <p className="text-muted-foreground">Creando {completedCount} de 6 imágenes con la nueva foto...</p>
+          <p className="text-xs text-white/40 mt-1">Esto puede tardar hasta 5 minutos. No cierres esta ventana.</p>
+        </div>
+        <div className="w-full max-w-sm space-y-2">
+          <div className="flex justify-between text-xs text-white/60">
+            <span>Progreso</span>
+            <span>{completedCount}/6</span>
+          </div>
+          <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-primary to-purple-500 rounded-full transition-all duration-500"
+              style={{ width: `${generationProgress}%` }}
+            />
+          </div>
+        </div>
       </div>
     );
   }
