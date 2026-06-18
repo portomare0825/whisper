@@ -234,7 +234,17 @@ export default function EditAvatarPage() {
         if (!isAdmin) {
           await supabase.from('profiles').update({ coins: userCoins - 5 }).eq('id', user.id);
         }
-        // Disparar generación de ángulos y esperar a que termine
+        // Limpiar las expresiones antiguas para que el sondeo funcione correctamente
+        await supabase.from('avatars').update({
+          profile_image_url: null,
+          back_image_url: null,
+          emotion_happy: null,
+          emotion_sad: null,
+          emotion_angry: null,
+          emotion_flirty: null,
+        }).eq('id', avatarId);
+
+        // Obtener lista de jobs desde generate-angles
         try {
           const genResponse = await fetch('/api/avatars/generate-angles', {
             method: 'POST',
@@ -245,9 +255,57 @@ export default function EditAvatarPage() {
             const errorData = await genResponse.json().catch(() => ({}));
             throw new Error(errorData.error || 'Error interno en la generación de expresiones');
           }
+          const genData = await genResponse.json().catch(() => ({}));
+          const jobs: { key: string; expressionType: string }[] = genData.jobs || [];
+
+          // Encolar expresiones secuencialmente con manejo de throttle
+          if (jobs.length > 0) {
+            (async () => {
+              for (const job of jobs) {
+                let attempt = 0;
+                const maxAttempts = 5;
+                let enqueued = false;
+
+                while (attempt < maxAttempts && !enqueued) {
+                  attempt++;
+                  try {
+                    const oneRes = await fetch('/api/avatars/generate-one', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        avatarId,
+                        key: job.key,
+                        expressionType: job.expressionType
+                      })
+                    });
+                    const oneData = await oneRes.json().catch(() => ({}));
+                    if (oneRes.ok) {
+                      console.log(`[EditAvatar] Encolado OK: ${job.key} (predId: ${oneData.predictionId})`);
+                      enqueued = true;
+                    } else if (oneRes.status === 429 && oneData.throttled) {
+                      const waitMs = ((oneData.retry_after || 10) + 3) * 1000;
+                      console.warn(`[EditAvatar] Throttle para ${job.key}. Esperando ${waitMs / 1000}s... (intento ${attempt}/${maxAttempts})`);
+                      await new Promise(resolve => setTimeout(resolve, waitMs));
+                    } else {
+                      console.error(`[EditAvatar] Error encolando ${job.key}:`, oneData.error);
+                      break;
+                    }
+                  } catch (e) {
+                    console.error(`[EditAvatar] Excepción encolando ${job.key}:`, e);
+                    break;
+                  }
+                }
+                if (!enqueued) {
+                  console.error(`[EditAvatar] No se pudo encolar ${job.key} tras ${maxAttempts} intentos.`);
+                }
+                // Pausa de 12s entre expresiones para respetar burst=1 de cuentas < $5
+                await new Promise(resolve => setTimeout(resolve, 12000));
+              }
+            })();
+          }
         } catch (err: any) {
           console.error('Error disparando generación de ángulos:', err);
-          throw new Error(`Se guardó el avatar, pero falló la generación de las 6 expresiones faciales: ${err.message}`);
+          // No lanzamos error: el avatar se guardó, las expresiones se regenerarán en background
         }
       }
 
