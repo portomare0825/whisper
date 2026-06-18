@@ -64,13 +64,14 @@ export async function submitReplicatePose(params: {
         inputPayload.aaa     = 40;    // boca abierta gritando
         inputPayload.rotate_pitch = 4; // cabeza inclinada adelante, intimidante
       } else if (params.expressionType === 'flirty') {
-        // A punto del orgasmo — ojos vidriosos hacia atrás, boca entreabierta
-        inputPayload.smile   = 0.6;
-        inputPayload.wink    = 20.0;  // guiño/ojos entrecerrados
-        inputPayload.blink   = 3.0;   // párpados caídos
-        inputPayload.aaa     = 20;    // boca entreabierta jadeando
-        inputPayload.pupil_y = 4;     // pupilas hacia arriba (ojos en blanco)
-        inputPayload.eyebrow = 2.0;
+        // Éxtasis / excitación al límite — ambos ojos entrecerrados (NO guiño)
+        // pupilas hacia arriba (ojos en blanco), boca entreabierta, cabeza levemente inclinada atrás
+        inputPayload.smile        = 0.5;
+        inputPayload.blink        = 4.0;   // AMBOS ojos muy entrecerrados (no wink)
+        inputPayload.aaa          = 25;    // boca entreabierta, jadeando
+        inputPayload.pupil_y      = 5;     // pupilas hacia arriba (ojos en blanco)
+        inputPayload.eyebrow      = 3.0;   // cejas ligeramente levantadas
+        inputPayload.rotate_pitch = -3;    // cabeza levemente inclinada hacia atrás
       } else if (params.expressionType === 'intrigued') {
         // Intrigada, ceja levantada
         inputPayload.smile     = -0.1;
