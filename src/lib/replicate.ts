@@ -25,13 +25,88 @@ export async function submitReplicatePose(params: {
   }
 
   try {
-    // Deshabilitamos fofr/expression-editor porque distorsiona el aspect ratio (agrega barras negras a imágenes 9:16) y no permite exagerar tanto las emociones con texto.
-    // Todas las expresiones se rutearán a Flux PuLID para generar fotos 9:16 completas con el prompt de la emoción.
-    const isExpression = false; 
+    // fofr/expression-editor: mueve los músculos faciales de la foto ORIGINAL.
+    // ES EL ÚNICO MODELO QUE PRESERVA LA IDENTIDAD — no genera una persona nueva.
+    // Flux PuLID genera personas distintas aunque suba id_weight al máximo.
+    const isExpression = params.expressionType === 'happy' ||
+                         params.expressionType === 'sad' ||
+                         params.expressionType === 'angry' ||
+                         params.expressionType === 'flirty' ||
+                         params.expressionType === 'intrigued' ||
+                         params.expressionType === 'excited';
 
     if (isExpression) {
-      // Código de fofr/expression-editor deshabilitado
-      return { success: false, error: 'fofr/expression-editor disabled' };
+      console.log(`[Replicate] fofr/expression-editor para emoción: ${params.expressionType}`);
+
+      // Parámetros: rango smile -0.3→1.3 | eyebrow -10→15 | blink -20→5 | aaa -30→120 | wink 0→25
+      let inputPayload: Record<string, any> = {
+        image: params.faceImageUrl,
+        output_format: 'webp',
+        output_quality: 100,
+      };
+
+      if (params.expressionType === 'happy') {
+        // Risa abierta y real
+        inputPayload.smile   = 1.3;   // máximo smile
+        inputPayload.eyebrow = 4.0;   // cejas levantadas de alegría
+        inputPayload.aaa     = 60;    // boca abierta riendo
+        inputPayload.blink   = -10;   // ojos entreabiertos de risa
+      } else if (params.expressionType === 'sad') {
+        // Llorando desconsolada
+        inputPayload.smile   = -0.3;  // mínimo smile (boca hacia abajo)
+        inputPayload.eyebrow = -8.0;  // cejas caídas de tristeza
+        inputPayload.blink   = 4.0;   // ojos cerrados de llanto
+        inputPayload.pupil_y = -3;    // mirada hacia abajo
+      } else if (params.expressionType === 'angry') {
+        // Furiosa, gritando
+        inputPayload.smile   = -0.3;  // boca tensa
+        inputPayload.eyebrow = 10.0;  // cejas muy fruncidas
+        inputPayload.aaa     = 40;    // boca abierta gritando
+        inputPayload.rotate_pitch = 4; // cabeza inclinada adelante, intimidante
+      } else if (params.expressionType === 'flirty') {
+        // A punto del orgasmo — ojos vidriosos hacia atrás, boca entreabierta
+        inputPayload.smile   = 0.6;
+        inputPayload.wink    = 20.0;  // guiño/ojos entrecerrados
+        inputPayload.blink   = 3.0;   // párpados caídos
+        inputPayload.aaa     = 20;    // boca entreabierta jadeando
+        inputPayload.pupil_y = 4;     // pupilas hacia arriba (ojos en blanco)
+        inputPayload.eyebrow = 2.0;
+      } else if (params.expressionType === 'intrigued') {
+        // Intrigada, ceja levantada
+        inputPayload.smile     = -0.1;
+        inputPayload.eyebrow   = 12.0; // ceja muy levantada
+        inputPayload.rotate_yaw = -4;  // cabeza ladeada
+        inputPayload.wink      = 5;    // ojo ligeramente entrecerrado
+      } else if (params.expressionType === 'excited') {
+        // Abrumada de emoción — querer reír y llorar a la vez
+        inputPayload.smile   = 1.2;   // sonrisa grande temblorosa
+        inputPayload.eyebrow = 6.0;   // cejas levantadas de sorpresa/emoción
+        inputPayload.aaa     = 40;    // boca abierta de emoción
+        inputPayload.blink   = -8;    // ojos muy abiertos
+        inputPayload.pupil_y = -2;    // mirada hacia arriba, desborante
+      }
+
+      const response = await fetch('https://api.replicate.com/v1/predictions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${REPLICATE_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          version: 'bf913bc90e1c44ba288ba3942a538693b72e8cc7df576f3beebe56adc0a92b86',
+          input: inputPayload,
+          ...(params.webhook ? { webhook: params.webhook, webhook_events_filter: ['completed'] } : {}),
+        }),
+      });
+
+      if (!response.ok) {
+        const errBody = await response.text();
+        console.error('[Replicate] Error en fofr/expression-editor:', errBody);
+        return { success: false, error: errBody };
+      }
+
+      const data = await response.json();
+      return { success: true, generationId: `replicate_pose_p_${data.id}` };
     }
     let finalPrompt = params.prompt;
     let complexionModifiers = "";
