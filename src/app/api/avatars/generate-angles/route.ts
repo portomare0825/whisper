@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { queueRunPodJob } from '@/lib/runpod';
 
@@ -182,99 +182,84 @@ export async function POST(req: Request) {
     }
 
     if (VTON_PROVIDER === 'replicate') {
-      const { submitReplicatePose } = await import('@/lib/replicate');
-      console.log(`[Generate-Angles] Iniciando generación paralela escalonada con Replicate para avatar: ${avatarId}`);
-      
-      const enqueuedPredictions: { key: string; predictionId: string }[] = [];
-      const errors: string[] = [];
+      console.log(`[Generate-Angles] Registrando tarea en segundo plano con after() para encolar predicciones en Replicate.`);
       
       const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-      try {
-        await Promise.all(
-          GENERATIONS.map(async (gen, index) => {
-            // Delay escalonado para evitar ráfagas simultáneas en Replicate (1.2s entre cada llamada)
-            await delay(index * 1200);
+      after(async () => {
+        try {
+          const { submitReplicatePose } = await import('@/lib/replicate');
+          console.log(`[Generate-Angles] [Background] Iniciando generación paralela de expresiones en Replicate para avatar: ${avatarId}`);
+          
+          await Promise.all(
+            GENERATIONS.map(async (gen, index) => {
+              // Delay escalonado para evitar ráfagas simultáneas en Replicate (400ms entre cada llamada)
+              await delay(index * 400);
 
-            const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
-            const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
+              const finalPrompt = `The person is wearing a simple white tank top, ${gen.promptModifier}. Photorealistic, 8k resolution, cinematic lighting, no 3d, no illustration, exactly the same person.`;
+              const webhookUrl = `${webhookBaseUrl}/api/webhook/replicate?avatarId=${avatar.id}&userId=${avatar.user_id}&key=${gen.key}`;
 
-            let attempt = 0;
-            let success = false;
+              let attempt = 0;
+              let success = false;
 
-            while (attempt < 3 && !success) {
-              attempt++;
-              try {
-                const repResult = await submitReplicatePose({
-                  faceImageUrl: avatar.base_image_url,
-                  prompt: finalPrompt,
-                  physicalDescription: physicalDesc,
-                  width: 768,
-                  height: 1024,
-                  isAngle: true,
-                  webhook: isHostLocal ? undefined : webhookUrl,
-                  startStep: gen.start_step,
-                  idWeight: gen.id_weight,
-                  expressionType: gen.type as any
-                });
+              while (attempt < 3 && !success) {
+                attempt++;
+                try {
+                  const repResult = await submitReplicatePose({
+                    faceImageUrl: avatar.base_image_url,
+                    prompt: finalPrompt,
+                    physicalDescription: physicalDesc,
+                    width: 768,
+                    height: 1024,
+                    isAngle: true,
+                    webhook: isHostLocal ? undefined : webhookUrl,
+                    startStep: gen.start_step,
+                    idWeight: gen.id_weight,
+                    expressionType: gen.type as any
+                  });
 
-                if (repResult.success && repResult.generationId) {
-                  const predId = repResult.generationId.replace('replicate_pose_p_', '');
-                  console.log(`[Generate-Angles] Encolada predicción Replicate para ${gen.key} con ID: ${predId} (intento ${attempt})`);
-                  
-                  enqueuedPredictions.push({ key: gen.key, predictionId: predId });
-                  success = true;
-
-                  if (isHostLocal) {
-                    pollAndSaveReplicate(
-                      predId,
-                      avatar.id,
-                      avatar.user_id,
-                      gen.key,
-                      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                      process.env.SUPABASE_SERVICE_ROLE_KEY!
-                    );
-                  }
-                } else {
-                  const errMsg = repResult.error || 'Error desconocido';
-                  const isThrottled = errMsg.toLowerCase().includes('throttled') || errMsg.includes('429');
-                  
-                  if (isThrottled && attempt < 3) {
-                    console.warn(`[Generate-Angles] Replicate limitó la petición para ${gen.key}. Esperando 5 segundos para reintentar (intento ${attempt})...`);
-                    await delay(5000);
+                  if (repResult.success && repResult.generationId) {
+                    const predId = repResult.generationId.replace('replicate_pose_p_', '');
+                    console.log(`[Generate-Angles] [Background] Encolada predicción Replicate para ${gen.key} con ID: ${predId} (intento ${attempt})`);
+                    
+                    if (isHostLocal) {
+                      pollAndSaveReplicate(
+                        predId,
+                        avatar.id,
+                        avatar.user_id,
+                        gen.key,
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        process.env.SUPABASE_SERVICE_ROLE_KEY!
+                      );
+                    }
+                    success = true;
                   } else {
-                    throw new Error(errMsg);
+                    const errMsg = repResult.error || 'Error desconocido';
+                    const isThrottled = errMsg.toLowerCase().includes('throttled') || errMsg.includes('429');
+                    
+                    if (isThrottled && attempt < 3) {
+                      console.warn(`[Generate-Angles] [Background] Replicate limitó la petición para ${gen.key}. Esperando 5 segundos para reintentar (intento ${attempt})...`);
+                      await delay(5000);
+                    } else {
+                      throw new Error(errMsg);
+                    }
                   }
-                }
-              } catch (err: any) {
-                console.error(`[Generate-Angles] Error en Replicate para ${gen.key} (intento ${attempt}):`, err.message || err);
-                if (attempt >= 3) {
-                  errors.push(`${gen.key}: ${err.message || err}`);
+                } catch (err: any) {
+                  console.error(`[Generate-Angles] [Background] Error en Replicate para ${gen.key} (intento ${attempt}):`, err.message || err);
                 }
               }
-            }
-          })
-        );
-
-        if (enqueuedPredictions.length === 0) {
-          return NextResponse.json({ 
-            error: `Límite de tasa excedido en Replicate. No se pudo encolar ninguna expresión. Detalles:\n${errors.join('\n')}` 
-          }, { status: 429 });
+            })
+          );
+          console.log(`[Generate-Angles] [Background] Finalizado el proceso de encolamiento de expresiones para avatar: ${avatarId}`);
+        } catch (error: any) {
+          console.error('[Generate-Angles] [Background] Error crítico en la tarea de fondo de Replicate:', error);
         }
+      });
 
-        return NextResponse.json({
-          success: true,
-          message: isHostLocal
-            ? 'Generación iniciada con éxito en Replicate (ambiente local detectado: sondeando resultados en background).'
-            : 'Generación iniciada con éxito en Replicate (los resultados se recibirán vía webhook).',
-          predictions: enqueuedPredictions,
-          avatarId: avatar.id,
-          userId: avatar.user_id
-        }, { status: 202 });
-      } catch (bgError: any) {
-        console.error('[Generate-Angles] Error crítico al encolar en Replicate:', bgError);
-        return NextResponse.json({ error: `Fallo al iniciar generación: ${bgError.message}` }, { status: 500 });
-      }
+      return NextResponse.json({
+        success: true,
+        message: 'Generación de expresiones iniciada en segundo plano con éxito.'
+      }, { status: 202 });
     }
 
     console.log('[Generate-Angles] Usando fallback síncrono de Fal.ai.');
